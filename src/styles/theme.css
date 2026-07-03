@@ -1,0 +1,123 @@
+.p-button {
+  border-radius: var(--tm-radius-sm);
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.p-button.p-button-primary,
+.p-button:not(.p-button-text):not(.p-button-outlined):not(.p-button-secondary) {
+  border-color: var(--tm-emerald);
+  background: var(--tm-emerald);
+}
+
+.p-button.p-button-primary:hover,
+.p-button:not(.p-button-text):not(.p-button-outlined):not(.p-button-secondary):hover {
+  border-color: var(--tm-emerald-dark);
+  background: var(--tm-emerald-dark);
+}
+
+.p-button.p-button-outlined {
+  color: var(--tm-heading);
+  border-color: var(--tm-border-strong);
+  background: var(--tm-surface-soft);
+}
+
+.p-inputtext,
+.p-datepicker-input,
+.p-select {
+  border-radius: var(--tm-radius-sm);
+  border-color: var(--tm-border-strong);
+  background: var(--tm-surface);
+  color: var(--tm-text);
+}
+
+.p-inputtext:enabled:focus,
+.p-datepicker-input:enabled:focus {
+  border-color: var(--tm-emerald);
+  box-shadow: 0 0 0 3px rgba(8, 124, 104, 0.13);
+}
+
+.p-tag {
+  border-radius: 999px;
+  font-weight: 750;
+}
+
+.p-divider {
+  margin: 0;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-container {
+  width: min(100% - 32px, var(--tm-max));
+  margin: 0 auto;
+}
+
+.section-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--tm-gold);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.section-title {
+  margin: 0;
+  color: var(--tm-heading);
+  font-size: clamp(1.45rem, 3vw, 2.35rem);
+  line-height: 1.05;
+}
+
+.section-copy {
+  max-width: 680px;
+  margin: 10px 0 0;
+  color: var(--tm-muted);
+  line-height: 1.65;
+}
+
+.soft-panel {
+  border: 1px solid var(--tm-border);
+  border-radius: var(--tm-radius);
+  background: var(--tm-surface-soft);
+  box-shadow: var(--tm-shadow);
+}
+
+.price {
+  color: var(--tm-heading);
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.muted {
+  color: var(--tm-muted);
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--tm-emerald);
+  box-shadow: 0 0 0 4px rgba(8, 124, 104, 0.13);
+}
+
+@media (max-width: 740px) {
+  .app-container {
+    width: min(100% - 20px, var(--tm-max));
+  }
+
+  .section-header {
+    align-items: start;
+    flex-direction: column;
+  }
+}
