@@ -1,3 +1,5 @@
+import { formatMGA } from '@/utils/format';
+
 // Admin resource contracts — the single source of truth the generic admin
 // screens are driven by. Field names, enums, and endpoints here MUST match the
 // Go backend DTOs (see Trimobeservice-backend/README.md).
@@ -14,6 +16,9 @@
 //   actions      domain workflows beyond CRUD (Step 4)
 //   columns      table columns; field = API response field
 //   formFields   create/edit inputs; key = API request field
+//                  createOnly -> only shown while creating
+//                  persist: false -> uploaded/collected in the dialog, but not
+//                                    included in the main resource JSON body
 //                  money  → serialized to a DECIMAL string on submit (Step 3)
 //                  select → static `options` OR a relation via `optionsEndpoint`
 //   rows         PLACEHOLDER sample data; replaced by live fetch in Step 3
@@ -25,6 +30,81 @@ const IS_ACTIVE_OPTIONS = [
   { label: 'Active', value: true },
   { label: 'Inactive', value: false },
 ];
+
+// Commerce catalog (categories, brands, products, variants) presents its is_active
+// flag as availability wording. Mobility keeps IS_ACTIVE_OPTIONS.
+const AVAILABILITY_OPTIONS = [
+  { label: 'Available', value: true },
+  { label: 'Unavailable', value: false },
+];
+
+const AVAILABILITY_COLUMN = {
+  field: 'is_active',
+  header: 'Availability',
+  type: 'boolean',
+  trueLabel: 'Available',
+  falseLabel: 'Unavailable',
+};
+
+// Price range across a product's active variants: "1 200 000 – 1 500 000 MGA",
+// a single price, or an em dash when it has no priced variants yet.
+function productPriceLabel(row) {
+  const min = row.price_min != null ? Number(row.price_min) : null;
+  const max = row.price_max != null ? Number(row.price_max) : null;
+  if (min == null) {
+    return '—';
+  }
+  if (max != null && max !== min) {
+    return `${formatMGA(min)} – ${formatMGA(max)}`;
+  }
+  return formatMGA(min);
+}
+
+// "phone" -> "Phone", "storage_type" -> "Storage type".
+function titleize(value) {
+  return value ? String(value).replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '—';
+}
+
+// The dynamic-attributes control: the dialog renders the selected category's
+// template fields (product specs or variant axes) into an `attributes` object.
+const PRODUCT_ATTRIBUTES_FIELD = {
+  key: 'attributes',
+  type: 'attributes',
+  scope: 'product_fields',
+  categoryField: 'category_id', // template comes from the chosen category
+  fullWidth: true,
+};
+
+const VARIANT_ATTRIBUTES_FIELD = {
+  key: 'attributes',
+  type: 'attributes',
+  scope: 'variant_axes', // template comes from the managed product's category
+  fullWidth: true,
+};
+
+const isCargoCategory = (draft) => Boolean(draft.is_cargo_transport);
+const isCargoBooking = (_draft, ctx) => Boolean(ctx.optionFor('car_id')?.item?.is_cargo_transport);
+const isStandardBooking = (_draft, ctx) => !ctx.optionFor('car_id')?.item?.is_cargo_transport;
+
+function todayStart() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function cargoServiceWindow(value) {
+  const selected = value instanceof Date ? value : new Date(value);
+  const start = new Date(selected);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(selected);
+  end.setHours(23, 59, 59, 999);
+
+  return {
+    start_at: start.toISOString(),
+    end_at: end.toISOString(),
+  };
+}
 
 export const adminResources = {
   categories: {
@@ -43,15 +123,27 @@ export const adminResources = {
       itemKey: 'category',
     },
     capabilities: { create: true, edit: true, remove: true },
-    defaultRow: { is_active: true, sort_order: 0 },
+    defaultRow: { is_active: true },
     columns: [
       { field: 'name', header: 'Category' },
       { field: 'slug', header: 'Slug' },
-      { field: 'sort_order', header: 'Order', type: 'number' },
-      { field: 'is_active', header: 'Active', type: 'boolean' },
+      { field: 'template_key', header: 'Type', format: (row) => titleize(row.template_key) },
+      { ...AVAILABILITY_COLUMN },
     ],
     formFields: [
       { key: 'name', label: 'Name', type: 'text', placeholder: 'Smartphones', required: true },
+      {
+        key: 'template_key',
+        label: 'Product type',
+        type: 'select',
+        options: [],
+        optionsEndpoint: '/admin/product-templates',
+        collectionKey: 'templates',
+        optionLabel: 'label',
+        optionValue: 'key',
+        defaultValue: 'generic',
+        help: 'Drives which spec fields products in this category get.',
+      },
       {
         key: 'parent_id',
         label: 'Parent category',
@@ -65,8 +157,7 @@ export const adminResources = {
       },
       { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Optional summary' },
       { key: 'image_url', label: 'Image', type: 'image' },
-      { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
-      { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
+      { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
     ],
   },
 
@@ -90,12 +181,12 @@ export const adminResources = {
     columns: [
       { field: 'name', header: 'Brand' },
       { field: 'slug', header: 'Slug' },
-      { field: 'is_active', header: 'Active', type: 'boolean' },
+      { ...AVAILABILITY_COLUMN },
     ],
     formFields: [
       { key: 'name', label: 'Name', type: 'text', placeholder: 'Astra', required: true },
       { key: 'logo_url', label: 'Logo', type: 'image' },
-      { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
+      { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
     ],
   },
 
@@ -114,15 +205,48 @@ export const adminResources = {
       collectionKey: 'products',
       itemKey: 'product',
     },
+    // Products are created/edited on a full screen, not a modal.
+    detailRoute: (row) => ({ name: 'admin-product-detail', params: { id: row.id } }),
+    createRoute: () => ({ name: 'admin-product-new' }),
     capabilities: { create: true, edit: true, remove: true },
     // Variants + images live under /admin/products/{id}/... — surfaced in Step 4.
     defaultRow: { is_active: true },
     columns: [
       { field: 'name', header: 'Product' },
       { field: 'slug', header: 'Slug' },
-      { field: 'is_active', header: 'Active', type: 'boolean' },
+      { field: 'variant_count', header: 'Variants', type: 'number' },
+      { field: 'price_range', header: 'Price', format: productPriceLabel },
+      { ...AVAILABILITY_COLUMN },
       { field: 'created_at', header: 'Created', type: 'date' },
     ],
+    // Card view (like cars): product image, availability badge, price + variants.
+    cardView: {
+      imageField: 'primary_image_url',
+      titleField: 'name',
+      subtitleField: 'slug',
+      badgeField: 'is_active',
+      badgeType: 'boolean',
+      badgeTrueLabel: 'Available',
+      badgeFalseLabel: 'Unavailable',
+      details: [
+        { field: 'price_range', label: 'Price', format: productPriceLabel },
+        { field: 'variant_count', label: 'Variants', type: 'number' },
+        { field: 'created_at', label: 'Added', type: 'date' },
+      ],
+    },
+    // Expandable rows in the table: open a product to see its variants (SKUs),
+    // fetched lazily from the product detail endpoint.
+    expansion: {
+      collectionKey: 'variants',
+      emptyLabel: 'No variants yet.',
+      columns: [
+        { field: 'sku', header: 'SKU' },
+        { field: 'label', header: 'Label' },
+        { field: 'price', header: 'Price', type: 'money' },
+        { field: 'stock_quantity', header: 'Stock', type: 'number' },
+        { ...AVAILABILITY_COLUMN },
+      ],
+    },
     formFields: [
       { key: 'name', label: 'Product name', type: 'text', placeholder: 'Astra X10 Pro', required: true },
       {
@@ -148,7 +272,8 @@ export const adminResources = {
         placeholder: 'None',
       },
       { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Catalog summary' },
-      { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
+      { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
+      { ...PRODUCT_ATTRIBUTES_FIELD },
     ],
   },
 
@@ -167,6 +292,7 @@ export const adminResources = {
       collectionKey: 'cars',
       itemKey: 'car',
     },
+    detailRoute: (row) => ({ name: 'admin-car-detail', params: { id: row.id } }),
     capabilities: { create: true, edit: true, remove: true },
     columns: [
       { field: 'name', header: 'Car' },
@@ -175,6 +301,18 @@ export const adminResources = {
       { field: 'daily_rate', header: 'Daily rate', type: 'money' },
       { field: 'status', header: 'Status', type: 'status' },
     ],
+    cardView: {
+      imageField: 'primary_image_url',
+      titleField: 'name',
+      subtitleField: 'registration_plate',
+      badgeField: 'status',
+      details: [
+        { field: 'daily_rate', label: 'Daily rate', type: 'money' },
+        { field: 'seats', label: 'Seats', type: 'number' },
+        { field: 'make', label: 'Make' },
+        { field: 'model', label: 'Model' },
+      ],
+    },
     formFields: [
       { key: 'name', label: 'Display name', type: 'text', placeholder: 'Mercedes S-Class 2023', required: true },
       {
@@ -207,6 +345,13 @@ export const adminResources = {
       { key: 'fuel_type', label: 'Fuel type', type: 'text', placeholder: 'Diesel' },
       { key: 'daily_rate', label: 'Daily rate (blank = category default)', type: 'money' },
       {
+        key: 'primary_image_url',
+        label: 'Car image',
+        type: 'image',
+        createOnly: true,
+        persist: false,
+      },
+      {
         key: 'status',
         label: 'Status',
         type: 'select',
@@ -218,6 +363,20 @@ export const adminResources = {
         ],
       },
       { key: 'description', label: 'Description', type: 'textarea' },
+    ],
+    afterSave: [
+      {
+        field: 'primary_image_url',
+        modes: ['create'],
+        method: 'post',
+        path: (car) => `/admin/cars/${car.id}/images`,
+        body: (url, values, car) => ({
+          url,
+          alt_text: values.name || car.name || null,
+          is_primary: true,
+        }),
+        errorSummary: 'Car image not attached',
+      },
     ],
   },
 
@@ -237,19 +396,40 @@ export const adminResources = {
       itemKey: 'car_category',
     },
     capabilities: { create: true, edit: true, remove: true },
-    defaultRow: { is_active: true, sort_order: 0, default_daily_rate: '0.00' },
+    defaultRow: { is_active: true, default_daily_rate: '0.00' },
     columns: [
       { field: 'name', header: 'Category' },
       { field: 'default_daily_rate', header: 'Default rate', type: 'money' },
-      { field: 'sort_order', header: 'Order', type: 'number' },
+      { field: 'is_cargo_transport', header: 'Cargo', type: 'boolean', trueLabel: 'Yes', falseLabel: 'No' },
+      { field: 'cargo_minimum_rate', header: 'Minimum', type: 'money' },
+      { field: 'cargo_per_km_rate', header: 'Per km', type: 'money' },
       { field: 'is_active', header: 'Active', type: 'boolean' },
     ],
     formFields: [
       { key: 'name', label: 'Name', type: 'text', placeholder: 'Luxury', required: true },
       { key: 'default_daily_rate', label: 'Default daily rate', type: 'money' },
+      {
+        key: 'is_cargo_transport',
+        label: 'Cargo transport only',
+        type: 'checkbox',
+        defaultValue: false,
+        fullWidth: true,
+      },
+      {
+        key: 'cargo_per_km_rate',
+        label: 'Per kilometer rate',
+        type: 'money',
+        requiredWhen: isCargoCategory,
+        showWhen: isCargoCategory,
+      },
+      {
+        key: 'cargo_minimum_rate',
+        label: 'Minimal rate',
+        type: 'money',
+        requiredWhen: isCargoCategory,
+        showWhen: isCargoCategory,
+      },
       { key: 'description', label: 'Description', type: 'textarea' },
-      { key: 'image_url', label: 'Image', type: 'image' },
-      { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
       { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
     ],
   },
@@ -300,18 +480,20 @@ export const adminResources = {
     id: 'orders',
     singular: 'order',
     plural: 'Orders',
-    eyebrow: 'Commerce',
-    description: 'Customer orders. Fulfillment and payment are tracked separately; deliver first, then confirm payment.',
-    actionLabel: null,
+    eyebrow: 'Tech',
+    description: 'Customer orders and manual phone/walk-in orders. Fulfillment and payment are tracked separately; deliver first, then confirm payment.',
+    actionLabel: 'Create order',
     rowKey: 'id',
     api: {
       list: '/admin/orders',
-      create: null, // orders are created by customers
+      create: '/admin/orders',
       itemBase: '/admin/orders',
       collectionKey: 'orders',
       itemKey: 'order',
     },
-    capabilities: { create: false, edit: false, remove: false },
+    // Created on a dedicated screen (line-item builder); still no edit/remove.
+    createRoute: () => ({ name: 'admin-order-new' }),
+    capabilities: { create: true, edit: false, remove: false },
     filters: [
       { key: 'status', label: 'Status', options: ['pending', 'confirmed', 'shipped', 'delivered', 'picked_up', 'cancelled', 'expired'] },
       { key: 'payment_status', label: 'Payment', options: ['unpaid', 'paid', 'refunded'] },
@@ -322,6 +504,7 @@ export const adminResources = {
     ],
     columns: [
       { field: 'order_number', header: 'Order' },
+      { field: 'customer_name', header: 'Customer' },
       { field: 'fulfillment_type', header: 'Fulfillment' },
       { field: 'status', header: 'Status', type: 'status' },
       { field: 'payment_status', header: 'Payment', type: 'status' },
@@ -337,16 +520,16 @@ export const adminResources = {
     plural: 'Bookings',
     eyebrow: 'Mobility',
     description: 'Car bookings over a date range. Assign a driver and advance the rental lifecycle.',
-    actionLabel: null,
+    actionLabel: 'Create booking',
     rowKey: 'id',
     api: {
       list: '/admin/bookings',
-      create: null, // bookings are created by customers
+      create: '/admin/bookings',
       itemBase: '/admin/bookings',
       collectionKey: 'bookings',
       itemKey: 'booking',
     },
-    capabilities: { create: false, edit: false, remove: false },
+    capabilities: { create: true, edit: false, remove: false },
     filters: [
       { key: 'status', label: 'Status', options: ['requested', 'confirmed', 'driver_assigned', 'active', 'completed', 'cancelled'] },
       { key: 'payment_status', label: 'Payment', options: ['unpaid', 'paid', 'refunded'] },
@@ -357,6 +540,7 @@ export const adminResources = {
     ],
     columns: [
       { field: 'booking_number', header: 'Booking' },
+      { field: 'customer_name', header: 'Customer' },
       { field: 'car_name', header: 'Car' },
       { field: 'status', header: 'Status', type: 'status' },
       { field: 'payment_status', header: 'Payment', type: 'status' },
@@ -364,7 +548,88 @@ export const adminResources = {
       { field: 'end_at', header: 'End', type: 'date' },
       { field: 'total_price', header: 'Total', type: 'money' },
     ],
-    formFields: [],
+    formFields: [
+      { key: 'customer_name', label: 'Customer name', type: 'text', placeholder: 'Phone caller name', required: true },
+      {
+        key: 'user_id',
+        label: 'Customer account',
+        type: 'select',
+        options: [],
+        optionsEndpoint: '/admin/customers',
+        collectionKey: 'customers',
+        optionLabel: 'full_name',
+        optionValue: 'id',
+        placeholder: 'None',
+      },
+      {
+        key: 'car_id',
+        label: 'Car',
+        type: 'select',
+        options: [],
+        optionsEndpoint: '/admin/cars',
+        collectionKey: 'cars',
+        optionLabel: 'name',
+        optionValue: 'id',
+        required: true,
+      },
+      {
+        key: 'driver_id',
+        label: 'Driver',
+        type: 'select',
+        options: [],
+        optionsEndpoint: '/admin/drivers',
+        collectionKey: 'drivers',
+        optionLabel: 'full_name',
+        optionValue: 'id',
+        placeholder: 'Assign later',
+      },
+      {
+        key: 'start_at',
+        label: 'Start',
+        type: 'datetime',
+        requiredWhen: isStandardBooking,
+        showWhen: isStandardBooking,
+      },
+      {
+        key: 'end_at',
+        label: 'End',
+        type: 'datetime',
+        requiredWhen: isStandardBooking,
+        showWhen: isStandardBooking,
+      },
+      {
+        key: 'cargo_service_date',
+        label: 'Transport date',
+        type: 'date',
+        requiredWhen: isCargoBooking,
+        showWhen: isCargoBooking,
+        minDate: todayStart,
+        toBody: cargoServiceWindow,
+      },
+      { key: 'pickup_location', label: 'From / pickup location', type: 'place', required: true },
+      {
+        key: 'dropoff_location',
+        label: 'To / dropoff location',
+        type: 'place',
+        requiredWhen: isCargoBooking,
+        showWhen: isCargoBooking,
+      },
+      {
+        key: 'distance_km',
+        label: 'Distance',
+        type: 'number',
+        min: 0.01,
+        suffix: ' km',
+        minFractionDigits: 2,
+        maxFractionDigits: 2,
+        serializeAs: 'string',
+        readonly: true,
+        requiredWhen: isCargoBooking,
+        showWhen: isCargoBooking,
+      },
+      { key: 'contact_phone', label: 'Contact phone', type: 'text', required: true },
+      { key: 'note', label: 'Note', type: 'textarea' },
+    ],
   },
 
   payments: {
@@ -470,61 +735,18 @@ const YES_NO_OPTIONS = [
 // --- Step 4: "manage" specs — detail fields, domain actions, and nested
 // sub-collections opened from a row's manage button. ---
 
-adminResources.products.manage = {
-  fields: [
-    { key: 'name', label: 'Name' },
-    { key: 'slug', label: 'Slug' },
-    { key: 'is_active', label: 'Active', type: 'boolean' },
-    { key: 'created_at', label: 'Created', type: 'date' },
-  ],
-  nested: [
-    {
-      key: 'variants',
-      title: 'Variants (SKUs)',
-      singular: 'variant',
-      collectionKey: 'variants',
-      addLabel: 'Add variant',
-      addPath: (id) => `/admin/products/${id}/variants`,
-      removePath: (row) => `/admin/variants/${row.id}`,
-      columns: [
-        { field: 'sku', header: 'SKU' },
-        { field: 'label', header: 'Label' },
-        { field: 'price', header: 'Price', type: 'money' },
-        { field: 'stock_quantity', header: 'Stock' },
-        { field: 'is_active', header: 'Active', type: 'boolean' },
-      ],
-      formFields: [
-        { key: 'sku', label: 'SKU', type: 'text', required: true },
-        { key: 'label', label: 'Label', type: 'text', placeholder: 'Black / 128GB' },
-        { key: 'color', label: 'Color', type: 'text' },
-        { key: 'storage', label: 'Storage', type: 'text' },
-        { key: 'price', label: 'Price', type: 'money', required: true },
-        { key: 'stock_quantity', label: 'Stock', type: 'number', defaultValue: 0, required: true },
-        { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
-      ],
-    },
-    {
-      key: 'images',
-      title: 'Images',
-      singular: 'image',
-      collectionKey: 'images',
-      addLabel: 'Add image',
-      addPath: (id) => `/admin/products/${id}/images`,
-      removePath: (row) => `/admin/images/${row.id}`,
-      columns: [
-        { field: 'url', header: 'URL' },
-        { field: 'is_primary', header: 'Primary', type: 'boolean' },
-        { field: 'sort_order', header: 'Order' },
-      ],
-      formFields: [
-        { key: 'url', label: 'Image', type: 'image', required: true },
-        { key: 'alt_text', label: 'Alt text', type: 'text' },
-        { key: 'is_primary', label: 'Primary', type: 'select', options: YES_NO_OPTIONS, defaultValue: false },
-        { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
-      ],
-    },
-  ],
-};
+// Products are managed on a dedicated screen (AdminProductDetailView), not a
+// dialog. These are the fields for that screen's add/edit-variant pop-up.
+adminResources.products.variantForm = [
+  { key: 'sku', label: 'SKU', type: 'text', required: true },
+  { key: 'label', label: 'Label', type: 'text', placeholder: 'Black / 128GB' },
+  // Uploaded in the dialog, attached to the variant by the product screen (persist:false).
+  { key: 'variant_image_url', label: 'Variant image', type: 'image', persist: false },
+  { ...VARIANT_ATTRIBUTES_FIELD },
+  { key: 'price', label: 'Price', type: 'money', required: true },
+  { key: 'stock_quantity', label: 'Stock', type: 'number', defaultValue: 0, required: true },
+  { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
+];
 
 adminResources.cars.manage = {
   fields: [
@@ -543,15 +765,13 @@ adminResources.cars.manage = {
       addPath: (id) => `/admin/cars/${id}/images`,
       removePath: (row) => `/admin/car-images/${row.id}`,
       columns: [
-        { field: 'url', header: 'URL' },
+        { field: 'url', header: 'Image', type: 'image' },
         { field: 'is_primary', header: 'Primary', type: 'boolean' },
-        { field: 'sort_order', header: 'Order' },
       ],
       formFields: [
         { key: 'url', label: 'Image', type: 'image', required: true },
         { key: 'alt_text', label: 'Alt text', type: 'text' },
         { key: 'is_primary', label: 'Primary', type: 'select', options: YES_NO_OPTIONS, defaultValue: false },
-        { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
       ],
     },
   ],
@@ -560,6 +780,7 @@ adminResources.cars.manage = {
 adminResources.orders.manage = {
   fields: [
     { key: 'order_number', label: 'Order number' },
+    { key: 'customer_name', label: 'Customer' },
     { key: 'fulfillment_type', label: 'Fulfillment', type: 'enum' },
     { key: 'status', label: 'Status', type: 'enum' },
     { key: 'payment_status', label: 'Payment', type: 'enum' },
@@ -596,17 +817,55 @@ adminResources.orders.manage = {
 adminResources.bookings.manage = {
   fields: [
     { key: 'booking_number', label: 'Booking number' },
+    { key: 'customer_name', label: 'Customer' },
     { key: 'car_name', label: 'Car' },
     { key: 'status', label: 'Status', type: 'enum' },
     { key: 'payment_status', label: 'Payment', type: 'enum' },
     { key: 'start_at', label: 'Start', type: 'date' },
     { key: 'end_at', label: 'End', type: 'date' },
     { key: 'total_price', label: 'Total', type: 'money' },
+    { key: 'pricing_model', label: 'Pricing', type: 'enum' },
+    { key: 'distance_km', label: 'Distance' },
     { key: 'pickup_location', label: 'Pickup' },
     { key: 'contact_phone', label: 'Contact' },
   ],
   showDriver: true,
   actions: [
+    {
+      key: 'record-payment',
+      label: 'Record payment',
+      type: 'form',
+      method: 'POST',
+      path: () => '/admin/payments',
+      icon: 'pi pi-wallet',
+      severity: 'success',
+      successSummary: 'Payment recorded',
+      errorSummary: 'Payment failed',
+      enabled: (b) => b.payment_status !== 'paid' && b.status !== 'cancelled',
+      body: (values, booking) => ({
+        payable_type: 'booking',
+        payable_id: booking.id,
+        ...values,
+      }),
+      formFields: [
+        {
+          key: 'method',
+          label: 'Payment method',
+          type: 'select',
+          defaultValue: 'cash',
+          required: true,
+          options: [
+            { label: 'Cash', value: 'cash' },
+            { label: 'Bank transfer', value: 'bank_transfer' },
+            { label: 'Mobile money', value: 'mobile_money' },
+            { label: 'Other', value: 'other' },
+          ],
+        },
+        { key: 'amount', label: 'Amount (blank = booking total)', type: 'money' },
+        { key: 'reference', label: 'Reference', type: 'text', placeholder: 'Receipt / transfer ref' },
+        { key: 'note', label: 'Note', type: 'textarea' },
+      ],
+    },
     {
       key: 'assign-driver',
       label: 'Assign driver',

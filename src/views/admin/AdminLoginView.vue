@@ -3,11 +3,13 @@ import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import { useAdminI18n } from '@/i18n/admin';
 import { useAuthStore } from '@/stores/auth';
 
 const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
+const { languageLabel, t, toggleLanguage } = useAdminI18n();
 
 const email = ref('');
 const password = ref('');
@@ -24,13 +26,13 @@ async function handleSubmit() {
     const user = await auth.login(email.value.trim(), password.value);
     if (user.role !== 'admin') {
       await auth.logout();
-      error.value = 'This account does not have admin access.';
+      error.value = t('This account does not have admin access.');
       return;
     }
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/admin';
     router.replace(redirect);
   } catch (err) {
-    error.value = err?.message || 'Could not sign in. Check your credentials and try again.';
+    error.value = t(err?.message || 'Could not sign in. Check your credentials and try again.');
   } finally {
     loading.value = false;
   }
@@ -41,30 +43,38 @@ async function handleSubmit() {
   <main class="admin-login">
     <div class="admin-login__controls">
       <ThemeToggle class="admin-login__theme" />
+      <Button
+        class="admin-login__language"
+        icon="pi pi-language"
+        :label="languageLabel"
+        severity="secondary"
+        outlined
+        @click="toggleLanguage"
+      />
       <RouterLink to="/" class="admin-login__back">
         <i class="pi pi-arrow-left" />
-        Client app
+        {{ t('Client app') }}
       </RouterLink>
     </div>
 
     <section class="admin-login__brand">
       <div>
-        <p>Trimobe admin</p>
-        <h1>Operations console</h1>
-        <span>Manage orders, bookings, drivers, products, and manual payments.</span>
+        <p>{{ t('Trimobe admin') }}</p>
+        <h1>{{ t('Operations console') }}</h1>
+        <span>{{ t('Manage orders, bookings, drivers, products, and manual payments.') }}</span>
       </div>
     </section>
 
-    <section class="admin-login__panel" aria-label="Admin sign in">
+    <section class="admin-login__panel" :aria-label="t('Admin sign in')">
       <div class="admin-login__card">
         <div class="admin-login__heading">
-          <p>Secure access</p>
-          <h2>Admin login</h2>
+          <p>{{ t('Secure access') }}</p>
+          <h2>{{ t('Admin login') }}</h2>
         </div>
 
         <form class="admin-login__form" @submit.prevent="handleSubmit">
           <label>
-            <span>Email</span>
+            <span>{{ t('Email') }}</span>
             <IconField>
               <InputIcon class="pi pi-envelope" />
               <InputText v-model="email" type="email" placeholder="admin@trimobe.mg" autocomplete="username" />
@@ -72,10 +82,10 @@ async function handleSubmit() {
           </label>
 
           <label>
-            <span>Password</span>
+            <span>{{ t('Password') }}</span>
             <Password
               v-model="password"
-              placeholder="Password"
+              :placeholder="t('Password')"
               :feedback="false"
               toggleMask
               fluid
@@ -89,7 +99,7 @@ async function handleSubmit() {
             {{ error }}
           </p>
 
-          <Button type="submit" label="Sign in" icon="pi pi-lock-open" :loading="loading" />
+          <Button type="submit" :label="t('Sign in')" icon="pi pi-lock-open" :loading="loading" />
         </form>
       </div>
     </section>
@@ -186,7 +196,8 @@ async function handleSubmit() {
   box-shadow: var(--tm-shadow);
 }
 
-.admin-login__controls :deep(.theme-toggle.p-button-outlined) {
+.admin-login__controls :deep(.theme-toggle.p-button-outlined),
+.admin-login__controls :deep(.admin-login__language.p-button-outlined) {
   border-color: rgba(255, 255, 255, 0.26);
   background: rgba(255, 255, 255, 0.08);
   color: #fff;

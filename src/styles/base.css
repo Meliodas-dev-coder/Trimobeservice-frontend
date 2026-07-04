@@ -20,6 +20,13 @@
   --tm-emerald-dark: #05624f;
   --tm-coral: #b94a3b;
   --tm-blue: #315c70;
+  /* Chart series — validated categorical palette (see dataviz). Punchier than the
+     muted UI accents so fills read as distinct; order is fixed, never cycled. */
+  --tm-chart-1: #bf8a1f; /* gold — orders */
+  --tm-chart-2: #0fa085; /* emerald — bookings */
+  --tm-chart-3: #1f80b0; /* blue */
+  --tm-chart-4: #c8462f; /* coral */
+  --tm-grid: rgba(17, 19, 21, 0.08);
   --tm-shadow: 0 22px 55px rgba(17, 19, 21, 0.12);
   --tm-body-bg:
     linear-gradient(180deg, rgba(250, 248, 242, 0.92), rgba(250, 248, 242, 1)),
@@ -55,6 +62,12 @@
   --tm-emerald-dark: #168a73;
   --tm-coral: #df796c;
   --tm-blue: #78a9bd;
+  /* Chart series — steps validated against the dark surface (#171b1d). */
+  --tm-chart-1: #b0862c;
+  --tm-chart-2: #0f9d84;
+  --tm-chart-3: #2585b3;
+  --tm-chart-4: #cf5a48;
+  --tm-grid: rgba(255, 255, 255, 0.09);
   --tm-shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
   --tm-body-bg:
     linear-gradient(180deg, rgba(17, 19, 21, 0.96), rgba(17, 19, 21, 1)),

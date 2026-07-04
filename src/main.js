@@ -4,8 +4,10 @@ import PrimeVue from 'primevue/config';
 import ConfirmationService from 'primevue/confirmationservice';
 import ToastService from 'primevue/toastservice';
 import Aura from '@primeuix/themes/aura';
+import AutoComplete from 'primevue/autocomplete';
 import Button from 'primevue/button';
 import Carousel from 'primevue/carousel';
+import Checkbox from 'primevue/checkbox';
 import Column from 'primevue/column';
 import ConfirmDialog from 'primevue/confirmdialog';
 import DataTable from 'primevue/datatable';
@@ -50,8 +52,10 @@ app.use(ConfirmationService);
 
 app.directive('ripple', Ripple);
 
+app.component('AutoComplete', AutoComplete);
 app.component('Button', Button);
 app.component('Carousel', Carousel);
+app.component('Checkbox', Checkbox);
 app.component('Column', Column);
 app.component('ConfirmDialog', ConfirmDialog);
 app.component('DataTable', DataTable);

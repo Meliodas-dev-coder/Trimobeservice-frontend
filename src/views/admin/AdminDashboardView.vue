@@ -1,230 +1,298 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
+import RevenueAreaChart from '@/components/admin/charts/RevenueAreaChart.vue';
+import DonutChart from '@/components/admin/charts/DonutChart.vue';
+import BarBreakdown from '@/components/admin/charts/BarBreakdown.vue';
 import { api } from '@/api/client';
-import { formatMGA } from '@/utils/format';
+import { useAdminI18n } from '@/i18n/admin';
+import { formatDate, formatMGA } from '@/utils/format';
+import { statusSeverity } from '@/utils/status';
 
-const stats = ref([
-  { key: 'unpaidOrders', label: 'Unpaid orders', value: '—', trend: 'Awaiting payment', tone: 'gold' },
-  { key: 'confirmBookings', label: 'Bookings to confirm', value: '—', trend: 'Assign a driver', tone: 'emerald' },
-  { key: 'customers', label: 'Customers', value: '—', trend: 'Registered accounts', tone: 'blue' },
-  { key: 'products', label: 'Products', value: '—', trend: 'In catalog', tone: 'coral' },
-]);
+const { enumLabel, localeCode, t } = useAdminI18n();
 
-const queue = ref([]);
 const loading = ref(true);
+const data = ref(null);
 
-async function totalOf(path, params = {}) {
-  try {
-    const data = await api.get(path, { params: { ...params, limit: 1 } });
-    return data?.meta?.total ?? 0;
-  } catch {
-    return 0;
+// severity → validated chart hue, so status bars stay consistent with the Tags
+// used across the rest of the admin.
+const SEVERITY_COLOR = {
+  success: 'var(--tm-chart-2)',
+  warn: 'var(--tm-chart-1)',
+  danger: 'var(--tm-chart-4)',
+  info: 'var(--tm-chart-3)',
+  secondary: 'var(--tm-muted)',
+};
+
+// Payment method → fixed hue (color follows the entity, never its rank).
+const METHOD_COLOR = {
+  cash: 'var(--tm-chart-1)',
+  bank_transfer: 'var(--tm-chart-2)',
+  mobile_money: 'var(--tm-chart-3)',
+  other: 'var(--tm-chart-4)',
+};
+
+const kpis = computed(() => data.value?.kpis || {});
+
+const tiles = computed(() => {
+  const k = kpis.value;
+  return [
+    {
+      key: 'revenue',
+      icon: 'pi pi-wallet',
+      tone: 'gold',
+      label: t('Revenue this month'),
+      value: formatMGA(Number(k.revenue_month || 0)),
+      trend: revenueTrend.value,
+    },
+    {
+      key: 'orders',
+      icon: 'pi pi-receipt',
+      tone: 'blue',
+      label: t('Orders'),
+      value: String(k.orders_total ?? 0),
+      note: Number(k.orders_unpaid) > 0 ? t('{n} unpaid', { n: k.orders_unpaid }) : t('All settled'),
+      noteWarn: Number(k.orders_unpaid) > 0,
+    },
+    {
+      key: 'bookings',
+      icon: 'pi pi-calendar-clock',
+      tone: 'emerald',
+      label: t('Bookings'),
+      value: String(k.bookings_total ?? 0),
+      note: Number(k.bookings_to_confirm) > 0 ? t('{n} to confirm', { n: k.bookings_to_confirm }) : t('None waiting'),
+      noteWarn: Number(k.bookings_to_confirm) > 0,
+    },
+    {
+      key: 'customers',
+      icon: 'pi pi-users',
+      tone: 'coral',
+      label: t('Customers'),
+      value: String(k.customers_total ?? 0),
+      note: Number(k.customers_new_month) > 0 ? t('+{n} this month', { n: k.customers_new_month }) : t('No new sign-ups'),
+    },
+  ];
+});
+
+const revenueTrend = computed(() => {
+  const now = Number(kpis.value.revenue_month || 0);
+  const prev = Number(kpis.value.revenue_prev_month || 0);
+  if (prev <= 0) {
+    return now > 0 ? { dir: 'up', text: t('New revenue vs last month') } : { dir: 'flat', text: t('No revenue last month') };
   }
+  const pct = Math.round(((now - prev) / prev) * 100);
+  if (pct === 0) {
+    return { dir: 'flat', text: t('Flat vs last month') };
+  }
+  return {
+    dir: pct > 0 ? 'up' : 'down',
+    text: t('{pct}% vs last month', { pct: `${pct > 0 ? '+' : ''}${pct}` }),
+  };
+});
+
+const revenueAllTime = computed(() => formatMGA(Number(kpis.value.revenue_total || 0)));
+
+const paymentSegments = computed(() =>
+  (data.value?.payment_methods || []).map((row) => ({
+    label: enumLabel(row.method),
+    value: Number(row.amount || 0),
+    color: METHOD_COLOR[row.method] || 'var(--tm-chart-3)',
+  })),
+);
+
+const paymentTotal = computed(() =>
+  formatMGA(paymentSegments.value.reduce((sum, seg) => sum + seg.value, 0)),
+);
+
+const orderStatusBars = computed(() => statusBars(data.value?.orders_by_status));
+const bookingStatusBars = computed(() => statusBars(data.value?.bookings_by_status));
+
+function statusBars(list) {
+  return (list || []).map((row) => ({
+    label: enumLabel(row.status),
+    value: row.count,
+    color: SEVERITY_COLOR[statusSeverity(row.status)] || 'var(--tm-chart-3)',
+  }));
 }
 
-function setStat(key, value) {
-  const stat = stats.value.find((item) => item.key === key);
-  if (stat) {
-    stat.value = String(value);
+const unpaidOrders = computed(() => data.value?.attention?.unpaid_orders || []);
+const bookingsToConfirm = computed(() => data.value?.attention?.bookings_to_confirm || []);
+
+const fleetNote = computed(() => {
+  const k = kpis.value;
+  if (!k.cars_total) {
+    return '';
   }
-}
+  return t('{available} of {total} cars available', { available: k.cars_available ?? 0, total: k.cars_total });
+});
 
 async function load() {
   loading.value = true;
-
-  const [unpaidOrders, confirmBookings, customers, products] = await Promise.all([
-    totalOf('/admin/orders', { payment_status: 'unpaid' }),
-    totalOf('/admin/bookings', { status: 'confirmed' }),
-    totalOf('/admin/customers'),
-    totalOf('/admin/products'),
-  ]);
-  setStat('unpaidOrders', unpaidOrders);
-  setStat('confirmBookings', confirmBookings);
-  setStat('customers', customers);
-  setStat('products', products);
-
-  const items = [];
   try {
-    const orders = await api.get('/admin/orders', { params: { payment_status: 'unpaid', limit: 4 } });
-    (orders?.orders ?? []).forEach((order) => {
-      items.push({
-        id: order.order_number,
-        type: 'Order',
-        detail: `${prettify(order.fulfillment_type)} · ${formatMGA(Number(order.total || 0))}`,
-        status: prettify(order.status),
-      });
-    });
+    const res = await api.get('/admin/dashboard');
+    data.value = res?.dashboard || null;
   } catch {
-    // ignore — dashboard degrades gracefully when the API is unavailable
+    data.value = null;
+  } finally {
+    loading.value = false;
   }
-  try {
-    const bookings = await api.get('/admin/bookings', { params: { status: 'confirmed', limit: 4 } });
-    (bookings?.bookings ?? []).forEach((booking) => {
-      items.push({
-        id: booking.booking_number,
-        type: 'Booking',
-        detail: booking.car_name,
-        status: 'Assign driver',
-      });
-    });
-  } catch {
-    // ignore
-  }
-
-  queue.value = items;
-  loading.value = false;
 }
 
-function prettify(value) {
-  return String(value || '').replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+function shortDate(value) {
+  return formatDate(value, localeCode.value);
 }
 
 onMounted(load);
 </script>
 
 <template>
-  <section class="admin-dashboard">
-    <div class="stat-grid">
-      <article v-for="stat in stats" :key="stat.label" class="stat-card" :class="`stat-card--${stat.tone}`">
-        <span>{{ stat.label }}</span>
-        <strong>{{ stat.value }}</strong>
-        <p>{{ stat.trend }}</p>
+  <section class="dashboard">
+    <header class="dashboard__head">
+      <div>
+        <p>{{ t('Overview') }}</p>
+        <h1>{{ t('Dashboard') }}</h1>
+      </div>
+      <Button icon="pi pi-refresh" :label="t('Refresh')" severity="secondary" outlined :loading="loading" @click="load" />
+    </header>
+
+    <div class="tile-grid">
+      <article v-for="tile in tiles" :key="tile.key" class="tile" :class="`tile--${tile.tone}`">
+        <span class="tile__icon"><i :class="tile.icon" /></span>
+        <span class="tile__label">{{ tile.label }}</span>
+        <strong class="tile__value">{{ tile.value }}</strong>
+        <p v-if="tile.trend" class="tile__trend" :class="`tile__trend--${tile.trend.dir}`">
+          <i v-if="tile.trend.dir !== 'flat'" :class="tile.trend.dir === 'up' ? 'pi pi-arrow-up-right' : 'pi pi-arrow-down-right'" />
+          {{ tile.trend.text }}
+        </p>
+        <p v-else class="tile__note" :class="{ 'tile__note--warn': tile.noteWarn }">{{ tile.note }}</p>
       </article>
     </div>
 
-    <div class="dashboard-grid">
-      <section class="ops-panel">
-        <div class="ops-panel__header">
+    <div class="panel-grid panel-grid--primary">
+      <section class="panel">
+        <div class="panel__head">
           <div>
-            <p>Queue</p>
-            <h2>Needs attention</h2>
+            <p>{{ t('Confirmed revenue') }}</p>
+            <h2>{{ t('Last 30 days') }}</h2>
           </div>
-          <Button as="router-link" to="/admin/orders" label="View orders" icon="pi pi-arrow-up-right" outlined />
+          <div class="panel__legend">
+            <span><i class="dot" :style="{ background: 'var(--tm-chart-1)' }" /> {{ t('Orders') }}</span>
+            <span><i class="dot" :style="{ background: 'var(--tm-chart-2)' }" /> {{ t('Bookings') }}</span>
+          </div>
         </div>
-
-        <div class="queue-list">
-          <article v-for="item in queue" :key="item.id" class="queue-row">
-            <div>
-              <strong>{{ item.id }}</strong>
-              <span>{{ item.type }}</span>
-            </div>
-            <div>
-              <strong>{{ item.detail }}</strong>
-            </div>
-            <Tag :value="item.status" severity="warn" />
-          </article>
-
-          <p v-if="!loading && !queue.length" class="queue-empty">Nothing needs attention right now.</p>
-          <p v-else-if="loading" class="queue-empty">Loading…</p>
-        </div>
+        <RevenueAreaChart :series="data?.revenue_series || []" />
+        <p class="panel__foot">{{ t('All-time confirmed revenue') }}: <strong>{{ revenueAllTime }}</strong></p>
       </section>
 
-      <aside class="ops-panel ops-panel--dark">
-        <div class="ops-panel__header">
+      <section class="panel">
+        <div class="panel__head">
           <div>
-            <p>Workflow</p>
-            <h2>Manual payment first</h2>
+            <p>{{ t('Payment mix') }}</p>
+            <h2>{{ t('Paid, by method') }}</h2>
           </div>
         </div>
+        <DonutChart
+          :segments="paymentSegments"
+          :center-label="t('Total paid')"
+          :center-value="paymentTotal"
+          :format-value="(v) => formatMGA(v)"
+        />
+        <p v-if="!paymentSegments.length" class="panel__empty">{{ t('No confirmed payments yet.') }}</p>
+      </section>
+    </div>
 
-        <div class="workflow-list">
-          <span><i class="pi pi-shopping-bag" /> Create order or booking</span>
-          <span><i class="pi pi-truck" /> Deliver or hand over</span>
-          <span><i class="pi pi-wallet" /> Record offline payment</span>
-          <span><i class="pi pi-id-card" /> Assign driver for bookings</span>
+    <div class="panel-grid panel-grid--split">
+      <section class="panel">
+        <div class="panel__head">
+          <div>
+            <p>{{ t('Pipeline') }}</p>
+            <h2>{{ t('Orders by status') }}</h2>
+          </div>
         </div>
-      </aside>
+        <BarBreakdown :items="orderStatusBars">
+          <template #empty>{{ t('No orders yet.') }}</template>
+        </BarBreakdown>
+      </section>
+
+      <section class="panel">
+        <div class="panel__head">
+          <div>
+            <p>{{ t('Fleet') }}</p>
+            <h2>{{ t('Bookings by status') }}</h2>
+          </div>
+          <span v-if="fleetNote" class="panel__pill">{{ fleetNote }}</span>
+        </div>
+        <BarBreakdown :items="bookingStatusBars">
+          <template #empty>{{ t('No bookings yet.') }}</template>
+        </BarBreakdown>
+      </section>
+    </div>
+
+    <div class="panel-grid panel-grid--split">
+      <section class="panel">
+        <div class="panel__head">
+          <div>
+            <p>{{ t('Needs attention') }}</p>
+            <h2>{{ t('Unpaid orders') }}</h2>
+          </div>
+          <Button as="router-link" to="/admin/orders" :label="t('View all')" icon="pi pi-arrow-up-right" text />
+        </div>
+        <ul class="queue">
+          <li v-for="item in unpaidOrders" :key="item.number">
+            <div>
+              <strong>{{ item.number }}</strong>
+              <span>{{ shortDate(item.created_at) }}</span>
+            </div>
+            <span class="queue__amount">{{ formatMGA(Number(item.total || 0)) }}</span>
+            <Tag :value="enumLabel(item.status)" severity="warn" />
+          </li>
+          <li v-if="!unpaidOrders.length" class="queue__empty">{{ t('Nothing unpaid.') }}</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <div class="panel__head">
+          <div>
+            <p>{{ t('Needs attention') }}</p>
+            <h2>{{ t('Bookings to confirm') }}</h2>
+          </div>
+          <Button as="router-link" to="/admin/bookings" :label="t('View all')" icon="pi pi-arrow-up-right" text />
+        </div>
+        <ul class="queue">
+          <li v-for="item in bookingsToConfirm" :key="item.number">
+            <div>
+              <strong>{{ item.number }}</strong>
+              <span>{{ item.label || t('Car') }}</span>
+            </div>
+            <span class="queue__amount">{{ shortDate(item.created_at) }}</span>
+            <Tag :value="t('Assign driver')" severity="success" />
+          </li>
+          <li v-if="!bookingsToConfirm.length" class="queue__empty">{{ t('All bookings handled.') }}</li>
+        </ul>
+      </section>
     </div>
   </section>
 </template>
 
 <style scoped>
-.admin-dashboard {
+.dashboard {
   display: grid;
-  gap: 24px;
+  gap: 20px;
 }
 
-.stat-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.stat-card {
-  display: grid;
-  gap: 8px;
-  min-height: 142px;
-  align-content: end;
-  padding: 18px;
-  border: 1px solid var(--tm-border);
-  border-radius: 8px;
-  background: var(--tm-surface);
-  box-shadow: var(--tm-shadow);
-}
-
-.stat-card span {
-  color: var(--tm-muted);
-  font-size: 0.86rem;
-  font-weight: 800;
-}
-
-.stat-card strong {
-  color: var(--tm-heading);
-  font-size: 2.4rem;
-  line-height: 0.95;
-}
-
-.stat-card p {
-  margin: 0;
-  font-weight: 800;
-}
-
-.stat-card--gold p {
-  color: var(--tm-gold);
-}
-
-.stat-card--emerald p {
-  color: var(--tm-emerald);
-}
-
-.stat-card--coral p {
-  color: var(--tm-coral);
-}
-
-.stat-card--blue p {
-  color: var(--tm-blue);
-}
-
-.dashboard-grid {
-  display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.45fr);
-}
-
-.ops-panel {
-  display: grid;
-  gap: 18px;
-  padding: 22px;
-  border: 1px solid var(--tm-border);
-  border-radius: 8px;
-  background: var(--tm-surface);
-  box-shadow: var(--tm-shadow);
-}
-
-.ops-panel__header {
+.dashboard__head {
   display: flex;
-  align-items: center;
+  align-items: end;
   justify-content: space-between;
-  gap: 18px;
+  gap: 16px;
 }
 
-.ops-panel__header p,
-.ops-panel__header h2 {
+.dashboard__head p,
+.dashboard__head h1 {
   margin: 0;
 }
 
-.ops-panel__header p {
+.dashboard__head p {
   color: var(--tm-gold);
   font-size: 0.78rem;
   font-weight: 900;
@@ -232,95 +300,257 @@ onMounted(load);
   text-transform: uppercase;
 }
 
-.ops-panel__header h2 {
+.dashboard__head h1 {
   margin-top: 5px;
   color: var(--tm-heading);
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
 }
 
-.queue-list {
+/* --- KPI tiles --- */
+.tile-grid {
   display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.queue-row {
+.tile {
+  position: relative;
   display: grid;
+  gap: 6px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid var(--tm-border);
+  border-radius: 8px;
+  background: var(--tm-surface);
+  box-shadow: var(--tm-shadow);
+}
+
+.tile::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+}
+
+.tile--gold::before { background: var(--tm-chart-1); }
+.tile--emerald::before { background: var(--tm-chart-2); }
+.tile--blue::before { background: var(--tm-chart-3); }
+.tile--coral::before { background: var(--tm-chart-4); }
+
+.tile__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--tm-surface-soft);
+}
+
+.tile--gold .tile__icon i { color: var(--tm-chart-1); }
+.tile--emerald .tile__icon i { color: var(--tm-chart-2); }
+.tile--blue .tile__icon i { color: var(--tm-chart-3); }
+.tile--coral .tile__icon i { color: var(--tm-chart-4); }
+
+.tile__label {
+  color: var(--tm-muted);
+  font-size: 0.82rem;
+  font-weight: 820;
+}
+
+.tile__value {
+  color: var(--tm-heading);
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  line-height: 1;
+}
+
+.tile__trend,
+.tile__note {
+  display: flex;
   align-items: center;
-  gap: 18px;
-  grid-template-columns: 160px minmax(0, 1fr) auto;
-  min-height: 74px;
-  padding: 14px 0;
-  border-top: 1px solid var(--tm-border);
+  gap: 5px;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
-.queue-row div {
+.tile__trend {
+  color: var(--tm-muted);
+}
+
+.tile__trend--up { color: var(--tm-emerald); }
+.tile__trend--down { color: var(--tm-coral); }
+
+.tile__note {
+  color: var(--tm-muted);
+}
+
+.tile__note--warn {
+  color: var(--tm-gold);
+}
+
+/* --- panels --- */
+.panel-grid {
   display: grid;
-  gap: 4px;
+  gap: 18px;
 }
 
-.queue-row strong {
+.panel-grid--primary {
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
+}
+
+.panel-grid--split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.panel {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  padding: 20px;
+  border: 1px solid var(--tm-border);
+  border-radius: 8px;
+  background: var(--tm-surface);
+  box-shadow: var(--tm-shadow);
+}
+
+.panel__head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.panel__head p,
+.panel__head h2 {
+  margin: 0;
+}
+
+.panel__head p {
+  color: var(--tm-gold);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.panel__head h2 {
+  margin-top: 4px;
+  color: var(--tm-heading);
+  font-size: 1.1rem;
+}
+
+.panel__legend {
+  display: flex;
+  gap: 14px;
+}
+
+.panel__legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tm-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.panel__foot {
+  margin: 0;
+  padding-top: 4px;
+  color: var(--tm-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.panel__foot strong {
   color: var(--tm-heading);
 }
 
-.queue-row span {
+.panel__pill {
+  padding: 5px 10px;
+  border: 1px solid var(--tm-border);
+  border-radius: 999px;
+  background: var(--tm-surface-soft);
   color: var(--tm-muted);
-  font-size: 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
-.queue-empty {
-  padding: 18px 0 2px;
+.panel__empty {
+  margin: 0;
   color: var(--tm-muted);
   font-weight: 700;
 }
 
-.ops-panel--dark {
-  color: #fff;
-  background:
-    linear-gradient(160deg, rgba(8, 124, 104, 0.24), transparent 52%),
-    var(--tm-charcoal);
-}
-
-.ops-panel--dark .ops-panel__header h2 {
-  color: #fff;
-}
-
-.workflow-list {
+/* --- attention queues --- */
+.queue {
   display: grid;
-  gap: 12px;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.workflow-list span {
-  display: flex;
-  min-height: 46px;
+.queue li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 12px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.78);
-  font-weight: 760;
+  padding: 11px 0;
+  border-top: 1px solid var(--tm-border);
 }
 
-.workflow-list i {
-  color: var(--tm-gold);
+.queue li:first-child {
+  border-top: 0;
+}
+
+.queue li div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.queue li strong {
+  color: var(--tm-heading);
+  font-size: 0.92rem;
+}
+
+.queue li span {
+  color: var(--tm-muted);
+  font-size: 0.82rem;
+}
+
+.queue__amount {
+  color: var(--tm-heading);
+  font-weight: 850;
+}
+
+.queue__empty {
+  display: block;
+  padding: 14px 0 2px;
+  color: var(--tm-muted);
+  font-weight: 700;
 }
 
 @media (max-width: 1120px) {
-  .stat-grid {
+  .tile-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .dashboard-grid {
+  .panel-grid--primary,
+  .panel-grid--split {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 640px) {
-  .stat-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .queue-row {
-    align-items: start;
+@media (max-width: 560px) {
+  .tile-grid {
     grid-template-columns: 1fr;
   }
 }

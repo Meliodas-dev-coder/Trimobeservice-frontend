@@ -5,6 +5,7 @@ import { useConfirm } from 'primevue/useconfirm';
 
 import { api } from '@/api/client';
 import { getResource, serializeForm } from '@/api/resources';
+import { useAdminI18n } from '@/i18n/admin';
 import { formatMGA } from '@/utils/format';
 import AdminResourceDialog from '@/components/admin/AdminResourceDialog.vue';
 
@@ -18,6 +19,7 @@ const emit = defineEmits(['update:visible', 'changed']);
 
 const toast = useToast();
 const confirm = useConfirm();
+const { enumLabel, localeCode, t } = useAdminI18n();
 
 const detail = ref(null);
 const loading = ref(false);
@@ -30,6 +32,11 @@ const nestedOpen = ref(false);
 const activeNested = ref(null);
 const nestedSaving = ref(false);
 const nestedErrors = ref({});
+
+const actionFormOpen = ref(false);
+const activeAction = ref(null);
+const actionSaving = ref(false);
+const actionErrors = ref({});
 
 const isOpen = computed({
   get: () => props.visible,
@@ -47,7 +54,7 @@ async function fetchDetail() {
     detail.value = await getResource(props.resource, props.itemId);
     Object.keys(choices).forEach((key) => delete choices[key]);
   } catch (err) {
-    toast.add({ severity: 'error', summary: 'Could not load', detail: err?.message || 'Request failed', life: 4000 });
+    toast.add({ severity: 'error', summary: t('Could not load'), detail: t(err?.message || 'Request failed'), life: 4000 });
   } finally {
     loading.value = false;
   }
@@ -74,6 +81,9 @@ watch(
   (visible) => {
     if (visible) {
       detail.value = null;
+      actionFormOpen.value = false;
+      activeAction.value = null;
+      actionErrors.value = {};
       fetchDetail();
       loadActionOptions();
     }
@@ -84,7 +94,7 @@ watch(
 
 function transitionOptions(action) {
   const next = action.next ? action.next(detail.value || {}) : [];
-  return next.map((value) => ({ label: prettify(value), value }));
+  return next.map((value) => ({ label: enumLabel(value), value }));
 }
 
 function actionOptionsFor(action) {
@@ -124,24 +134,75 @@ async function runAction(fn) {
   busy.value = true;
   try {
     await fn();
-    toast.add({ severity: 'success', summary: 'Updated', life: 2500 });
+    toast.add({ severity: 'success', summary: t('Updated'), life: 2500 });
     await fetchDetail();
     emit('changed');
   } catch (err) {
-    toast.add({ severity: 'error', summary: 'Action failed', detail: err?.message || 'Request failed', life: 4000 });
+    toast.add({ severity: 'error', summary: t('Action failed'), detail: t(err?.message || 'Request failed'), life: 4000 });
   } finally {
     busy.value = false;
   }
 }
 
+function actionPath(action) {
+  return action.path(props.itemId, detail.value || {});
+}
+
+function actionBody(action, values = {}) {
+  if (typeof action.body === 'function') {
+    return action.body(values, detail.value || {}, props.itemId);
+  }
+  return { ...(action.body || {}), ...values };
+}
+
+function openActionForm(action) {
+  if (!actionEnabled(action) || busy.value || actionSaving.value) {
+    return;
+  }
+  activeAction.value = action;
+  actionErrors.value = {};
+  actionFormOpen.value = true;
+}
+
+async function handleActionFormSubmit(values) {
+  if (!activeAction.value) {
+    return;
+  }
+  actionSaving.value = true;
+  actionErrors.value = {};
+  try {
+    const action = activeAction.value;
+    const body = actionBody(action, serializeForm(action.formFields || [], values));
+    await apiCall(action.method, actionPath(action), body);
+    toast.add({ severity: 'success', summary: action.successSummary || t('Updated'), life: 2500 });
+    actionFormOpen.value = false;
+    activeAction.value = null;
+    await fetchDetail();
+    emit('changed');
+  } catch (err) {
+    if (err?.details) {
+      actionErrors.value = err.details;
+    }
+    toast.add({ severity: 'error', summary: activeAction.value.errorSummary || t('Action failed'), detail: t(err?.message || 'Request failed'), life: 4000 });
+  } finally {
+    actionSaving.value = false;
+  }
+}
+
 function applyAction(action) {
+  if (action.type === 'form') {
+    openActionForm(action);
+    return;
+  }
   if (action.type === 'confirm') {
     confirm.require({
       header: action.label,
       message: action.confirmMessage || `${action.label}?`,
       icon: 'pi pi-exclamation-triangle',
       acceptClass: 'p-button-danger',
-      accept: () => runAction(() => apiCall(action.method, action.path(props.itemId))),
+      acceptLabel: t('Confirm'),
+      rejectLabel: t('Cancel'),
+      accept: () => runAction(() => apiCall(action.method, actionPath(action))),
     });
     return;
   }
@@ -149,7 +210,7 @@ function applyAction(action) {
   if (value === null || value === undefined || value === '') {
     return;
   }
-  runAction(() => apiCall(action.method, action.path(props.itemId), { [action.bodyKey]: value }));
+  runAction(() => apiCall(action.method, actionPath(action), { [action.bodyKey]: value }));
 }
 
 // --- nested collections ---
@@ -170,7 +231,7 @@ async function handleNestedSubmit(values) {
   try {
     const body = serializeForm(activeNested.value.formFields, values);
     await api.post(activeNested.value.addPath(props.itemId), body);
-    toast.add({ severity: 'success', summary: 'Added', life: 2500 });
+    toast.add({ severity: 'success', summary: t('Added'), life: 2500 });
     nestedOpen.value = false;
     await fetchDetail();
     emit('changed');
@@ -178,7 +239,7 @@ async function handleNestedSubmit(values) {
     if (err?.details) {
       nestedErrors.value = err.details;
     }
-    toast.add({ severity: 'error', summary: 'Add failed', detail: err?.message || 'Request failed', life: 4000 });
+    toast.add({ severity: 'error', summary: t('Add failed'), detail: t(err?.message || 'Request failed'), life: 4000 });
   } finally {
     nestedSaving.value = false;
   }
@@ -186,18 +247,20 @@ async function handleNestedSubmit(values) {
 
 function confirmNestedRemove(nested, row) {
   confirm.require({
-    header: 'Confirm delete',
-    message: `Delete this ${nested.singular}? This cannot be undone.`,
+    header: t('Confirm delete'),
+    message: t('Delete this {resource}? This cannot be undone.', { resource: nested.singular }),
     icon: 'pi pi-exclamation-triangle',
     acceptClass: 'p-button-danger',
+    acceptLabel: t('Delete'),
+    rejectLabel: t('Cancel'),
     accept: async () => {
       try {
         await api.del(nested.removePath(row));
-        toast.add({ severity: 'success', summary: 'Deleted', life: 2500 });
+        toast.add({ severity: 'success', summary: t('Deleted'), life: 2500 });
         await fetchDetail();
         emit('changed');
       } catch (err) {
-        toast.add({ severity: 'error', summary: 'Delete failed', detail: err?.message || 'Request failed', life: 4000 });
+        toast.add({ severity: 'error', summary: t('Delete failed'), detail: t(err?.message || 'Request failed'), life: 4000 });
       }
     },
   });
@@ -211,13 +274,15 @@ function fieldDisplay(field) {
     return formatMGA(Number(value || 0));
   }
   if (field.type === 'date') {
-    return value ? new Date(value).toLocaleString('fr-MG') : '-';
+    return value ? new Date(value).toLocaleString(localeCode.value) : '-';
   }
   if (field.type === 'boolean') {
-    return value ? 'Active' : 'Inactive';
+    // trueLabel/falseLabel arrive pre-translated via translateConfig; fall back to
+    // the generic Active/Inactive wording when a field doesn't override them.
+    return value ? field.trueLabel || t('Active') : field.falseLabel || t('Inactive');
   }
   if (field.type === 'enum') {
-    return value ? prettify(value) : '-';
+    return value ? enumLabel(value) : '-';
   }
   if (value === null || value === undefined || value === '') {
     return '-';
@@ -227,11 +292,14 @@ function fieldDisplay(field) {
 
 function cellDisplay(row, column) {
   const value = row[column.field];
+  if (column.type === 'image') {
+    return value || '';
+  }
   if (column.type === 'money') {
     return formatMGA(Number(value || 0));
   }
   if (column.type === 'boolean') {
-    return value ? 'Yes' : 'No';
+    return value ? column.trueLabel || t('Yes') : column.falseLabel || t('No');
   }
   if (value === null || value === undefined || value === '') {
     return '-';
@@ -239,21 +307,18 @@ function cellDisplay(row, column) {
   return value;
 }
 
-function prettify(value) {
-  return String(value).replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
-}
 </script>
 
 <template>
   <Dialog
     v-model:visible="isOpen"
     modal
-    :header="`Manage ${resource.singular}`"
+    :header="t('Manage {resource}', { resource: resource.singular })"
     style="width: 60vw"
     class="manage-dialog"
     :draggable="false"
   >
-    <div v-if="loading" class="manage-loading">Loading…</div>
+    <div v-if="loading" class="manage-loading">{{ t('Loading…') }}</div>
 
     <div v-else-if="detail" class="manage-body">
       <div class="manage-fields">
@@ -264,9 +329,9 @@ function prettify(value) {
       </div>
 
       <p v-if="spec.showDriver" class="manage-driver">
-        <span>Driver</span>
+        <span>{{ t('Driver') }}</span>
         <strong v-if="detail.driver">{{ detail.driver.full_name }} · {{ detail.driver.phone }}</strong>
-        <strong v-else>Not assigned</strong>
+        <strong v-else>{{ t('Not assigned') }}</strong>
       </p>
 
       <div v-if="(spec.actions || []).length" class="manage-actions">
@@ -276,6 +341,15 @@ function prettify(value) {
               :label="action.label"
               severity="warn"
               :disabled="!actionEnabled(action) || busy"
+              @click="applyAction(action)"
+            />
+          </template>
+          <template v-else-if="action.type === 'form'">
+            <Button
+              :label="action.label"
+              :icon="action.icon || 'pi pi-pencil'"
+              :severity="action.severity"
+              :disabled="!actionEnabled(action) || busy || actionSaving"
               @click="applyAction(action)"
             />
           </template>
@@ -308,7 +382,7 @@ function prettify(value) {
               <span :class="{ 'cell-money': col.type === 'money' }">{{ cellDisplay(data, col) }}</span>
             </template>
           </Column>
-          <template #empty><span class="manage-empty">No items.</span></template>
+          <template #empty><span class="manage-empty">{{ t('No items.') }}</span></template>
         </DataTable>
       </section>
 
@@ -325,6 +399,14 @@ function prettify(value) {
                 :value="cellDisplay(data, col)"
                 :severity="data[col.field] ? 'success' : 'secondary'"
               />
+              <img
+                v-else-if="col.type === 'image' && cellDisplay(data, col)"
+                class="manage-image-thumb"
+                :src="cellDisplay(data, col)"
+                :alt="data.alt_text || nested.singular"
+                loading="lazy"
+              />
+              <span v-else-if="col.type === 'image'" class="manage-image-empty">{{ t('No image') }}</span>
               <span v-else :class="{ 'cell-money': col.type === 'money' }">{{ cellDisplay(data, col) }}</span>
             </template>
           </Column>
@@ -335,23 +417,33 @@ function prettify(value) {
                 severity="danger"
                 text
                 rounded
-                aria-label="Delete"
+                :aria-label="t('Delete')"
                 @click="confirmNestedRemove(nested, data)"
               />
             </template>
           </Column>
-          <template #empty><span class="manage-empty">None yet.</span></template>
+          <template #empty><span class="manage-empty">{{ t('None yet.') }}</span></template>
         </DataTable>
       </section>
     </div>
 
     <AdminResourceDialog
       v-model:visible="nestedOpen"
-      :title="activeNested?.addLabel || 'Add'"
+      :title="activeNested?.addLabel || t('Add')"
       :fields="activeNested?.formFields || []"
+      :templateKey="detail?.category?.template_key || ''"
       :loading="nestedSaving"
       :errors="nestedErrors"
       @submit="handleNestedSubmit"
+    />
+
+    <AdminResourceDialog
+      v-model:visible="actionFormOpen"
+      :title="activeAction?.label || t('Action')"
+      :fields="activeAction?.formFields || []"
+      :loading="actionSaving"
+      :errors="actionErrors"
+      @submit="handleActionFormSubmit"
     />
   </Dialog>
 </template>
@@ -450,6 +542,22 @@ function prettify(value) {
 .cell-money {
   color: var(--tm-heading);
   font-weight: 900;
+}
+
+.manage-image-thumb {
+  display: block;
+  width: 112px;
+  height: 76px;
+  object-fit: cover;
+  border: 1px solid var(--tm-border);
+  border-radius: 8px;
+  background: var(--tm-surface-soft);
+}
+
+.manage-image-empty {
+  color: var(--tm-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
 }
 
 .manage-empty {

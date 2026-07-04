@@ -2,19 +2,23 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
+import { useAdminI18n } from '@/i18n/admin';
+
 const route = useRoute();
-const title = computed(() => route.meta.title || 'Admin');
-const description = computed(() => route.meta.description || 'Admin section ready for implementation.');
+const { t } = useAdminI18n();
+
+const title = computed(() => t(route.meta.title || 'Admin'));
+const description = computed(() => t(route.meta.description || 'Admin section ready for implementation.'));
 </script>
 
 <template>
   <section class="admin-placeholder">
     <div>
-      <p>Module</p>
+      <p>{{ t('Module') }}</p>
       <h2>{{ title }}</h2>
       <span>{{ description }}</span>
     </div>
-    <Button label="Create new" icon="pi pi-plus" />
+    <Button :label="t('Create new')" icon="pi pi-plus" />
   </section>
 </template>
 

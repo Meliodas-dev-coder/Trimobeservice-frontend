@@ -2,6 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
 import AdminDashboardView from '@/views/admin/AdminDashboardView.vue';
+import AdminCarDetailView from '@/views/admin/AdminCarDetailView.vue';
+import AdminProductDetailView from '@/views/admin/AdminProductDetailView.vue';
+import AdminOrderCreateView from '@/views/admin/AdminOrderCreateView.vue';
 import AdminLoginView from '@/views/admin/AdminLoginView.vue';
 import AdminResourceView from '@/views/admin/AdminResourceView.vue';
 import HomeView from '@/views/public/HomeView.vue';
@@ -130,10 +133,28 @@ const router = createRouter({
           meta: { title: 'Products', resource: 'products', description: 'Manage products; variants and images live per product.' },
         },
         {
+          path: 'products/new',
+          name: 'admin-product-new',
+          component: AdminProductDetailView,
+          meta: { title: 'New product', description: 'Create a product, then add its variants and images.' },
+        },
+        {
+          path: 'products/:id',
+          name: 'admin-product-detail',
+          component: AdminProductDetailView,
+          meta: { title: 'Product detail', description: 'Edit a product, its specs, variants, and images.' },
+        },
+        {
           path: 'cars',
           name: 'admin-cars',
           component: AdminResourceView,
           meta: { title: 'Cars', resource: 'cars', description: 'Manage fleet cars, rates, and status.' },
+        },
+        {
+          path: 'cars/:id',
+          name: 'admin-car-detail',
+          component: AdminCarDetailView,
+          meta: { title: 'Car detail', description: 'Edit car details, images, bookings, and usage.' },
         },
         {
           path: 'car-categories',
@@ -152,6 +173,12 @@ const router = createRouter({
           name: 'admin-orders',
           component: AdminResourceView,
           meta: { title: 'Orders', resource: 'orders', description: 'Review orders, fulfillment, and payment state.' },
+        },
+        {
+          path: 'orders/new',
+          name: 'admin-order-new',
+          component: AdminOrderCreateView,
+          meta: { title: 'New order', description: 'Create a phone/walk-in order.' },
         },
         {
           path: 'bookings',

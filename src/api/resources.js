@@ -62,14 +62,35 @@ export async function uploadImage(file) {
 export async function loadFieldOptions(field) {
   const data = await api.get(field.optionsEndpoint, { params: { limit: 100 } });
   const items = data?.[field.collectionKey] ?? [];
-  return items.map((item) => ({ label: item[field.optionLabel], value: item[field.optionValue] }));
+  return items.map((item) => ({ label: item[field.optionLabel], value: item[field.optionValue], item }));
 }
 
 // Build an API request body from raw form values, coercing types to match the
 // backend DTOs (money → DECIMAL string, number → number, blank optionals dropped).
+// Drop blank entries from a dynamic attributes object and trim strings; keeps
+// false/0 (meaningful spec values).
+function cleanAttributes(attrs) {
+  const out = {};
+  if (!attrs || typeof attrs !== 'object') {
+    return out;
+  }
+  for (const [key, raw] of Object.entries(attrs)) {
+    const value = typeof raw === 'string' ? raw.trim() : raw;
+    if (value === '' || value === null || value === undefined) {
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
 export function serializeForm(fields, values) {
   const body = {};
   for (const field of fields) {
+    if (field.type === 'attributes') {
+      body.attributes = cleanAttributes(values.attributes);
+      continue;
+    }
     let value = values[field.key];
     if (value === undefined) {
       continue;
@@ -78,6 +99,17 @@ export function serializeForm(fields, values) {
       value = value.trim();
     }
     const isBlank = value === '' || value === null;
+
+    if (field.toBody) {
+      if (isBlank) {
+        continue;
+      }
+      Object.assign(body, field.toBody(value, values));
+      continue;
+    }
+    if (field.persist === false) {
+      continue;
+    }
 
     if (field.type === 'money') {
       if (isBlank) {
@@ -90,7 +122,18 @@ export function serializeForm(fields, values) {
       if (isBlank) {
         continue;
       }
+      if (field.serializeAs === 'string') {
+        body[field.key] = Number(value).toFixed(field.maxFractionDigits ?? 0);
+        continue;
+      }
       body[field.key] = Number(value);
+      continue;
+    }
+    if (field.type === 'date' || field.type === 'datetime') {
+      if (isBlank) {
+        continue;
+      }
+      body[field.key] = value instanceof Date ? value.toISOString() : value;
       continue;
     }
     if (isBlank && !field.required) {
