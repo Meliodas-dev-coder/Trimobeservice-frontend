@@ -1,33 +1,63 @@
 <script setup>
+import { computed } from 'vue';
+import { RouterLink } from 'vue-router';
+
 import VisualPlaceholder from '@/components/VisualPlaceholder.vue';
+import { usePublicI18n } from '@/i18n/public';
 import { formatMGA } from '@/utils/format';
 
-defineProps({
+const props = defineProps({
   product: {
     type: Object,
     required: true,
   },
 });
+
+const { t } = usePublicI18n();
+
+const cardTag = computed(() => (props.product.to ? RouterLink : 'article'));
+const image = computed(() => props.product.image || props.product.primary_image_url || '');
+const category = computed(() => t(props.product.category || props.product.categoryLabel || 'Product'));
+const variant = computed(() => props.product.variant || props.product.variantLabel || '');
+const priceText = computed(() => {
+  if (props.product.priceLabel) {
+    return t(props.product.priceLabel);
+  }
+  const value = props.product.price ?? props.product.price_min;
+  return value == null ? '-' : formatMGA(Number(value || 0));
+});
+const stockText = computed(() => {
+  if (props.product.stockLabel) {
+    return t(props.product.stockLabel);
+  }
+  if (props.product.stock !== undefined && props.product.stock !== null) {
+    return `${props.product.stock} ${t('in stock')}`;
+  }
+  if (props.product.variant_count !== undefined) {
+    return `${props.product.variant_count} ${t('variants')}`;
+  }
+  return t('Available');
+});
 </script>
 
 <template>
-  <article class="product-card">
-    <figure v-if="product.image" class="product-card__image">
-      <img :src="product.image" :alt="product.imageAlt || product.name" loading="lazy" />
+  <component :is="cardTag" class="product-card" :to="product.to || undefined">
+    <figure v-if="image" class="product-card__image">
+      <img :src="image" :alt="product.imageAlt || product.name" loading="lazy" />
     </figure>
     <VisualPlaceholder v-else :kind="product.visualKind || 'phone'" :tone="product.tone" />
     <div class="product-card__body">
       <div>
-        <p>{{ product.category }}</p>
+        <p>{{ category }}</p>
         <h3>{{ product.name }}</h3>
-        <span>{{ product.variant }}</span>
+        <span>{{ variant }}</span>
       </div>
       <div class="product-card__footer">
-        <strong class="price">{{ formatMGA(product.price) }}</strong>
-        <span>{{ product.stock }} in stock</span>
+        <strong class="price">{{ priceText }}</strong>
+        <span>{{ stockText }}</span>
       </div>
     </div>
-  </article>
+  </component>
 </template>
 
 <style scoped>
@@ -39,6 +69,17 @@ defineProps({
   border-radius: 8px;
   background: var(--tm-surface);
   box-shadow: var(--tm-shadow);
+  color: inherit;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+a.product-card:hover {
+  border-color: rgba(8, 124, 104, 0.32);
+  box-shadow: 0 24px 58px rgba(17, 19, 21, 0.15);
+  transform: translateY(-2px);
 }
 
 .product-card__image {

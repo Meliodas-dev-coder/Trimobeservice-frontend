@@ -85,6 +85,9 @@ const VARIANT_ATTRIBUTES_FIELD = {
 const isCargoCategory = (draft) => Boolean(draft.is_cargo_transport);
 const isCargoBooking = (_draft, ctx) => Boolean(ctx.optionFor('car_id')?.item?.is_cargo_transport);
 const isStandardBooking = (_draft, ctx) => !ctx.optionFor('car_id')?.item?.is_cargo_transport;
+const isOrderTarget = (target) => target?.type === 'order';
+const isBookingTarget = (target) => target?.type === 'booking';
+const isEventTarget = (target) => target?.type === 'event';
 
 function todayStart() {
   const date = new Date();
@@ -476,6 +479,166 @@ export const adminResources = {
     ],
   },
 
+  'event-service-categories': {
+    id: 'event-service-categories',
+    singular: 'event service category',
+    plural: 'Service categories',
+    eyebrow: 'Events',
+    description: 'Groups of event services (sound, lighting, catering, artists...).',
+    actionLabel: 'Add service category',
+    rowKey: 'id',
+    api: {
+      list: '/admin/event-service-categories',
+      create: '/admin/event-service-categories',
+      itemBase: '/admin/event-service-categories',
+      collectionKey: 'event_service_categories',
+      itemKey: 'event_service_category',
+    },
+    capabilities: { create: true, edit: true, remove: true },
+    defaultRow: { is_active: true },
+    columns: [
+      { field: 'name', header: 'Category' },
+      { field: 'slug', header: 'Slug' },
+      { field: 'service_count', header: 'Services', type: 'number' },
+      { field: 'is_active', header: 'Active', type: 'boolean' },
+    ],
+    formFields: [
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'Sound & PA', required: true },
+      { key: 'icon', label: 'Icon (PrimeIcons class)', type: 'text', placeholder: 'pi pi-volume-up' },
+      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'image_url', label: 'Image', type: 'image' },
+      { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
+      { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
+    ],
+  },
+
+  'event-services': {
+    id: 'event-services',
+    singular: 'event service',
+    plural: 'Event services',
+    eyebrow: 'Events',
+    description: 'What the team offers per category. From-price is indicative; the real number is the per-request quote.',
+    actionLabel: 'Add service',
+    rowKey: 'id',
+    api: {
+      list: '/admin/event-services',
+      create: '/admin/event-services',
+      itemBase: '/admin/event-services',
+      collectionKey: 'event_services',
+      itemKey: 'event_service',
+    },
+    capabilities: { create: true, edit: true, remove: true },
+    defaultRow: { is_active: true },
+    columns: [
+      { field: 'name', header: 'Service' },
+      { field: 'category_name', header: 'Category' },
+      { field: 'from_price', header: 'From', type: 'money' },
+      { field: 'price_unit', header: 'Unit' },
+      { field: 'is_active', header: 'Availability', type: 'boolean', trueLabel: 'Available', falseLabel: 'Unavailable' },
+    ],
+    cardView: {
+      imageField: 'image_url',
+      titleField: 'name',
+      subtitleField: 'category_name',
+      badgeField: 'is_active',
+      badgeType: 'boolean',
+      badgeTrueLabel: 'Available',
+      badgeFalseLabel: 'Unavailable',
+      details: [
+        { field: 'from_price', label: 'From', type: 'money' },
+        { field: 'price_unit', label: 'Unit' },
+      ],
+    },
+    formFields: [
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'Live band', required: true },
+      {
+        key: 'category_id',
+        label: 'Category',
+        type: 'select',
+        options: [],
+        optionsEndpoint: '/admin/event-service-categories',
+        collectionKey: 'event_service_categories',
+        optionLabel: 'name',
+        optionValue: 'id',
+        required: true,
+      },
+      { key: 'from_price', label: 'From price (indicative)', type: 'money' },
+      { key: 'price_unit', label: 'Price unit', type: 'text', placeholder: 'per event, per guest, per artist' },
+      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'image_url', label: 'Image', type: 'image' },
+      { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
+      { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
+    ],
+  },
+
+  artists: {
+    id: 'artists',
+    singular: 'artist',
+    plural: 'Gospel artists',
+    eyebrow: 'Events',
+    description: 'Christian/gospel artists clients can browse and request. Genres, formats, languages, and occasions are comma-separated; links go one per line.',
+    actionLabel: 'Add artist',
+    rowKey: 'id',
+    api: {
+      list: '/admin/artists',
+      create: '/admin/artists',
+      itemBase: '/admin/artists',
+      collectionKey: 'artists',
+      itemKey: 'artist',
+    },
+    capabilities: { create: true, edit: true, remove: true },
+    defaultRow: { is_active: true, is_featured: false },
+    columns: [
+      { field: 'stage_name', header: 'Artist' },
+      { field: 'genres', header: 'Genres' },
+      { field: 'group_size', header: 'Group' },
+      { field: 'from_fee', header: 'From', type: 'money' },
+      { field: 'is_featured', header: 'Featured', type: 'boolean', trueLabel: 'Featured', falseLabel: 'No' },
+      { field: 'is_active', header: 'Active', type: 'boolean' },
+    ],
+    cardView: {
+      imageField: 'photo_url',
+      titleField: 'stage_name',
+      subtitleField: 'genres',
+      badgeField: 'is_active',
+      badgeType: 'boolean',
+      badgeTrueLabel: 'Active',
+      badgeFalseLabel: 'Inactive',
+      details: [
+        { field: 'group_size', label: 'Group' },
+        { field: 'from_fee', label: 'From', type: 'money' },
+        { field: 'home_base', label: 'Base' },
+      ],
+    },
+    formFields: [
+      { key: 'stage_name', label: 'Stage / ministry name', type: 'text', required: true, placeholder: 'Voninavo Praise' },
+      { key: 'tagline', label: 'Tagline', type: 'text', placeholder: 'Worship leader for services and crusades' },
+      { key: 'photo_url', label: 'Photo', type: 'image' },
+      { key: 'home_base', label: 'Home base', type: 'text', placeholder: 'Antananarivo' },
+      { key: 'group_size', label: 'Group size', type: 'text', placeholder: 'Solo, Band of 6, Choir 20+' },
+      { key: 'genres', label: 'Genres (comma-separated)', type: 'text', placeholder: 'gospel, praise & worship, choir' },
+      { key: 'formats', label: 'Formats (comma-separated)', type: 'text', placeholder: 'worship leader, soloist, band' },
+      { key: 'languages', label: 'Languages (comma-separated)', type: 'text', placeholder: 'Malagasy, French, English' },
+      { key: 'occasions', label: 'Best-fit occasions (comma-separated)', type: 'text', placeholder: 'Sunday service, crusade, wedding' },
+      { key: 'from_fee', label: 'From fee (indicative)', type: 'money' },
+      { key: 'sample_links', label: 'Sample links (one per line)', type: 'textarea', placeholder: 'https://youtube.com/...' },
+      { key: 'social_links', label: 'Social links (one per line)', type: 'textarea', placeholder: 'https://facebook.com/...' },
+      { key: 'bio', label: 'Bio', type: 'textarea' },
+      { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
+      {
+        key: 'is_featured',
+        label: 'Featured',
+        type: 'select',
+        options: [
+          { label: 'Featured', value: true },
+          { label: 'Not featured', value: false },
+        ],
+        defaultValue: false,
+      },
+      { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
+    ],
+  },
+
   orders: {
     id: 'orders',
     singular: 'order',
@@ -503,8 +666,10 @@ export const adminResources = {
       { key: 'status', label: 'Advance status', method: 'PATCH', path: (id) => `/admin/orders/${id}/status` },
     ],
     columns: [
+      { field: 'id', header: 'ID', type: 'number' },
       { field: 'order_number', header: 'Order' },
       { field: 'customer_name', header: 'Customer' },
+      { field: 'user_id', header: 'Customer ID', type: 'number' },
       { field: 'fulfillment_type', header: 'Fulfillment' },
       { field: 'status', header: 'Status', type: 'status' },
       { field: 'payment_status', header: 'Payment', type: 'status' },
@@ -539,8 +704,10 @@ export const adminResources = {
       { key: 'status', label: 'Advance status', method: 'PATCH', path: (id) => `/admin/bookings/${id}/status` },
     ],
     columns: [
+      { field: 'id', header: 'ID', type: 'number' },
       { field: 'booking_number', header: 'Booking' },
       { field: 'customer_name', header: 'Customer' },
+      { field: 'user_id', header: 'Customer ID', type: 'number' },
       { field: 'car_name', header: 'Car' },
       { field: 'status', header: 'Status', type: 'status' },
       { field: 'payment_status', header: 'Payment', type: 'status' },
@@ -632,12 +799,48 @@ export const adminResources = {
     ],
   },
 
+  'event-requests': {
+    id: 'event-requests',
+    singular: 'event request',
+    plural: 'Event requests',
+    eyebrow: 'Events',
+    description: 'Client event-planning requests. Review, set a quote, advance the lifecycle, then record payment.',
+    actionLabel: 'Create request',
+    rowKey: 'id',
+    api: {
+      list: '/admin/event-requests',
+      create: '/admin/event-requests',
+      itemBase: '/admin/event-requests',
+      collectionKey: 'event_requests',
+      itemKey: 'event_request',
+    },
+    // Logged on a dedicated screen (form + services picker); still no edit/remove.
+    createRoute: () => ({ name: 'admin-event-request-new' }),
+    capabilities: { create: true, edit: false, remove: false },
+    filters: [
+      { key: 'status', label: 'Status', options: ['requested', 'reviewing', 'quoted', 'confirmed', 'in_progress', 'completed', 'cancelled'] },
+      { key: 'payment_status', label: 'Payment', options: ['unpaid', 'paid', 'refunded'] },
+    ],
+    columns: [
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'request_number', header: 'Request' },
+      { field: 'customer_name', header: 'Customer' },
+      { field: 'event_type', header: 'Type' },
+      { field: 'event_start', header: 'Event date', type: 'date' },
+      { field: 'status', header: 'Status', type: 'status' },
+      { field: 'payment_status', header: 'Payment', type: 'status' },
+      { field: 'quoted_price', header: 'Quote', type: 'money' },
+      { field: 'created_at', header: 'Requested', type: 'date' },
+    ],
+    formFields: [],
+  },
+
   payments: {
     id: 'payments',
     singular: 'payment',
     plural: 'Payments',
     eyebrow: 'Finance',
-    description: 'Manual payment ledger. Recording a payment confirms it and flips the target order/booking to paid.',
+    description: 'Manual payment ledger. Recording a payment confirms it and flips the target order, booking, or event to paid.',
     actionLabel: 'Record payment',
     rowKey: 'id',
     api: {
@@ -649,7 +852,7 @@ export const adminResources = {
     },
     capabilities: { create: true, edit: false, remove: false },
     filters: [
-      { key: 'payable_type', label: 'For', options: ['order', 'booking'] },
+      { key: 'payable_type', label: 'For', options: ['order', 'booking', 'event'] },
       { key: 'status', label: 'Status', options: ['pending', 'paid', 'refunded'] },
       { key: 'method', label: 'Method', options: ['cash', 'bank_transfer', 'mobile_money', 'other'] },
     ],
@@ -659,7 +862,7 @@ export const adminResources = {
     columns: [
       { field: 'id', header: 'ID', type: 'number' },
       { field: 'payable_type', header: 'For' },
-      { field: 'payable_id', header: 'Target', type: 'number' },
+      { field: 'payable_id', header: 'Target ID', type: 'number' },
       { field: 'amount', header: 'Amount', type: 'money' },
       { field: 'method', header: 'Method' },
       { field: 'status', header: 'Status', type: 'status' },
@@ -675,9 +878,10 @@ export const adminResources = {
         options: [
           { label: 'Order', value: 'order' },
           { label: 'Booking', value: 'booking' },
+          { label: 'Event', value: 'event' },
         ],
       },
-      { key: 'payable_id', label: 'Order / booking ID', type: 'number', required: true },
+      { key: 'payable_id', label: 'Target ID', type: 'number', required: true },
       {
         key: 'method',
         label: 'Method',
@@ -779,8 +983,10 @@ adminResources.cars.manage = {
 
 adminResources.orders.manage = {
   fields: [
+    { key: 'id', label: 'Order ID' },
     { key: 'order_number', label: 'Order number' },
     { key: 'customer_name', label: 'Customer' },
+    { key: 'user_id', label: 'Customer ID' },
     { key: 'fulfillment_type', label: 'Fulfillment', type: 'enum' },
     { key: 'status', label: 'Status', type: 'enum' },
     { key: 'payment_status', label: 'Payment', type: 'enum' },
@@ -800,6 +1006,41 @@ adminResources.orders.manage = {
   },
   actions: [
     {
+      key: 'record-payment',
+      label: 'Record payment',
+      type: 'form',
+      method: 'POST',
+      path: () => '/admin/payments',
+      icon: 'pi pi-wallet',
+      severity: 'success',
+      successSummary: 'Payment recorded',
+      errorSummary: 'Payment failed',
+      enabled: (order) => order.payment_status !== 'paid' && ['delivered', 'picked_up'].includes(order.status),
+      body: (values, order) => ({
+        payable_type: 'order',
+        payable_id: order.id,
+        ...values,
+      }),
+      formFields: [
+        {
+          key: 'method',
+          label: 'Payment method',
+          type: 'select',
+          defaultValue: 'cash',
+          required: true,
+          options: [
+            { label: 'Cash', value: 'cash' },
+            { label: 'Bank transfer', value: 'bank_transfer' },
+            { label: 'Mobile money', value: 'mobile_money' },
+            { label: 'Other', value: 'other' },
+          ],
+        },
+        { key: 'amount', label: 'Amount (blank = order total)', type: 'money' },
+        { key: 'reference', label: 'Reference', type: 'text', placeholder: 'Receipt / transfer ref' },
+        { key: 'note', label: 'Note', type: 'textarea' },
+      ],
+    },
+    {
       key: 'status',
       label: 'Advance status',
       type: 'select-transition',
@@ -816,8 +1057,10 @@ adminResources.orders.manage = {
 
 adminResources.bookings.manage = {
   fields: [
+    { key: 'id', label: 'Booking ID' },
     { key: 'booking_number', label: 'Booking number' },
     { key: 'customer_name', label: 'Customer' },
+    { key: 'user_id', label: 'Customer ID' },
     { key: 'car_name', label: 'Car' },
     { key: 'status', label: 'Status', type: 'enum' },
     { key: 'payment_status', label: 'Payment', type: 'enum' },
@@ -891,17 +1134,169 @@ adminResources.bookings.manage = {
   ],
 };
 
+adminResources['event-requests'].manage = {
+  fields: [
+    { key: 'id', label: 'Request ID' },
+    { key: 'request_number', label: 'Request number' },
+    { key: 'customer_name', label: 'Customer' },
+    { key: 'user_id', label: 'Customer ID' },
+    { key: 'event_type', label: 'Event type' },
+    { key: 'status', label: 'Status', type: 'enum' },
+    { key: 'payment_status', label: 'Payment', type: 'enum' },
+    { key: 'event_start', label: 'Event start', type: 'date' },
+    { key: 'event_end', label: 'Event end', type: 'date' },
+    { key: 'location', label: 'Location' },
+    { key: 'guest_count', label: 'Guests' },
+    { key: 'budget', label: 'Budget', type: 'money' },
+    { key: 'quoted_price', label: 'Quote', type: 'money' },
+    { key: 'contact_phone', label: 'Contact' },
+    { key: 'contact_email', label: 'Email' },
+    { key: 'note', label: 'Client note' },
+    { key: 'admin_note', label: 'Internal note' },
+  ],
+  itemsTable: {
+    key: 'services',
+    title: 'Requested services',
+    columns: [
+      { field: 'service_name', header: 'Service' },
+      { field: 'category_name', header: 'Category' },
+      { field: 'from_price_snapshot', header: 'From', type: 'money' },
+      { field: 'quantity', header: 'Qty' },
+    ],
+  },
+  itemsTables: [
+    {
+      key: 'artists',
+      title: 'Requested artists',
+      columns: [
+        { field: 'artist_name', header: 'Artist' },
+        { field: 'fee_snapshot', header: 'From', type: 'money' },
+        { field: 'note', header: 'Note' },
+      ],
+    },
+  ],
+  actions: [
+    {
+      key: 'quote',
+      label: 'Set quote',
+      type: 'form',
+      method: 'PATCH',
+      path: (id) => `/admin/event-requests/${id}/quote`,
+      icon: 'pi pi-tag',
+      successSummary: 'Quote saved',
+      errorSummary: 'Quote failed',
+      enabled: (eventRequest) => ['requested', 'reviewing', 'quoted'].includes(eventRequest.status),
+      body: (values) => values,
+      formFields: [
+        { key: 'quoted_price', label: 'Quote amount', type: 'money', required: true },
+        { key: 'admin_note', label: 'Internal note', type: 'textarea' },
+      ],
+    },
+    {
+      key: 'record-payment',
+      label: 'Record payment',
+      type: 'form',
+      method: 'POST',
+      path: () => '/admin/payments',
+      icon: 'pi pi-wallet',
+      severity: 'success',
+      successSummary: 'Payment recorded',
+      errorSummary: 'Payment failed',
+      enabled: (eventRequest) =>
+        eventRequest.payment_status !== 'paid' && eventRequest.status !== 'cancelled' && Boolean(eventRequest.quoted_price),
+      body: (values, eventRequest) => ({
+        payable_type: 'event',
+        payable_id: eventRequest.id,
+        ...values,
+      }),
+      formFields: [
+        {
+          key: 'method',
+          label: 'Payment method',
+          type: 'select',
+          defaultValue: 'cash',
+          required: true,
+          options: [
+            { label: 'Cash', value: 'cash' },
+            { label: 'Bank transfer', value: 'bank_transfer' },
+            { label: 'Mobile money', value: 'mobile_money' },
+            { label: 'Other', value: 'other' },
+          ],
+        },
+        { key: 'amount', label: 'Amount (blank = quote)', type: 'money' },
+        { key: 'reference', label: 'Reference', type: 'text' },
+        { key: 'note', label: 'Note', type: 'textarea' },
+      ],
+    },
+    {
+      key: 'status',
+      label: 'Advance status',
+      type: 'select-transition',
+      method: 'PATCH',
+      bodyKey: 'status',
+      path: (id) => `/admin/event-requests/${id}/status`,
+      next: (eventRequest) =>
+        ({
+          requested: ['reviewing', 'quoted', 'cancelled'],
+          reviewing: ['quoted', 'cancelled'],
+          quoted: ['confirmed', 'cancelled'],
+          confirmed: ['in_progress', 'cancelled'],
+          in_progress: ['completed'],
+        })[eventRequest.status] || [],
+    },
+  ],
+};
+
 adminResources.payments.manage = {
   fields: [
     { key: 'id', label: 'Payment ID' },
     { key: 'payable_type', label: 'For', type: 'enum' },
-    { key: 'payable_id', label: 'Target ID' },
+    { key: 'payable_id', label: 'Order / booking ID' },
     { key: 'amount', label: 'Amount', type: 'money' },
     { key: 'method', label: 'Method', type: 'enum' },
     { key: 'status', label: 'Status', type: 'enum' },
     { key: 'reference', label: 'Reference' },
     { key: 'marked_paid_at', label: 'Recorded', type: 'date' },
   ],
+  target: {
+    key: 'target',
+    title: 'Target detail',
+    fields: [
+      { key: 'type', label: 'Type', type: 'enum' },
+      { key: 'id', label: 'Target ID' },
+      { key: 'number', label: 'Reference' },
+      { key: 'customer_name', label: 'Customer' },
+      { key: 'user_id', label: 'Customer ID' },
+      { key: 'status', label: 'Status', type: 'enum' },
+      { key: 'payment_status', label: 'Payment', type: 'enum' },
+      { key: 'total', label: 'Total', type: 'money' },
+      { key: 'fulfillment_type', label: 'Fulfillment', type: 'enum', showWhen: isOrderTarget },
+      { key: 'car_name', label: 'Car', showWhen: isBookingTarget },
+      { key: 'car_category', label: 'Category', showWhen: isBookingTarget },
+      { key: 'start_at', label: 'Start', type: 'date', showWhen: isBookingTarget },
+      { key: 'end_at', label: 'End', type: 'date', showWhen: isBookingTarget },
+      { key: 'pickup_location', label: 'Pickup', showWhen: isBookingTarget },
+      { key: 'dropoff_location', label: 'Dropoff', showWhen: isBookingTarget },
+      { key: 'contact_phone', label: 'Contact', showWhen: isBookingTarget },
+      { key: 'event_type', label: 'Event type', type: 'enum', showWhen: isEventTarget },
+      { key: 'start_at', label: 'Event date', type: 'date', showWhen: isEventTarget },
+      { key: 'end_at', label: 'Event end', type: 'date', showWhen: isEventTarget },
+      { key: 'pickup_location', label: 'Location', showWhen: isEventTarget },
+      { key: 'contact_phone', label: 'Contact', showWhen: isEventTarget },
+      { key: 'created_at', label: 'Created', type: 'date' },
+    ],
+    itemsTable: {
+      key: 'items',
+      title: 'Line items',
+      columns: [
+        { field: 'product_name', header: 'Product' },
+        { field: 'variant_label', header: 'Variant' },
+        { field: 'unit_price', header: 'Unit', type: 'money' },
+        { field: 'quantity', header: 'Qty' },
+        { field: 'line_total', header: 'Line total', type: 'money' },
+      ],
+    },
+  },
   actions: [
     {
       key: 'refund',

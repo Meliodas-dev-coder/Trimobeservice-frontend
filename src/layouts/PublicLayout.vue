@@ -1,3 +1,10 @@
+<script setup>
+import AppHeader from '@/components/AppHeader.vue';
+import { usePublicI18n } from '@/i18n/public';
+
+const { t } = usePublicI18n();
+</script>
+
 <template>
   <div class="app-shell">
     <AppHeader />
@@ -7,18 +14,26 @@
     <footer class="public-footer">
       <div class="app-container public-footer__inner">
         <span>Trimobe</span>
-        <span>Phones, accessories, and cars with driver in Madagascar</span>
+        <span>{{ t('Phones, accessories, coffee, events, and cars with driver in Madagascar') }}</span>
       </div>
     </footer>
+    <Toast position="bottom-right" />
   </div>
 </template>
 
-<script setup>
-import AppHeader from '@/components/AppHeader.vue';
-</script>
-
 <style scoped>
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+.app-shell main {
+  flex: 1 0 auto;
+}
+
 .public-footer {
+  margin-top: auto;
   border-top: 1px solid var(--tm-border);
   background: var(--tm-surface-muted);
 }

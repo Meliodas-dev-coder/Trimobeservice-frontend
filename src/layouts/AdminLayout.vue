@@ -44,6 +44,17 @@ const groupedNav = [
       { label: 'Bookings', icon: 'pi pi-calendar-clock', to: '/admin/bookings' },
     ],
   },
+  {
+    key: 'events',
+    label: 'Events',
+    icon: 'pi pi-calendar',
+    items: [
+      { label: 'Service categories', icon: 'pi pi-sitemap', to: '/admin/event-service-categories' },
+      { label: 'Event services', icon: 'pi pi-star', to: '/admin/event-services' },
+      { label: 'Gospel artists', icon: 'pi pi-microphone', to: '/admin/artists' },
+      { label: 'Event requests', icon: 'pi pi-calendar-plus', to: '/admin/event-requests' },
+    ],
+  },
 ];
 
 const secondaryNav = [
@@ -54,6 +65,7 @@ const secondaryNav = [
 const openGroups = ref({
   tech: false,
   mobility: false,
+  events: false,
 });
 
 function isActive(to) {

@@ -1,5 +1,6 @@
 import kafeMisionaPremiumRed from '@/assets/coffee/kafe-misiona-premium-red.jpeg';
 import kafeMisionaRange from '@/assets/coffee/kafe-misiona-range.jpeg';
+import eventPlanningShowcase from '@/assets/events/event-planning-showcase.png';
 
 export const services = [
   {
@@ -17,10 +18,17 @@ export const services = [
     to: '/cars',
   },
   {
+    key: 'events',
+    label: 'Plan events',
+    icon: 'pi pi-calendar',
+    detail: 'Sound, light, catering, artists',
+    to: '/events',
+  },
+  {
     key: 'coffee',
-    label: 'Buy coffee',
+    label: 'Cofee Misiona',
     icon: 'pi pi-shopping-bag',
-    detail: 'Roasted coffee and gift packs',
+    detail: 'Coffee packs and gifts',
     to: '/coffee',
   },
 ];
@@ -57,21 +65,38 @@ export const homepageOffers = [
     priceNote: 'Daily rates in MGA',
   },
   {
-    id: 'coffee',
-    eyebrow: 'Trimobe coffee',
-    title: 'Local coffee for daily service and premium gifts',
+    id: 'events',
+    eyebrow: 'Event planning',
+    title: 'Sound, light, catering, and artists in one request',
     description:
-      'Discover roasted coffee selections for home, office, travel, and thoughtful customer gifts across Madagascar.',
-    actionLabel: 'Shop coffee',
+      'Browse event services, choose what you need, and send the team a planning request for a tailored quote.',
+    actionLabel: 'Plan your event',
+    actionTo: '/events/plan',
+    secondaryLabel: 'View services',
+    secondaryTo: '/events',
+    icon: 'pi pi-calendar',
+    visualKind: 'event',
+    tone: 'blue',
+    priceNote: 'Quote by request',
+    image: eventPlanningShowcase,
+    imageAlt: 'Event venue setup with live stage, lights, speakers, catering, and decor',
+  },
+  {
+    id: 'coffee',
+    eyebrow: 'Cofee Misiona',
+    title: 'Cofee Misiona for daily service and premium gifts',
+    description:
+      'Discover Trimobe’s coffee brand for home, office, travel, and thoughtful customer gifts across Madagascar.',
+    actionLabel: 'View Cofee Misiona',
     actionTo: '/coffee',
-    secondaryLabel: 'Gift packs',
+    secondaryLabel: 'Brand page',
     secondaryTo: '/coffee',
     icon: 'pi pi-shopping-bag',
     visualKind: 'coffee',
     tone: 'gold',
-    priceNote: 'From 28 000 MGA',
+    priceNote: 'Cofee Misiona',
     image: kafeMisionaRange,
-    imageAlt: 'Kafe Misiona coffee range displayed in a cafe setting',
+    imageAlt: 'Cofee Misiona coffee range displayed in a cafe setting',
   },
 ];
 
@@ -108,39 +133,39 @@ export const featuredProducts = [
 export const featuredCoffee = [
   {
     id: 1,
-    name: 'Highland Arabica',
-    category: 'Coffee',
+    name: 'Cofee Misiona Premium Red',
+    category: 'Cofee Misiona',
     variant: 'Ground / 250 g',
     price: 28000,
     stock: 42,
     tone: 'gold',
     visualKind: 'coffee',
     image: kafeMisionaPremiumRed,
-    imageAlt: 'Kafe Misiona premium red ground coffee pack',
+    imageAlt: 'Cofee Misiona premium red ground coffee pack',
   },
   {
     id: 2,
-    name: 'Vanilla Roast',
-    category: 'Coffee',
-    variant: 'Beans / 500 g',
+    name: 'Cofee Misiona Range',
+    category: 'Cofee Misiona',
+    variant: 'Assorted packs',
     price: 52000,
     stock: 25,
     tone: 'charcoal',
     visualKind: 'coffee',
     image: kafeMisionaRange,
-    imageAlt: 'Kafe Misiona coffee range with multiple pack colors',
+    imageAlt: 'Cofee Misiona coffee range with multiple pack colors',
   },
   {
     id: 3,
-    name: 'Trimobe Gift Box',
-    category: 'Coffee',
-    variant: 'Assorted / 3 packs',
+    name: 'Cofee Misiona Gift Pack',
+    category: 'Cofee Misiona',
+    variant: 'Assorted / brand selection',
     price: 95000,
     stock: 14,
     tone: 'emerald',
     visualKind: 'coffee',
     image: kafeMisionaRange,
-    imageAlt: 'Kafe Misiona assorted coffee packs',
+    imageAlt: 'Cofee Misiona assorted coffee packs',
   },
 ];
 
@@ -174,7 +199,7 @@ export const featuredCars = [
 
 export const trustSignals = [
   { label: 'MGA pricing', value: 'Ariary' },
-  { label: 'Payment', value: 'Manual' },
+  { label: 'Payment', value: 'Assisted' },
   { label: 'Cars', value: 'Driver included' },
-  { label: 'Coffee', value: 'Local selection' },
+  { label: 'Coffee', value: 'Cofee Misiona' },
 ];

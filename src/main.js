@@ -22,6 +22,7 @@ import InputText from 'primevue/inputtext';
 import Password from 'primevue/password';
 import Ripple from 'primevue/ripple';
 import Select from 'primevue/select';
+import Skeleton from 'primevue/skeleton';
 import Tag from 'primevue/tag';
 import Textarea from 'primevue/textarea';
 
@@ -69,6 +70,7 @@ app.component('InputNumber', InputNumber);
 app.component('InputText', InputText);
 app.component('Password', Password);
 app.component('Select', Select);
+app.component('Skeleton', Skeleton);
 app.component('Tag', Tag);
 app.component('Textarea', Textarea);
 

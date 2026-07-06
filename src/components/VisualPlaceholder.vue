@@ -25,6 +25,14 @@ defineProps({
       <span class="coffee-bean coffee-bean--one" />
       <span class="coffee-bean coffee-bean--two" />
     </div>
+    <div v-else-if="kind === 'event'" class="event-shape">
+      <span class="event-stage" />
+      <span class="event-light event-light--left" />
+      <span class="event-light event-light--right" />
+      <span class="event-speaker event-speaker--left" />
+      <span class="event-speaker event-speaker--right" />
+      <span class="event-star" />
+    </div>
     <div v-else class="car-shape">
       <span class="car-body" />
       <span class="car-cabin" />
@@ -166,6 +174,94 @@ defineProps({
   right: 86px;
   top: 34px;
   transform: rotate(18deg);
+}
+
+.event-shape {
+  position: relative;
+  width: 184px;
+  height: 126px;
+}
+
+.event-stage {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 14px;
+  height: 34px;
+  border-radius: 10px 10px 16px 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0)),
+    var(--tm-charcoal);
+  box-shadow: 0 18px 34px rgba(17, 19, 21, 0.22);
+}
+
+.event-light {
+  position: absolute;
+  top: 18px;
+  width: 46px;
+  height: 74px;
+  border-radius: 999px 999px 12px 12px;
+  background: rgba(185, 138, 46, 0.38);
+  clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+}
+
+.event-light--left {
+  left: 34px;
+  transform: rotate(14deg);
+}
+
+.event-light--right {
+  right: 34px;
+  transform: rotate(-14deg);
+}
+
+.event-speaker {
+  position: absolute;
+  bottom: 18px;
+  width: 28px;
+  height: 58px;
+  border: 3px solid rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  background: var(--tm-charcoal);
+}
+
+.event-speaker::before,
+.event-speaker::after {
+  position: absolute;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--tm-gold);
+  content: "";
+  transform: translateX(-50%);
+}
+
+.event-speaker::before {
+  top: 9px;
+}
+
+.event-speaker::after {
+  bottom: 9px;
+}
+
+.event-speaker--left {
+  left: 18px;
+}
+
+.event-speaker--right {
+  right: 18px;
+}
+
+.event-star {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  background: var(--tm-gold);
+  clip-path: polygon(50% 0, 62% 35%, 100% 35%, 69% 57%, 81% 94%, 50% 72%, 19% 94%, 31% 57%, 0 35%, 38% 35%);
+  transform: translateX(-50%);
 }
 
 .phone-stack {

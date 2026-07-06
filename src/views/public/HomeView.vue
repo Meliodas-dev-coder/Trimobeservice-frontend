@@ -1,22 +1,217 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import CarCard from '@/components/CarCard.vue';
 import ProductCard from '@/components/ProductCard.vue';
 import VisualPlaceholder from '@/components/VisualPlaceholder.vue';
+import { listCarCategories, listCars, listCategories, listProducts } from '@/api/public';
+import { usePublicI18n } from '@/i18n/public';
+import { formatMGA } from '@/utils/format';
 import {
-  carCategories,
   featuredCoffee,
-  featuredCars,
-  featuredProducts,
   homepageOffers,
   services,
-  trustSignals,
 } from '@/data/trimobe';
 
+const router = useRouter();
+const { t } = usePublicI18n();
 const selectedService = ref('phones');
+const searchTerm = ref('');
 const startDate = ref(new Date());
 const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
+const products = ref([]);
+const productCategories = ref([]);
+const cars = ref([]);
+const carCategories = ref([]);
+const productMeta = ref({ total: 0 });
+const carMeta = ref({ total: 0 });
+const loadingProducts = ref(false);
+const loadingCars = ref(false);
+const productError = ref('');
+const carError = ref('');
+
+const eventOffer = computed(() => homepageOffers.find((offer) => offer.id === 'events'));
+const coffeeOffer = computed(() => homepageOffers.find((offer) => offer.id === 'coffee'));
+
+const liveProducts = computed(() =>
+  products.value.map((product) => ({
+    ...product,
+    categoryLabel: productCategoryName(product.category_id),
+    visualKind: 'phone',
+    priceLabel: productPriceRange(product),
+    stockLabel: product.variant_count ? `${product.variant_count} ${t('variants')}` : t('Variant details available soon'),
+    image: product.primary_image_url,
+    to: { name: 'product-detail', params: { slug: product.slug } },
+  })),
+);
+
+const liveCars = computed(() =>
+  cars.value.map((car) => ({
+    ...car,
+    categoryLabel: carCategoryName(car.category_id),
+    availability: car.is_cargo_transport ? 'Cargo transport' : 'Driver included',
+    to: { name: 'car-detail', params: { slug: car.slug } },
+  })),
+);
+
+const liveCarCategories = computed(() =>
+  carCategories.value.slice(0, 4).map((category) => ({
+    id: category.id,
+    label: category.name,
+    icon: carCategoryIcon(category),
+    to: { name: 'cars', query: { category_id: category.id } },
+  })),
+);
+
+const trustSignals = computed(() => [
+  {
+    label: 'Products',
+    value: productMeta.value.total ? `${productMeta.value.total} live` : 'Live catalog',
+  },
+  {
+    label: 'Cars',
+    value: carMeta.value.total ? `${carMeta.value.total} ${t('available cars')}` : t('Driver included'),
+  },
+  {
+    label: 'Categories',
+    value: carCategories.value.length ? `${carCategories.value.length} fleet types` : 'Fleet',
+  },
+  { label: 'Payment', value: 'Assisted' },
+]);
+
+const carouselOffers = computed(() => {
+  const firstProduct = products.value[0];
+  const firstCar = cars.value[0];
+  const fallbackPhones = homepageOffers.find((offer) => offer.id === 'phones');
+  const fallbackCars = homepageOffers.find((offer) => offer.id === 'cars');
+
+  return [
+    firstProduct
+      ? {
+          id: `product-${firstProduct.id}`,
+          eyebrow: productCategoryName(firstProduct.category_id),
+          title: firstProduct.name,
+          description: firstProduct.description || t('Featured from the Trimobe catalog with clear variants, availability, and Ariary pricing.'),
+          actionLabel: 'View product',
+          actionTo: { name: 'product-detail', params: { slug: firstProduct.slug } },
+          secondaryLabel: 'All products',
+          secondaryTo: '/phones',
+          icon: 'pi pi-mobile',
+          visualKind: 'phone',
+          tone: 'emerald',
+          priceNote: productPriceRange(firstProduct),
+          image: firstProduct.primary_image_url,
+          imageAlt: firstProduct.name,
+        }
+      : fallbackPhones,
+    firstCar
+      ? {
+          id: `car-${firstCar.id}`,
+          eyebrow: carCategoryName(firstCar.category_id),
+          title: firstCar.name,
+          description: firstCar.description || t('Chauffeured vehicle with published daily rate and a simple reservation flow.'),
+          actionLabel: 'Reserve car',
+          actionTo: { name: 'car-detail', params: { slug: firstCar.slug } },
+          secondaryLabel: 'All cars',
+          secondaryTo: '/cars',
+          icon: 'pi pi-car',
+          visualKind: 'car',
+          tone: 'charcoal',
+          priceNote: `${formatMGA(Number(firstCar.daily_rate || 0))} / day`,
+          image: firstCar.primary_image_url,
+          imageAlt: firstCar.name,
+        }
+      : fallbackCars,
+    eventOffer.value,
+    coffeeOffer.value,
+  ].filter(Boolean);
+});
+
+function submitSearch() {
+  const q = searchTerm.value.trim();
+  router.push({ name: 'phones', query: q ? { q } : {} });
+}
+
+function productCategoryName(id) {
+  return productCategories.value.find((category) => category.id === id)?.name || 'Catalog';
+}
+
+function carCategoryName(id) {
+  return carCategories.value.find((category) => category.id === id)?.name || 'Car';
+}
+
+function productPriceRange(product) {
+  const min = product.price_min != null ? Number(product.price_min) : null;
+  const max = product.price_max != null ? Number(product.price_max) : null;
+  if (min == null) {
+    return t('Price on request');
+  }
+  if (max != null && max !== min) {
+    return `${formatMGA(min)} - ${formatMGA(max)}`;
+  }
+  return formatMGA(min);
+}
+
+function carCategoryIcon(category) {
+  const name = String(category.name || '').toLowerCase();
+  if (category.is_cargo_transport || /cargo|transport|truck|camion/.test(name)) {
+    return 'pi pi-box';
+  }
+  if (/bus|van|group|navette/.test(name)) {
+    return 'pi pi-users';
+  }
+  if (/lux|premium|executive/.test(name)) {
+    return 'pi pi-sparkles';
+  }
+  return 'pi pi-car';
+}
+
+async function loadFeaturedProducts() {
+  loadingProducts.value = true;
+  productError.value = '';
+  try {
+    const [categoryList, productList] = await Promise.all([
+      listCategories(),
+      listProducts({ limit: 3 }),
+    ]);
+    productCategories.value = categoryList;
+    products.value = productList.items || [];
+    productMeta.value = productList.meta || { total: products.value.length };
+  } catch (err) {
+    products.value = [];
+    productMeta.value = { total: 0 };
+    productError.value = err?.message || 'Unable to load featured products';
+  } finally {
+    loadingProducts.value = false;
+  }
+}
+
+async function loadFeaturedCars() {
+  loadingCars.value = true;
+  carError.value = '';
+  try {
+    const [categoryList, carList] = await Promise.all([
+      listCarCategories(),
+      listCars({ limit: 2 }),
+    ]);
+    carCategories.value = categoryList;
+    cars.value = carList.items || [];
+    carMeta.value = carList.meta || { total: cars.value.length };
+  } catch (err) {
+    carCategories.value = [];
+    cars.value = [];
+    carMeta.value = { total: 0 };
+    carError.value = err?.message || 'Unable to load featured cars';
+  } finally {
+    loadingCars.value = false;
+  }
+}
+
+onMounted(() => {
+  loadFeaturedProducts();
+  loadFeaturedCars();
+});
 </script>
 
 <template>
@@ -24,7 +219,7 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
     <div class="app-container">
       <Carousel
         class="offer-carousel"
-        :value="homepageOffers"
+        :value="carouselOffers"
         :numVisible="1"
         :numScroll="1"
         circular
@@ -34,15 +229,15 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
         <template #item="{ data }">
           <article class="offer-slide" :class="`offer-slide--${data.tone}`">
             <div class="offer-slide__copy">
-              <p class="eyebrow">{{ data.eyebrow }}</p>
-              <h1>{{ data.title }}</h1>
-              <p>{{ data.description }}</p>
+              <p class="eyebrow">{{ t(data.eyebrow) }}</p>
+              <h1>{{ t(data.title) }}</h1>
+              <p>{{ t(data.description) }}</p>
               <div class="offer-slide__actions">
-                <Button as="router-link" :to="data.actionTo" :label="data.actionLabel" :icon="data.icon" />
+                <Button as="router-link" :to="data.actionTo" :label="t(data.actionLabel)" :icon="data.icon" />
                 <Button
                   as="router-link"
                   :to="data.secondaryTo"
-                  :label="data.secondaryLabel"
+                  :label="t(data.secondaryLabel)"
                   icon="pi pi-arrow-up-right"
                   outlined
                 />
@@ -55,8 +250,8 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
               </figure>
               <VisualPlaceholder v-else :kind="data.visualKind" :tone="data.tone" />
               <div class="offer-slide__note">
-                <span>{{ data.priceNote }}</span>
-                <strong>Manual payment ready</strong>
+                <span>{{ t(data.priceNote) }}</span>
+                <strong>{{ t('Assisted payment available') }}</strong>
               </div>
             </div>
           </article>
@@ -66,21 +261,21 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
 
     <div class="app-container home-hero__grid">
       <div class="home-hero__content">
-        <p class="eyebrow">Premium service, local operations</p>
-        <h2>Shop, reserve, and discover Trimobe offers</h2>
+        <p class="eyebrow">{{ t('Premium service, local operations') }}</p>
+        <h2>{{ t('Shop, reserve, and discover Trimobe offers') }}</h2>
         <p class="home-hero__copy">
-          Phones, accessories, coffee, and chauffeured cars for customers across Madagascar.
+          {{ t('Phones, accessories, coffee, and chauffeured cars for customers across Madagascar.') }}
         </p>
 
-        <div class="home-search soft-panel">
+        <form class="home-search soft-panel" @submit.prevent="submitSearch">
           <IconField>
             <InputIcon class="pi pi-search" />
-            <InputText placeholder="Search phones, coffee, accessories, or cars" aria-label="Search Trimobe" />
+            <InputText v-model="searchTerm" :placeholder="t('Search phones, coffee, accessories, or cars')" :aria-label="t('Search')" />
           </IconField>
-          <Button label="Search" icon="pi pi-arrow-right" />
-        </div>
+          <Button type="submit" :label="t('Search')" icon="pi pi-arrow-right" />
+        </form>
 
-        <div class="service-switch" aria-label="Trimobe services">
+        <div class="service-switch" :aria-label="t('Trimobe services')">
           <RouterLink
             v-for="service in services"
             :key="service.key"
@@ -93,47 +288,50 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
           >
             <i :class="service.icon" />
             <span>
-              <strong>{{ service.label }}</strong>
-              <small>{{ service.detail }}</small>
+              <strong>{{ t(service.label) }}</strong>
+              <small>{{ t(service.detail) }}</small>
             </span>
           </RouterLink>
         </div>
 
         <div class="home-hero__actions">
-          <Button as="router-link" to="/phones" label="Browse phones" icon="pi pi-mobile" />
-          <Button as="router-link" to="/coffee" label="Shop coffee" icon="pi pi-shopping-bag" outlined />
-          <Button as="router-link" to="/cars" label="Reserve car" icon="pi pi-car" outlined />
+          <Button as="router-link" to="/phones" :label="t('Browse phones')" icon="pi pi-mobile" />
+          <Button as="router-link" to="/coffee" :label="t('Shop coffee')" icon="pi pi-shopping-bag" outlined />
+          <Button as="router-link" to="/cars" :label="t('Reserve car')" icon="pi pi-car" outlined />
         </div>
       </div>
 
-      <aside class="booking-panel soft-panel" aria-label="Quick car booking">
+      <aside class="booking-panel soft-panel" :aria-label="t('Quick car booking')">
         <div class="booking-panel__header">
           <span class="status-dot" />
           <div>
-            <p>Car hire</p>
-            <h2>Check dates</h2>
+            <p>{{ t('Car hire') }}</p>
+            <h2>{{ t('Check dates') }}</h2>
           </div>
         </div>
 
         <div class="booking-panel__fields">
           <label>
-            <span>Start</span>
+            <span>{{ t('Start') }}</span>
             <DatePicker v-model="startDate" showIcon fluid dateFormat="dd M yy" />
           </label>
           <label>
-            <span>End</span>
+            <span>{{ t('End') }}</span>
             <DatePicker v-model="endDate" showIcon fluid dateFormat="dd M yy" />
           </label>
         </div>
 
-        <div class="category-row">
-          <RouterLink v-for="category in carCategories" :key="category.label" to="/cars">
+        <div v-if="liveCarCategories.length" class="category-row">
+          <RouterLink v-for="category in liveCarCategories" :key="category.id" :to="category.to">
             <i :class="category.icon" />
             {{ category.label }}
           </RouterLink>
         </div>
+        <div v-else class="category-row category-row--empty">
+          <span>{{ loadingCars ? t('Loading fleet categories...') : t('Fleet categories are being prepared.') }}</span>
+        </div>
 
-        <Button as="router-link" to="/cars" label="View available cars" icon="pi pi-calendar" />
+        <Button as="router-link" to="/cars" :label="t('View available cars')" icon="pi pi-calendar" />
       </aside>
     </div>
   </section>
@@ -141,8 +339,8 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
   <section class="trust-band">
     <div class="app-container trust-band__grid">
       <div v-for="signal in trustSignals" :key="signal.label" class="trust-item">
-        <span>{{ signal.label }}</span>
-        <strong>{{ signal.value }}</strong>
+        <span>{{ t(signal.label) }}</span>
+        <strong>{{ t(signal.value) }}</strong>
       </div>
     </div>
   </section>
@@ -151,14 +349,26 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
     <div class="app-container">
       <div class="section-header">
         <div>
-          <p class="eyebrow">Shop</p>
-          <h2 class="section-title">Featured phones and accessories</h2>
+          <p class="eyebrow">{{ t('Shop') }}</p>
+          <h2 class="section-title">{{ t('Featured phones and accessories') }}</h2>
         </div>
-        <Button as="router-link" to="/phones" label="All products" icon="pi pi-arrow-up-right" outlined />
+        <Button as="router-link" to="/phones" :label="t('All products')" icon="pi pi-arrow-up-right" outlined />
       </div>
 
-      <div class="product-grid">
-        <ProductCard v-for="product in featuredProducts" :key="product.id" :product="product" />
+      <div v-if="loadingProducts" class="home-state">
+        <i class="pi pi-spin pi-spinner" />
+        <span>{{ t('Loading featured products...') }}</span>
+      </div>
+      <div v-else-if="productError" class="home-state home-state--error">
+        <i class="pi pi-exclamation-triangle" />
+        <span>{{ productError }}</span>
+      </div>
+      <div v-else-if="liveProducts.length" class="product-grid">
+        <ProductCard v-for="product in liveProducts" :key="product.id" :product="product" />
+      </div>
+      <div v-else class="home-state">
+        <i class="pi pi-inbox" />
+        <span>{{ t('Our latest product selection is being updated.') }}</span>
       </div>
     </div>
   </section>
@@ -167,13 +377,13 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
     <div class="app-container">
       <div class="section-header">
         <div>
-          <p class="eyebrow">Coffee</p>
-          <h2 class="section-title">Trimobe coffee selections</h2>
+          <p class="eyebrow">{{ t('Coffee') }}</p>
+          <h2 class="section-title">{{ t('Cofee Misiona selections') }}</h2>
           <p class="section-copy">
-            A new shopping category for everyday coffee, office supplies, and premium gift packs.
+            {{ t('Rich, gift-ready coffee selections for homes, offices, meetings, and everyday welcomes.') }}
           </p>
         </div>
-        <Button as="router-link" to="/coffee" label="Shop coffee" icon="pi pi-shopping-bag" outlined />
+        <Button as="router-link" to="/coffee" :label="t('View Cofee Misiona')" icon="pi pi-shopping-bag" outlined />
       </div>
 
       <div class="product-grid">
@@ -186,17 +396,29 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
     <div class="app-container car-section">
       <div class="section-header">
         <div>
-          <p class="eyebrow">Hire</p>
-          <h2 class="section-title">Cars with driver</h2>
+          <p class="eyebrow">{{ t('Hire') }}</p>
+          <h2 class="section-title">{{ t('Cars with driver') }}</h2>
           <p class="section-copy">
-            Daily rates are shown up front. Final bookings keep their price snapshot.
+            {{ t('Daily rates are shown up front. Final bookings keep their price snapshot.') }}
           </p>
         </div>
-        <Button as="router-link" to="/cars" label="Book car" icon="pi pi-car" />
+        <Button as="router-link" to="/cars" :label="t('Book car')" icon="pi pi-car" />
       </div>
 
-      <div class="car-grid">
-        <CarCard v-for="car in featuredCars" :key="car.id" :car="car" />
+      <div v-if="loadingCars" class="home-state">
+        <i class="pi pi-spin pi-spinner" />
+        <span>{{ t('Loading featured cars...') }}</span>
+      </div>
+      <div v-else-if="carError" class="home-state home-state--error">
+        <i class="pi pi-exclamation-triangle" />
+        <span>{{ carError }}</span>
+      </div>
+      <div v-else-if="liveCars.length" class="car-grid">
+        <CarCard v-for="car in liveCars" :key="car.id" :car="car" />
+      </div>
+      <div v-else class="home-state">
+        <i class="pi pi-car" />
+        <span>{{ t('Our featured fleet selection is being updated.') }}</span>
       </div>
     </div>
   </section>
@@ -407,7 +629,7 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
 .service-switch {
   display: grid;
   width: min(100%, 720px);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 18px;
 }
@@ -534,6 +756,15 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
   color: var(--tm-emerald);
 }
 
+.category-row--empty {
+  display: block;
+  padding: 12px;
+  border: 1px solid var(--tm-border);
+  border-radius: 8px;
+  color: var(--tm-muted);
+  font-weight: 800;
+}
+
 .trust-band {
   padding: 18px 0;
   border-block: 1px solid var(--tm-border);
@@ -597,6 +828,29 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.home-state {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  gap: 10px;
+  padding: 24px;
+  border: 1px solid var(--tm-border);
+  border-radius: 8px;
+  background: var(--tm-surface);
+  color: var(--tm-muted);
+  font-weight: 850;
+  text-align: center;
+}
+
+.home-state i {
+  color: var(--tm-gold);
+  font-size: 1.5rem;
+}
+
+.home-state--error i {
+  color: var(--tm-coral);
+}
+
 @media (max-width: 980px) {
   .offer-slide {
     grid-template-columns: 1fr;
@@ -621,11 +875,14 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
   }
 
   .home-search,
-  .service-switch,
   .trust-band__grid,
   .product-grid,
   .car-grid {
     grid-template-columns: 1fr;
+  }
+
+  .service-switch {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .offer-slide {
@@ -653,6 +910,7 @@ const endDate = ref(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
 }
 
 @media (max-width: 480px) {
+  .service-switch,
   .category-row {
     grid-template-columns: 1fr;
   }

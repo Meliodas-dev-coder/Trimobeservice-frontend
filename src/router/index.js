@@ -5,10 +5,26 @@ import AdminDashboardView from '@/views/admin/AdminDashboardView.vue';
 import AdminCarDetailView from '@/views/admin/AdminCarDetailView.vue';
 import AdminProductDetailView from '@/views/admin/AdminProductDetailView.vue';
 import AdminOrderCreateView from '@/views/admin/AdminOrderCreateView.vue';
+import AdminEventRequestCreateView from '@/views/admin/AdminEventRequestCreateView.vue';
 import AdminLoginView from '@/views/admin/AdminLoginView.vue';
 import AdminResourceView from '@/views/admin/AdminResourceView.vue';
+import AccountView from '@/views/public/AccountView.vue';
+import CartView from '@/views/public/CartView.vue';
+import CarDetailView from '@/views/public/CarDetailView.vue';
+import CarsView from '@/views/public/CarsView.vue';
+import BookingConfirmationView from '@/views/public/BookingConfirmationView.vue';
+import CoffeeMisionaView from '@/views/public/CoffeeMisionaView.vue';
+import EventPlanView from '@/views/public/EventPlanView.vue';
+import EventRequestConfirmationView from '@/views/public/EventRequestConfirmationView.vue';
+import EventsView from '@/views/public/EventsView.vue';
+import ArtistsView from '@/views/public/ArtistsView.vue';
+import ArtistDetailView from '@/views/public/ArtistDetailView.vue';
 import HomeView from '@/views/public/HomeView.vue';
-import PublicPlaceholderView from '@/views/public/PublicPlaceholderView.vue';
+import NotFoundView from '@/views/public/NotFoundView.vue';
+import OrderConfirmationView from '@/views/public/OrderConfirmationView.vue';
+import OrdersView from '@/views/public/OrdersView.vue';
+import ProductCatalogView from '@/views/public/ProductCatalogView.vue';
+import ProductDetailView from '@/views/public/ProductDetailView.vue';
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import PublicLayout from '@/layouts/PublicLayout.vue';
 
@@ -30,38 +46,45 @@ const router = createRouter({
         {
           path: 'phones',
           name: 'phones',
-          component: PublicPlaceholderView,
+          component: ProductCatalogView,
           meta: {
             title: 'Phones',
             eyebrow: 'Shop',
+            catalogMode: 'phones',
             description: 'Product catalog with variants, storage, colors, stock, and MGA prices.',
           },
         },
         {
           path: 'accessories',
           name: 'accessories',
-          component: PublicPlaceholderView,
+          component: ProductCatalogView,
           meta: {
             title: 'Accessories',
             eyebrow: 'Shop',
+            catalogMode: 'accessories',
             description: 'Accessories catalog for chargers, cases, audio, and everyday phone needs.',
           },
         },
         {
           path: 'coffee',
           name: 'coffee',
-          component: PublicPlaceholderView,
+          component: CoffeeMisionaView,
           meta: {
-            title: 'Coffee',
-            eyebrow: 'Shop',
-            description:
-              'Coffee catalog for roasted selections, ground packs, beans, and gift bundles in MGA.',
+            title: 'Cofee Misiona',
+            eyebrow: 'Coffee',
+            description: 'Cofee Misiona coffee packs and gift-ready selections.',
           },
+        },
+        {
+          path: 'products/:slug',
+          name: 'product-detail',
+          component: ProductDetailView,
+          meta: { title: 'Product' },
         },
         {
           path: 'cars',
           name: 'cars',
-          component: PublicPlaceholderView,
+          component: CarsView,
           meta: {
             title: 'Cars with driver',
             eyebrow: 'Hire',
@@ -69,9 +92,53 @@ const router = createRouter({
           },
         },
         {
+          path: 'cars/:slug',
+          name: 'car-detail',
+          component: CarDetailView,
+          meta: { title: 'Car detail' },
+        },
+        {
+          path: 'events',
+          name: 'events',
+          component: EventsView,
+          meta: {
+            title: 'Events',
+            eyebrow: 'Plan',
+            description: 'Sound, light, catering, and artists - one team plans your event.',
+          },
+        },
+        {
+          path: 'events/artists',
+          name: 'artists',
+          component: ArtistsView,
+          meta: {
+            title: 'Gospel artists',
+            eyebrow: 'Events',
+            description: 'Browse the Christian artists Trimobe works with and request them for your event.',
+          },
+        },
+        {
+          path: 'events/artists/:slug',
+          name: 'artist-detail',
+          component: ArtistDetailView,
+          meta: { title: 'Artist' },
+        },
+        {
+          path: 'events/plan',
+          name: 'event-plan',
+          component: EventPlanView,
+          meta: { title: 'Plan your event' },
+        },
+        {
+          path: 'event-requests/:id/confirmation',
+          name: 'event-request-confirmation',
+          component: EventRequestConfirmationView,
+          meta: { title: 'Request received' },
+        },
+        {
           path: 'cart',
           name: 'cart',
-          component: PublicPlaceholderView,
+          component: CartView,
           meta: {
             title: 'Cart',
             eyebrow: 'Checkout',
@@ -81,7 +148,7 @@ const router = createRouter({
         {
           path: 'orders',
           name: 'orders',
-          component: PublicPlaceholderView,
+          component: OrdersView,
           meta: {
             title: 'Orders',
             eyebrow: 'Account',
@@ -89,14 +156,32 @@ const router = createRouter({
           },
         },
         {
+          path: 'orders/:id/confirmation',
+          name: 'order-confirmation',
+          component: OrderConfirmationView,
+          meta: { title: 'Order confirmed' },
+        },
+        {
+          path: 'bookings/:id/confirmation',
+          name: 'booking-confirmation',
+          component: BookingConfirmationView,
+          meta: { title: 'Booking confirmed' },
+        },
+        {
           path: 'account',
           name: 'account',
-          component: PublicPlaceholderView,
+          component: AccountView,
           meta: {
             title: 'Account',
             eyebrow: 'Profile',
             description: 'Customer profile, addresses, orders, bookings, and saved contact details.',
           },
+        },
+        {
+          path: ':pathMatch(.*)*',
+          name: 'not-found',
+          component: NotFoundView,
+          meta: { title: 'Page not found' },
         },
       ],
     },
@@ -187,6 +272,36 @@ const router = createRouter({
           meta: { title: 'Bookings', resource: 'bookings', description: 'Manage bookings, assign drivers, advance status.' },
         },
         {
+          path: 'event-service-categories',
+          name: 'admin-event-service-categories',
+          component: AdminResourceView,
+          meta: { title: 'Service categories', resource: 'event-service-categories', description: 'Event service categories.' },
+        },
+        {
+          path: 'event-services',
+          name: 'admin-event-services',
+          component: AdminResourceView,
+          meta: { title: 'Event services', resource: 'event-services', description: 'Manage the event services catalog.' },
+        },
+        {
+          path: 'artists',
+          name: 'admin-artists',
+          component: AdminResourceView,
+          meta: { title: 'Gospel artists', resource: 'artists', description: 'Manage the artist roster clients can browse and request.' },
+        },
+        {
+          path: 'event-requests',
+          name: 'admin-event-requests',
+          component: AdminResourceView,
+          meta: { title: 'Event requests', resource: 'event-requests', description: 'Review requests, set quotes, advance status.' },
+        },
+        {
+          path: 'event-requests/new',
+          name: 'admin-event-request-new',
+          component: AdminEventRequestCreateView,
+          meta: { title: 'New event request', description: 'Log a phone/walk-in event request.' },
+        },
+        {
           path: 'payments',
           name: 'admin-payments',
           component: AdminResourceView,
@@ -221,6 +336,12 @@ router.beforeEach(async (to) => {
   }
 
   return true;
+});
+
+// Per-page browser tab titles. Detail views overwrite this once they know the
+// product/car name (see setPageTitle in utils/format.js).
+router.afterEach((to) => {
+  document.title = to.meta?.title ? `${to.meta.title} — Trimobe` : 'Trimobe';
 });
 
 export default router;

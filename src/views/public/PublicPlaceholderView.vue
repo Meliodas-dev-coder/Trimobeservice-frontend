@@ -1,30 +1,32 @@
 <script setup>
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
+import { usePublicI18n } from '@/i18n/public';
 
 const route = useRoute();
+const { t } = usePublicI18n();
 const title = computed(() => route.meta.title || 'Trimobe');
 const eyebrow = computed(() => route.meta.eyebrow || 'Trimobe');
-const description = computed(() => route.meta.description || 'This workspace is ready for the next screen.');
+const description = computed(() => route.meta.description || 'Explore Trimobe services from the main navigation.');
 </script>
 
 <template>
   <section class="placeholder-page">
     <div class="app-container placeholder-page__grid">
       <div>
-        <p class="eyebrow">{{ eyebrow }}</p>
-        <h1>{{ title }}</h1>
-        <p>{{ description }}</p>
+        <p class="eyebrow">{{ t(eyebrow) }}</p>
+        <h1>{{ t(title) }}</h1>
+        <p>{{ t(description) }}</p>
         <div class="placeholder-page__actions">
-          <Button as="router-link" to="/" label="Home" icon="pi pi-home" />
-          <Button as="router-link" to="/admin/login" label="Admin login" icon="pi pi-lock" outlined />
+          <Button as="router-link" to="/" :label="t('Home')" icon="pi pi-home" />
+          <Button as="router-link" to="/admin/login" :label="t('Admin login')" icon="pi pi-lock" outlined />
         </div>
       </div>
 
       <div class="placeholder-panel soft-panel">
         <span class="status-dot" />
-        <strong>Next build step</strong>
-        <p>Route, shell, and visual identity are in place for this section.</p>
+        <strong>{{ t('Service information') }}</strong>
+        <p>{{ t('Trimobe brings shopping, mobility, coffee, and event services into one coordinated customer experience.') }}</p>
       </div>
     </div>
   </section>

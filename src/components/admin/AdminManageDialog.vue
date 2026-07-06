@@ -45,6 +45,15 @@ const isOpen = computed({
 
 const spec = computed(() => props.resource.manage || {});
 
+function valueAt(source, path) {
+  if (!path) {
+    return source;
+  }
+  return String(path)
+    .split('.')
+    .reduce((value, key) => (value == null ? undefined : value[key]), source);
+}
+
 async function fetchDetail() {
   if (!props.itemId) {
     return;
@@ -268,8 +277,12 @@ function confirmNestedRemove(nested, row) {
 
 // --- display helpers ---
 
-function fieldDisplay(field) {
-  const value = detail.value ? detail.value[field.key] : undefined;
+function visibleFields(fields, source) {
+  return fields.filter((field) => !field.showWhen || field.showWhen(source || {}, detail.value || {}));
+}
+
+function fieldDisplay(field, source = detail.value) {
+  const value = valueAt(source, field.key);
   if (field.type === 'money') {
     return formatMGA(Number(value || 0));
   }
@@ -290,8 +303,20 @@ function fieldDisplay(field) {
   return value;
 }
 
+function targetData(target) {
+  return target ? valueAt(detail.value, target.key || 'target') : null;
+}
+
+function targetRows(target) {
+  const source = targetData(target);
+  if (!source || !target?.itemsTable) {
+    return [];
+  }
+  return valueAt(source, target.itemsTable.key) || [];
+}
+
 function cellDisplay(row, column) {
-  const value = row[column.field];
+  const value = valueAt(row, column.field);
   if (column.type === 'image') {
     return value || '';
   }
@@ -322,9 +347,9 @@ function cellDisplay(row, column) {
 
     <div v-else-if="detail" class="manage-body">
       <div class="manage-fields">
-        <div v-for="field in spec.fields || []" :key="field.key" class="manage-field">
+        <div v-for="field in visibleFields(spec.fields || [], detail)" :key="field.key" class="manage-field">
           <span>{{ field.label }}</span>
-          <strong>{{ fieldDisplay(field) }}</strong>
+          <strong>{{ fieldDisplay(field, detail) }}</strong>
         </div>
       </div>
 
@@ -374,10 +399,45 @@ function cellDisplay(row, column) {
         </div>
       </div>
 
+      <section v-if="spec.target && targetData(spec.target)" class="manage-section manage-section--target">
+        <h4>{{ spec.target.title }}</h4>
+        <div class="manage-fields">
+          <div v-for="field in visibleFields(spec.target.fields || [], targetData(spec.target))" :key="field.key" class="manage-field">
+            <span>{{ field.label }}</span>
+            <strong>{{ fieldDisplay(field, targetData(spec.target)) }}</strong>
+          </div>
+        </div>
+
+        <DataTable
+          v-if="spec.target.itemsTable && targetRows(spec.target).length"
+          :value="targetRows(spec.target)"
+          responsiveLayout="scroll"
+          class="manage-table manage-table--target"
+        >
+          <Column v-for="col in spec.target.itemsTable.columns" :key="col.field" :field="col.field" :header="col.header">
+            <template #body="{ data }">
+              <span :class="{ 'cell-money': col.type === 'money' }">{{ cellDisplay(data, col) }}</span>
+            </template>
+          </Column>
+        </DataTable>
+      </section>
+
       <section v-if="spec.itemsTable" class="manage-section">
         <h4>{{ spec.itemsTable.title }}</h4>
         <DataTable :value="detail[spec.itemsTable.key] || []" responsiveLayout="scroll" class="manage-table">
           <Column v-for="col in spec.itemsTable.columns" :key="col.field" :field="col.field" :header="col.header">
+            <template #body="{ data }">
+              <span :class="{ 'cell-money': col.type === 'money' }">{{ cellDisplay(data, col) }}</span>
+            </template>
+          </Column>
+          <template #empty><span class="manage-empty">{{ t('No items.') }}</span></template>
+        </DataTable>
+      </section>
+
+      <section v-for="table in spec.itemsTables || []" :key="table.key" class="manage-section">
+        <h4>{{ table.title }}</h4>
+        <DataTable :value="detail[table.key] || []" responsiveLayout="scroll" class="manage-table">
+          <Column v-for="col in table.columns" :key="col.field" :field="col.field" :header="col.header">
             <template #body="{ data }">
               <span :class="{ 'cell-money': col.type === 'money' }">{{ cellDisplay(data, col) }}</span>
             </template>

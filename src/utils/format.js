@@ -1,3 +1,9 @@
+// setPageTitle overrides the router's meta-based tab title once a view knows
+// its real subject (product name, car name, ...).
+export function setPageTitle(name) {
+  document.title = name ? `${name} — Trimobe` : 'Trimobe';
+}
+
 export function formatMGA(value) {
   return `${new Intl.NumberFormat('fr-MG', {
     maximumFractionDigits: 0,

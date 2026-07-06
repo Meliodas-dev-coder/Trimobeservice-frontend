@@ -92,6 +92,12 @@ function isSameDay(a, b) {
       </div>
     </div>
 
+    <div class="usage-calendar__legend">
+      <span><i class="legend-dot legend-dot--occupying" /> {{ t('Holds the car') }}</span>
+      <span><i class="legend-dot legend-dot--requested" /> {{ t('Requested') }}</span>
+      <span><i class="legend-dot legend-dot--released" /> {{ t('Completed (car released)') }}</span>
+    </div>
+
     <div class="calendar-grid calendar-grid--head">
       <span v-for="day in weekdays" :key="day">{{ day }}</span>
     </div>
@@ -240,15 +246,58 @@ function isSameDay(a, b) {
   background: var(--tm-gold);
 }
 
+/* Only these statuses actually hold the car (same set as the DB triggers). */
 .booking-pill--active,
 .booking-pill--confirmed,
-.booking-pill--driver_assigned,
-.booking-pill--completed {
+.booking-pill--driver_assigned {
   background: var(--tm-emerald);
+}
+
+/* Completed = rental finished, car released: show it, but visibly inert. */
+.booking-pill--completed {
+  background: var(--tm-muted);
+  opacity: 0.65;
+  text-decoration: line-through;
 }
 
 .booking-pill--cancelled {
   background: var(--tm-coral);
+}
+
+.usage-calendar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--tm-border);
+  color: var(--tm-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.usage-calendar__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.legend-dot--occupying {
+  background: var(--tm-emerald);
+}
+
+.legend-dot--requested {
+  background: var(--tm-gold);
+}
+
+.legend-dot--released {
+  background: var(--tm-muted);
+  opacity: 0.65;
 }
 
 @media (max-width: 680px) {
