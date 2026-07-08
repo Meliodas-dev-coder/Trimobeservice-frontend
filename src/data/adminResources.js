@@ -31,6 +31,13 @@ const IS_ACTIVE_OPTIONS = [
   { label: 'Inactive', value: false },
 ];
 
+// Departments split the product catalog for separate management (see the Go
+// template registry). Keep in sync with catalog.Departments() on the backend.
+const DEPARTMENT_OPTIONS = [
+  { label: 'Tech', value: 'tech' },
+  { label: 'Fashion', value: 'fashion' },
+];
+
 // Commerce catalog (categories, brands, products, variants) presents its is_active
 // flag as availability wording. Mobility keeps IS_ACTIVE_OPTIONS.
 const AVAILABILITY_OPTIONS = [
@@ -145,6 +152,7 @@ export const adminResources = {
         optionLabel: 'label',
         optionValue: 'key',
         defaultValue: 'generic',
+        scopeByDepartment: true, // in a Tech/Fashion section, only that department's types
         help: 'Drives which spec fields products in this category get.',
       },
       {
@@ -157,6 +165,7 @@ export const adminResources = {
         optionLabel: 'name',
         optionValue: 'id',
         placeholder: 'None',
+        scopeByDepartment: true,
       },
       { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Optional summary' },
       { key: 'image_url', label: 'Image', type: 'image' },
@@ -180,14 +189,16 @@ export const adminResources = {
       itemKey: 'brand',
     },
     capabilities: { create: true, edit: true, remove: true },
-    defaultRow: { is_active: true },
+    defaultRow: { is_active: true, department: 'tech' },
     columns: [
       { field: 'name', header: 'Brand' },
       { field: 'slug', header: 'Slug' },
+      { field: 'department', header: 'Department', format: (row) => titleize(row.department) },
       { ...AVAILABILITY_COLUMN },
     ],
     formFields: [
       { key: 'name', label: 'Name', type: 'text', placeholder: 'Astra', required: true },
+      { key: 'department', label: 'Department', type: 'select', options: DEPARTMENT_OPTIONS },
       { key: 'logo_url', label: 'Logo', type: 'image' },
       { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
     ],
@@ -262,6 +273,7 @@ export const adminResources = {
         optionLabel: 'name',
         optionValue: 'id',
         required: true,
+        scopeByDepartment: true,
       },
       {
         key: 'brand_id',
@@ -273,6 +285,7 @@ export const adminResources = {
         optionLabel: 'name',
         optionValue: 'id',
         placeholder: 'None',
+        scopeByDepartment: true,
       },
       { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Catalog summary' },
       { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },

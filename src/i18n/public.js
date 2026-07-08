@@ -43,7 +43,55 @@ const fr = {
   'Pending quote': 'Devis en attente',
   'Assisted payment available': 'Paiement assisté disponible',
 
-  // Home
+  // Home — editorial redesign
+  'Trimobe — Madagascar': 'Trimobe — Madagascar',
+  'One platform for phones, cars, events, and coffee.': 'Une plateforme pour téléphones, voitures, événements et café.',
+  'Browse premium devices, reserve chauffeured cars, plan a full event with gospel artists, and shop Kafe Misiona — with a team that handles payment personally.':
+    'Parcourez des appareils premium, réservez des voitures avec chauffeur, organisez un événement complet avec des artistes gospel et achetez Kafe Misiona — avec une équipe qui gère le paiement en personne.',
+  'Assisted payment': 'Paiement assisté',
+  'Cash · transfer · mobile money': 'Espèces · virement · mobile money',
+  'Premium devices': 'Appareils premium',
+  'Chauffeured fleet': 'Flotte avec chauffeur',
+  'Sound, light, catering & artists': 'Son, lumière, traiteur et artistes',
+  'Coffee for service & gifts': 'Café pour le service et les cadeaux',
+  'The services': 'Les services',
+  'Four ways Trimobe works for you.': 'Quatre façons dont Trimobe travaille pour vous.',
+  'Phones & accessories': 'Téléphones et accessoires',
+  'Devices, audio, and chargers with clear stock and Ariary pricing.':
+    'Appareils, audio et chargeurs avec stock clair et prix en Ariary.',
+  'Chauffeured vehicles by the day, booked around your dates.':
+    'Véhicules avec chauffeur à la journée, réservés selon vos dates.',
+  'Sound, light, catering, and gospel artists in one request.':
+    'Son, lumière, traiteur et artistes gospel en une seule demande.',
+  'Trimobe’s coffee brand for daily service and premium gifts.':
+    'La marque de café de Trimobe pour le quotidien et les cadeaux premium.',
+  '01 — Store': '01 — Boutique',
+  '02 — Mobility': '02 — Mobilité',
+  '03 — Events': '03 — Événements',
+  '04 — Kafe Misiona': '04 — Kafe Misiona',
+  'Daily rates shown up front. Bookings keep their price snapshot.':
+    'Tarifs journaliers affichés d’avance. Les réservations conservent leur prix.',
+  'Reserve a car': 'Réserver une voiture',
+  'One team plans your event — artists included.': 'Une équipe organise votre événement — artistes inclus.',
+  'Sound, lighting, catering, decor, and the gospel artists we partner with, brought together for weddings, crusades, concerts, and conferences.':
+    'Son, lumière, traiteur, décoration et les artistes gospel partenaires, réunis pour mariages, croisades, concerts et conférences.',
+  'Trimobe’s coffee, for daily service and gifting.': 'Le café de Trimobe, pour le quotidien et les cadeaux.',
+  'Rich, gift-ready coffee for homes, offices, meetings, and thoughtful customer welcomes across Madagascar.':
+    'Un café riche, prêt à offrir, pour maisons, bureaux, réunions et accueils clients à travers Madagascar.',
+  'Browse, request, and settle in person.': 'Parcourez, demandez et réglez en personne.',
+  'Browse freely': 'Parcourez librement',
+  'Explore phones, cars, event services, and artists — no account needed to look.':
+    'Explorez téléphones, voitures, services événementiels et artistes — sans compte pour regarder.',
+  'Request or reserve': 'Demandez ou réservez',
+  'Add to cart, book a car by date, or send an event request. Sign in at checkout.':
+    'Ajoutez au panier, réservez une voiture par date ou envoyez une demande d’événement. Connectez-vous au paiement.',
+  'Pay with the team': 'Payez avec l’équipe',
+  'Settle by cash, transfer, or mobile money; we confirm it against your order.':
+    'Réglez en espèces, virement ou mobile money ; nous le confirmons sur votre commande.',
+  Pricing: 'Tarifs',
+  'Ariary (MGA)': 'Ariary (MGA)',
+  Coverage: 'Couverture',
+  'Across Madagascar': 'À travers Madagascar',
   'Premium service, local operations': 'Service premium, opérations locales',
   'Shop, reserve, and discover Trimobe offers': 'Achetez, réservez et découvrez les offres Trimobe',
   'Phones, accessories, coffee, and chauffeured cars for customers across Madagascar.':
@@ -76,10 +124,10 @@ const fr = {
   'All products': 'Tous les produits',
   'Loading featured products...': 'Chargement des produits en vedette...',
   'Our latest product selection is being updated.': 'Notre sélection de produits est en cours de mise à jour.',
-  'Cofee Misiona selections': 'Sélections Cofee Misiona',
+  'Kafe Misiona selections': 'Sélections Kafe Misiona',
   'Rich, gift-ready coffee selections for homes, offices, meetings, and everyday welcomes.':
     'Des sélections de café prêtes à offrir pour la maison, le bureau, les réunions et l’accueil quotidien.',
-  'View Cofee Misiona': 'Voir Cofee Misiona',
+  'View Kafe Misiona': 'Voir Kafe Misiona',
   Hire: 'Location',
   'Daily rates are shown up front. Final bookings keep their price snapshot.':
     'Les tarifs journaliers sont affichés dès le départ. Les réservations conservent le prix validé.',
@@ -106,6 +154,38 @@ const fr = {
   'No product orders found for this account.': 'Aucune commande produit pour ce compte.',
   'No car bookings found for this account.': 'Aucune réservation de voiture pour ce compte.',
   'No event requests found for this account.': 'Aucune demande événementielle pour ce compte.',
+  // Detail dialog + cancel confirmation
+  'View details': 'Voir les détails',
+  Details: 'Détails',
+  'Could not load details': 'Impossible de charger les détails',
+  'Confirm cancellation': 'Confirmer l’annulation',
+  'Cancel {name}? This cannot be undone.': 'Annuler {name} ? Cette action est irréversible.',
+  'Yes, cancel': 'Oui, annuler',
+  'Keep it': 'Conserver',
+  Cancelled: 'Annulé',
+  Fulfillment: 'Livraison',
+  Placed: 'Passée',
+  Recipient: 'Destinataire',
+  Address: 'Adresse',
+  Car: 'Voiture',
+  Category: 'Catégorie',
+  Days: 'Jours',
+  'Daily rate': 'Tarif journalier',
+  Pickup: 'Prise en charge',
+  Dropoff: 'Dépôt',
+  Contact: 'Contact',
+  Driver: 'Chauffeur',
+  Distance: 'Distance',
+  'Event type': 'Type d’événement',
+  Location: 'Lieu',
+  Guests: 'Invités',
+  Budget: 'Budget',
+  Items: 'Articles',
+  Subtotal: 'Sous-total',
+  Shipping: 'Livraison',
+  Total: 'Total',
+  Quote: 'Devis',
+  'Cancel this request': 'Annuler cette demande',
 
   // Data-backed homepage/service copy
   'Shop phones': 'Acheter des téléphones',
@@ -114,7 +194,7 @@ const fr = {
   'Daily rate with driver included': 'Tarif journalier avec chauffeur inclus',
   'Plan events': 'Planifier un événement',
   'Sound, light, catering, artists': 'Son, lumière, traiteur, artistes',
-  'Cofee Misiona': 'Cofee Misiona',
+  'Kafe Misiona': 'Kafe Misiona',
   'Coffee packs and gifts': 'Packs café et cadeaux',
   'Phones and accessories': 'Téléphones et accessoires',
   'Premium devices with clear stock and Ariary pricing': 'Appareils premium avec stock clair et prix en ariary',
@@ -134,7 +214,7 @@ const fr = {
   'Plan your event': 'Planifier votre événement',
   'View services': 'Voir les services',
   'Quote by request': 'Devis sur demande',
-  'Cofee Misiona for daily service and premium gifts': 'Cofee Misiona pour le quotidien et les cadeaux premium',
+  'Kafe Misiona for daily service and premium gifts': 'Kafe Misiona pour le quotidien et les cadeaux premium',
   'Discover Trimobe’s coffee brand for home, office, travel, and thoughtful customer gifts across Madagascar.':
     'Découvrez le café Trimobe pour la maison, le bureau, les voyages et les cadeaux clients à Madagascar.',
   'View product': 'Voir le produit',
@@ -420,6 +500,24 @@ const fr = {
   'Create account': 'Créer un compte',
   Password: 'Mot de passe',
   Home: 'Accueil',
+  // Account — editorial redesign
+  'Welcome back': 'Bon retour',
+  there: 'vous',
+  'Your profile, delivery details, orders, bookings, and event requests — all in one place.':
+    'Votre profil, vos adresses, commandes, réservations et demandes d’événements — au même endroit.',
+  'Review items and check out.': 'Vérifiez vos articles et payez.',
+  'Track orders, car bookings, and event requests.': 'Suivez commandes, réservations et demandes d’événements.',
+  'Send a request with services and artists.': 'Envoyez une demande avec services et artistes.',
+  'Manage the storefront and operations.': 'Gérez la boutique et les opérations.',
+  'Trimobe account': 'Compte Trimobe',
+  'Sign in to shop, book, and plan.': 'Connectez-vous pour acheter, réserver et organiser.',
+  'One account for phones, cars, event requests, and Kafe Misiona — with payment handled personally.':
+    'Un seul compte pour téléphones, voitures, demandes d’événements et Kafe Misiona — avec un paiement géré en personne.',
+  'Track orders and car bookings in one place.': 'Suivez commandes et réservations au même endroit.',
+  'Send event requests and hand-pick gospel artists.': 'Envoyez des demandes d’événements et choisissez vos artistes gospel.',
+  'Save your delivery address for faster checkout.': 'Enregistrez votre adresse pour un paiement plus rapide.',
+  'Settle by cash, transfer, or mobile money with the team.':
+    'Réglez en espèces, virement ou mobile money avec l’équipe.',
 
   // Confirmation and support pages
   'Loading booking...': 'Chargement de la réservation...',
@@ -490,23 +588,23 @@ const fr = {
   'Client gifts': 'Cadeaux clients',
   'Travel packs': 'Packs voyage',
   'Home routine': 'Routine maison',
-  'Cofee Misiona, ready for daily service.': 'Cofee Misiona, prêt pour le quotidien.',
-  'Bring a rich coffee moment to mornings, meetings, receptions, and gifts with Cofee Misiona packs made to look good and taste memorable.':
-    'Apportez un vrai moment café aux matins, réunions, accueils et cadeaux avec des packs Cofee Misiona élégants et mémorables.',
+  'Kafe Misiona, ready for daily service.': 'Kafe Misiona, prêt pour le quotidien.',
+  'Bring a rich coffee moment to mornings, meetings, receptions, and gifts with Kafe Misiona packs made to look good and taste memorable.':
+    'Apportez un vrai moment café aux matins, réunions, accueils et cadeaux avec des packs Kafe Misiona élégants et mémorables.',
   'View selection': 'Voir la sélection',
   'Request coffee': 'Demander du café',
   Selection: 'Sélection',
-  'Cofee Misiona packs': 'Packs Cofee Misiona',
+  'Kafe Misiona packs': 'Packs Kafe Misiona',
   'Choose a smooth everyday pack, a bold premium roast, or an assorted gift-ready range for guests, teams, and coffee lovers.':
     'Choisissez un pack doux du quotidien, une torréfaction premium ou une gamme cadeau pour invités, équipes et amateurs de café.',
   'Back home': 'Retour accueil',
   'For every setting': 'Pour chaque contexte',
   'Coffee that sits naturally beside Trimobe service.': 'Un café qui accompagne naturellement le service Trimobe.',
-  'From the first cup at home to a welcome tray at the office, Cofee Misiona brings a warm aroma, elegant packaging, and a simple way to share something thoughtful.':
-    'De la première tasse à la maison au plateau d’accueil au bureau, Cofee Misiona apporte arôme chaleureux, packaging élégant et attention simple à partager.',
-  'Cofee Misiona use cases': 'Usages Cofee Misiona',
+  'From the first cup at home to a welcome tray at the office, Kafe Misiona brings a warm aroma, elegant packaging, and a simple way to share something thoughtful.':
+    'De la première tasse à la maison au plateau d’accueil au bureau, Kafe Misiona apporte arôme chaleureux, packaging élégant et attention simple à partager.',
+  'Kafe Misiona use cases': 'Usages Kafe Misiona',
   'Coffee request': 'Demande café',
-  'Interested in Cofee Misiona?': 'Intéressé par Cofee Misiona ?',
+  'Interested in Kafe Misiona?': 'Intéressé par Kafe Misiona ?',
   'Sign in to request': 'Connectez-vous pour demander',
 
   'Page not found': 'Page introuvable',

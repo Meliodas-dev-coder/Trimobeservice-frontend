@@ -30,9 +30,27 @@ const limit = 12;
 const phoneTemplateKey = 'phone';
 
 const mode = computed(() => route.meta.catalogMode || 'products');
+const department = computed(() => route.meta.department || '');
 
 const pageConfig = computed(() => {
+  if (mode.value === 'department') {
+    const isFashion = department.value === 'fashion';
+    return {
+      eyebrow: 'Shop',
+      title: isFashion ? 'Fashion' : 'Tech',
+      description: isFashion
+        ? 'Clothing and footwear — pick your size and color, with live stock.'
+        : 'Phones, laptops, audio, and accessories with live prices and stock.',
+      visualKind: isFashion ? 'event' : 'phone',
+    };
+  }
   const configs = {
+    shop: {
+      eyebrow: 'Shop',
+      title: 'All products',
+      description: 'Browse the full Trimobe catalog — phones, accessories, and more.',
+      visualKind: 'phone',
+    },
     phones: {
       eyebrow: 'Shop',
       title: 'Smartphones',
@@ -148,7 +166,10 @@ function applyModeDefaultCategory() {
 async function loadTaxonomy() {
   taxonomyLoading.value = true;
   try {
-    const [categoryList, brandList] = await Promise.all([listCategories(), listBrands()]);
+    const [categoryList, brandList] = await Promise.all([
+      listCategories({ department: department.value }),
+      listBrands({ department: department.value }),
+    ]);
     categories.value = categoryList;
     brands.value = brandList;
     applyModeDefaultCategory();
@@ -167,6 +188,7 @@ async function fetchProducts() {
       q: q.value.trim(),
       category_id: categoryId.value || '',
       brand_id: brandId.value || '',
+      department: department.value,
       ...productTemplateFilters.value,
     });
     products.value = res.items;
@@ -256,6 +278,12 @@ watch(
     fetchProducts();
   },
 );
+
+// Switching Tech <-> Fashion reuses this component; refetch the department-scoped
+// categories/brands so the filter dropdowns match the section.
+watch(department, () => {
+  loadTaxonomy();
+});
 
 onMounted(async () => {
   readRouteState();

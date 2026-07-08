@@ -38,10 +38,10 @@ const coffeeMoments = [
     <div class="coffee-hero-band">
       <div class="app-container coffee-hero">
         <div class="coffee-hero__copy">
-          <p class="eyebrow">{{ t('Cofee Misiona') }}</p>
-          <h1>{{ t('Cofee Misiona, ready for daily service.') }}</h1>
+          <p class="eyebrow">{{ t('Kafe Misiona') }}</p>
+          <h1>{{ t('Kafe Misiona, ready for daily service.') }}</h1>
           <p>
-            {{ t('Bring a rich coffee moment to mornings, meetings, receptions, and gifts with Cofee Misiona packs made to look good and taste memorable.') }}
+            {{ t('Bring a rich coffee moment to mornings, meetings, receptions, and gifts with Kafe Misiona packs made to look good and taste memorable.') }}
           </p>
           <div class="coffee-hero__actions">
             <Button as="a" href="#selection" :label="t('View selection')" icon="pi pi-shopping-bag" />
@@ -50,7 +50,7 @@ const coffeeMoments = [
         </div>
 
         <figure class="coffee-hero__image">
-          <img :src="kafeMisionaRange" alt="Cofee Misiona coffee range" />
+          <img :src="kafeMisionaRange" alt="Kafe Misiona coffee range" />
         </figure>
       </div>
     </div>
@@ -72,7 +72,7 @@ const coffeeMoments = [
         <div class="section-header">
           <div>
             <p class="eyebrow">{{ t('Selection') }}</p>
-            <h2 class="section-title">{{ t('Cofee Misiona packs') }}</h2>
+            <h2 class="section-title">{{ t('Kafe Misiona packs') }}</h2>
             <p class="section-copy">
               {{ t('Choose a smooth everyday pack, a bold premium roast, or an assorted gift-ready range for guests, teams, and coffee lovers.') }}
             </p>
@@ -89,16 +89,16 @@ const coffeeMoments = [
     <section class="coffee-section coffee-section--story">
       <div class="app-container coffee-story">
         <figure class="coffee-story__image">
-          <img :src="kafeMisionaPremiumRed" alt="Cofee Misiona premium red coffee pack" />
+          <img :src="kafeMisionaPremiumRed" alt="Kafe Misiona premium red coffee pack" />
         </figure>
 
         <div class="coffee-story__copy">
           <p class="eyebrow">{{ t('For every setting') }}</p>
           <h2>{{ t('Coffee that sits naturally beside Trimobe service.') }}</h2>
           <p>
-            {{ t('From the first cup at home to a welcome tray at the office, Cofee Misiona brings a warm aroma, elegant packaging, and a simple way to share something thoughtful.') }}
+            {{ t('From the first cup at home to a welcome tray at the office, Kafe Misiona brings a warm aroma, elegant packaging, and a simple way to share something thoughtful.') }}
           </p>
-          <div class="coffee-moments" :aria-label="t('Cofee Misiona use cases')">
+          <div class="coffee-moments" :aria-label="t('Kafe Misiona use cases')">
             <span v-for="moment in coffeeMoments" :key="moment">{{ t(moment) }}</span>
           </div>
         </div>
@@ -109,7 +109,7 @@ const coffeeMoments = [
       <div class="app-container coffee-cta__inner">
         <div>
           <p class="eyebrow">{{ t('Coffee request') }}</p>
-          <h2>{{ t('Interested in Cofee Misiona?') }}</h2>
+          <h2>{{ t('Interested in Kafe Misiona?') }}</h2>
         </div>
         <div class="coffee-cta__actions">
           <Button as="router-link" to="/account" :label="t('Sign in to request')" icon="pi pi-user" />

@@ -47,6 +47,31 @@ const accountDetails = computed(() => [
   { label: t('Phone'), value: auth.user?.phone || '-' },
 ]);
 
+const firstName = computed(() => {
+  const source = auth.user?.full_name || auth.user?.email || '';
+  return source.split(/[\s@]/)[0] || t('there');
+});
+const initial = computed(() => (auth.user?.full_name || auth.user?.email || 'T').trim().charAt(0).toUpperCase());
+
+const quickLinks = computed(() => {
+  const links = [
+    { title: 'Cart', detail: 'Review items and check out.', to: '/cart', icon: 'pi pi-shopping-bag' },
+    { title: 'Orders and bookings', detail: 'Track orders, car bookings, and event requests.', to: '/orders', icon: 'pi pi-receipt' },
+    { title: 'Plan an event', detail: 'Send a request with services and artists.', to: '/events/plan', icon: 'pi pi-calendar-plus' },
+  ];
+  if (auth.isAdmin) {
+    links.push({ title: 'Admin console', detail: 'Manage the storefront and operations.', to: '/admin', icon: 'pi pi-lock' });
+  }
+  return links;
+});
+
+const benefits = [
+  { icon: 'pi pi-receipt', text: 'Track orders and car bookings in one place.' },
+  { icon: 'pi pi-calendar-plus', text: 'Send event requests and hand-pick gospel artists.' },
+  { icon: 'pi pi-map-marker', text: 'Save your delivery address for faster checkout.' },
+  { icon: 'pi pi-wallet', text: 'Settle by cash, transfer, or mobile money with the team.' },
+];
+
 const address = reactive(defaultAddressForm());
 
 function defaultAddressForm() {
@@ -220,25 +245,39 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="account-page">
-    <div class="app-container account-grid">
-      <div class="account-copy">
-        <p class="eyebrow">{{ t('Account') }}</p>
-        <h1>{{ auth.isAuthenticated ? t('Your Trimobe account') : t('Sign in to continue') }}</h1>
-        <p>
-          {{ t('Keep your profile, delivery details, product orders, and car bookings connected to one customer account.') }}
-        </p>
-      </div>
+  <!-- ============ SIGNED IN: editorial dashboard ============ -->
+  <section v-if="auth.isAuthenticated" class="account">
+    <div class="app-container">
+      <header class="account-head">
+        <div>
+          <p class="kicker">{{ t('Account') }}</p>
+          <h1>{{ t('Welcome back') }}, {{ firstName }}.</h1>
+          <p class="account-head__sub">{{ t('Your profile, delivery details, orders, bookings, and event requests — all in one place.') }}</p>
+        </div>
+        <Button :label="t('Sign out')" icon="pi pi-sign-out" severity="secondary" outlined @click="logout" />
+      </header>
 
-      <div v-if="auth.isAuthenticated" class="account-stack">
-        <section class="account-panel soft-panel">
-          <div class="profile-card">
-            <span class="profile-card__avatar"><i class="pi pi-user" /></span>
-            <div>
-              <strong>{{ auth.user.full_name }}</strong>
+      <nav class="quick-links" :aria-label="t('Account')">
+        <RouterLink v-for="link in quickLinks" :key="link.to" class="qlink" :to="link.to">
+          <i class="qlink__icon" :class="link.icon" />
+          <span class="qlink__body">
+            <strong>{{ t(link.title) }}</strong>
+            <small>{{ t(link.detail) }}</small>
+          </span>
+          <i class="pi pi-arrow-up-right qlink__go" />
+        </RouterLink>
+      </nav>
+
+      <div class="account-cols">
+        <section class="card">
+          <div class="profile">
+            <span class="profile__avatar">{{ initial }}</span>
+            <div class="profile__id">
+              <strong>{{ auth.user.full_name || auth.user.email }}</strong>
               <span>{{ auth.user.email }}</span>
               <span v-if="auth.user.phone">{{ auth.user.phone }}</span>
             </div>
+            <Tag v-if="auth.isAdmin" :value="t('Admin')" severity="warn" />
           </div>
 
           <div class="detail-grid">
@@ -247,31 +286,23 @@ onMounted(() => {
               <strong>{{ item.value }}</strong>
             </article>
           </div>
-
-          <div class="account-links">
-            <Button as="router-link" to="/cart" :label="t('Cart')" icon="pi pi-shopping-bag" />
-            <Button as="router-link" to="/orders" :label="t('Orders and bookings')" icon="pi pi-receipt" outlined />
-            <Button v-if="auth.isAdmin" as="router-link" to="/admin" :label="t('Admin console')" icon="pi pi-lock" outlined />
-          </div>
-
-          <Button :label="t('Sign out')" icon="pi pi-sign-out" severity="secondary" text @click="logout" />
         </section>
 
-        <section class="account-panel soft-panel">
-          <div class="panel-head">
+        <section class="card">
+          <div class="card__head">
             <div>
-              <p class="eyebrow">{{ t('Delivery') }}</p>
+              <p class="kicker">{{ t('Delivery') }}</p>
               <h2>{{ t('Saved address') }}</h2>
             </div>
             <Tag v-if="defaultAddress" :value="t('Default')" severity="success" />
           </div>
 
-          <div v-if="addressLoading" class="address-state">
+          <div v-if="addressLoading" class="state">
             <i class="pi pi-spin pi-spinner" />
             <span>{{ t('Loading address...') }}</span>
           </div>
 
-          <form v-else class="account-form address-form" @submit.prevent="saveAddress">
+          <form v-else class="form address-form" @submit.prevent="saveAddress">
             <p v-if="addressError" class="form-error">{{ addressError }}</p>
 
             <label>
@@ -279,7 +310,7 @@ onMounted(() => {
               <InputText v-model="address.label" :placeholder="t('Home, office...')" autocomplete="address-level4" />
             </label>
 
-            <div class="address-grid">
+            <div class="field-grid">
               <label>
                 <span>{{ t('Recipient name*') }}</span>
                 <InputText v-model="address.recipient_name" autocomplete="name" required />
@@ -303,7 +334,7 @@ onMounted(() => {
               <InputText v-model="address.line2" autocomplete="address-line2" />
             </label>
 
-            <div class="address-grid">
+            <div class="field-grid">
               <label>
                 <span>{{ t('City*') }}</span>
                 <InputText v-model="address.city" autocomplete="address-level2" required />
@@ -324,7 +355,7 @@ onMounted(() => {
               </label>
             </div>
 
-            <div class="address-actions">
+            <div class="form-actions">
               <Button type="submit" :label="t('Save delivery address')" icon="pi pi-save" :loading="addressSaving" />
               <Button
                 v-if="defaultAddress"
@@ -340,8 +371,29 @@ onMounted(() => {
           </form>
         </section>
       </div>
+    </div>
+  </section>
 
-      <section v-else class="account-panel soft-panel">
+  <!-- ============ SIGNED OUT: split brand + auth ============ -->
+  <section v-else class="account account--auth">
+    <div class="app-container auth-split">
+      <aside class="auth-brand">
+        <div class="auth-brand__inner">
+          <p class="kicker kicker--gold">{{ t('Trimobe account') }}</p>
+          <h1>{{ t('Sign in to shop, book, and plan.') }}</h1>
+          <p class="auth-brand__lead">
+            {{ t('One account for phones, cars, event requests, and Kafe Misiona — with payment handled personally.') }}
+          </p>
+          <ul class="benefits">
+            <li v-for="benefit in benefits" :key="benefit.text">
+              <i :class="benefit.icon" />
+              <span>{{ t(benefit.text) }}</span>
+            </li>
+          </ul>
+        </div>
+      </aside>
+
+      <section class="auth-card">
         <div class="mode-switch" :aria-label="t('Account mode')">
           <button type="button" :class="{ 'is-active': mode === 'login' }" @click="mode = 'login'">{{ t('Sign in') }}</button>
           <button type="button" :class="{ 'is-active': mode === 'register' }" @click="mode = 'register'">{{ t('Create account') }}</button>
@@ -349,7 +401,7 @@ onMounted(() => {
 
         <p v-if="error" class="form-error">{{ error }}</p>
 
-        <form v-if="mode === 'login'" class="account-form" @submit.prevent="submitLogin">
+        <form v-if="mode === 'login'" class="form" @submit.prevent="submitLogin">
           <label>
             <span>{{ t('Email') }}</span>
             <InputText v-model="login.email" type="email" autocomplete="email" required />
@@ -363,7 +415,7 @@ onMounted(() => {
           <Button type="submit" :label="t('Sign in')" icon="pi pi-user" :loading="loading" />
         </form>
 
-        <form v-else class="account-form" @submit.prevent="submitRegister">
+        <form v-else class="form" @submit.prevent="submitRegister">
           <label>
             <span>{{ t('Full name') }}</span>
             <InputText v-model="register.full_name" autocomplete="name" required />
@@ -392,106 +444,174 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.account-page {
-  min-height: calc(100vh - 158px);
-  padding: 62px 0;
-}
-
-.account-grid {
-  gap: 36px;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 460px);
-}
-
-.account-copy h1 {
-  max-width: 760px;
+.kicker {
   margin: 0;
+  color: var(--tm-gold);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.account {
+  min-height: calc(100vh - 158px);
+  padding: clamp(34px, 5vw, 64px) 0;
+}
+
+/* ---------- signed-in dashboard ---------- */
+.account-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.account-head h1 {
+  margin: 14px 0 0;
   color: var(--tm-heading);
-  font-size: clamp(2.8rem, 7vw, 6rem);
-  line-height: 0.92;
+  font-size: clamp(2.2rem, 5.4vw, 4.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
 }
 
-.account-copy p:not(.eyebrow) {
-  max-width: 640px;
+.account-head__sub {
+  max-width: 60ch;
+  margin: 14px 0 0;
   color: var(--tm-muted);
-  font-size: 1.05rem;
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
-.account-panel {
+.quick-links {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 24px;
+}
+
+.qlink {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  padding: 18px 20px;
+  border: 1px solid var(--tm-border);
+  border-radius: 14px;
+  background: var(--tm-surface);
+  color: inherit;
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.qlink:hover {
+  border-color: rgba(8, 124, 104, 0.34);
+  transform: translateY(-3px);
+  box-shadow: var(--tm-shadow);
+}
+
+.qlink__icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--tm-charcoal);
+  color: var(--tm-gold);
+  font-size: 1.15rem;
+}
+
+.qlink__body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.qlink__body strong {
+  color: var(--tm-heading);
+  font-size: 1.02rem;
+}
+
+.qlink__body small {
+  color: var(--tm-muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.qlink__go {
+  margin-left: auto;
+  color: var(--tm-muted);
+  transition: color 160ms ease, transform 160ms ease;
+}
+
+.qlink:hover .qlink__go {
+  color: var(--tm-emerald);
+  transform: translate(2px, -2px);
+}
+
+.account-cols {
+  display: grid;
+  align-items: start;
+  gap: 18px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
+.card {
   display: grid;
   gap: 18px;
-  padding: 22px;
-}
-
-.account-stack {
-  display: grid;
-  gap: 16px;
-}
-
-.mode-switch {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  padding: 5px;
+  padding: 24px;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: 16px;
   background: var(--tm-surface);
+  box-shadow: var(--tm-shadow);
 }
 
-.mode-switch button {
-  min-height: 42px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--tm-muted);
-  cursor: pointer;
-  font-weight: 850;
-}
-
-.mode-switch button.is-active {
-  background: var(--tm-emerald);
-  color: #fff;
-}
-
-.account-form {
-  display: grid;
-  gap: 15px;
-}
-
-.account-form label {
-  display: grid;
-  gap: 7px;
-}
-
-.account-form span {
-  color: var(--tm-muted);
-  font-size: 0.84rem;
-  font-weight: 850;
-}
-
-.account-form small,
-.form-error {
-  color: var(--tm-coral);
-  font-weight: 750;
-}
-
-.account-form :deep(.p-inputtext),
-.account-form :deep(.p-password),
-.account-form :deep(.p-password-input) {
-  width: 100%;
-}
-
-.panel-head {
+.card__head {
   display: flex;
   align-items: start;
   justify-content: space-between;
   gap: 12px;
 }
 
-.panel-head h2 {
-  margin: 2px 0 0;
+.card__head h2 {
+  margin: 6px 0 0;
   color: var(--tm-heading);
-  font-size: 1.35rem;
+  font-size: 1.4rem;
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile__avatar {
+  display: grid;
+  width: 60px;
+  height: 60px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(185, 138, 46, 0.9), var(--tm-charcoal));
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 950;
+}
+
+.profile__id {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.profile__id strong {
+  color: var(--tm-heading);
+  font-size: 1.14rem;
+  overflow-wrap: anywhere;
+}
+
+.profile__id span {
+  color: var(--tm-muted);
+  overflow-wrap: anywhere;
 }
 
 .detail-grid {
@@ -505,16 +625,18 @@ onMounted(() => {
   gap: 4px;
   min-height: 74px;
   align-content: center;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
-  background: var(--tm-surface);
+  border-radius: 10px;
+  background: var(--tm-surface-soft);
 }
 
 .detail-grid span {
   color: var(--tm-muted);
   font-size: 0.76rem;
   font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .detail-grid strong {
@@ -523,7 +645,49 @@ onMounted(() => {
   color: var(--tm-heading);
 }
 
-.address-state {
+/* ---------- forms ---------- */
+.form {
+  display: grid;
+  gap: 15px;
+}
+
+.form label {
+  display: grid;
+  gap: 7px;
+}
+
+.form label > span {
+  color: var(--tm-muted);
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.form small,
+.form-error {
+  color: var(--tm-coral);
+  font-weight: 750;
+}
+
+.form :deep(.p-inputtext),
+.form :deep(.p-password),
+.form :deep(.p-password-input) {
+  width: 100%;
+}
+
+.field-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.state {
   display: grid;
   min-height: 180px;
   place-items: center;
@@ -532,72 +696,139 @@ onMounted(() => {
   font-weight: 820;
 }
 
-.address-state i {
+.state i {
   color: var(--tm-gold);
   font-size: 1.25rem;
 }
 
-.address-grid {
+/* ---------- signed-out split ---------- */
+.account--auth {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.address-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.profile-card {
-  display: flex;
   align-items: center;
-  gap: 14px;
 }
 
-.profile-card__avatar {
+.auth-split {
   display: grid;
-  width: 54px;
-  height: 54px;
+  align-items: stretch;
+  gap: clamp(20px, 4vw, 40px);
+  grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
+}
+
+.auth-brand {
+  display: grid;
+  align-items: center;
+  overflow: hidden;
+  padding: clamp(28px, 4vw, 52px);
+  border-radius: 20px;
+  background:
+    radial-gradient(900px 300px at 85% -10%, rgba(185, 138, 46, 0.22), transparent 60%),
+    var(--tm-charcoal);
+  color: #fff;
+}
+
+.auth-brand h1 {
+  max-width: 15ch;
+  margin: 16px 0 0;
+  color: #fff;
+  font-size: clamp(2.1rem, 4.4vw, 3.4rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+
+.auth-brand__lead {
+  max-width: 46ch;
+  margin: 18px 0 0;
+  color: rgba(255, 255, 255, 0.74);
+  line-height: 1.6;
+}
+
+.benefits {
+  display: grid;
+  gap: 14px;
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.benefits li {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 720;
+  line-height: 1.45;
+}
+
+.benefits i {
+  display: grid;
+  width: 34px;
+  height: 34px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 8px;
-  background: var(--tm-charcoal);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
   color: var(--tm-gold);
 }
 
-.profile-card div {
+.auth-card {
   display: grid;
-  gap: 3px;
+  align-content: start;
+  gap: 18px;
+  padding: clamp(24px, 3vw, 34px);
+  border: 1px solid var(--tm-border);
+  border-radius: 20px;
+  background: var(--tm-surface);
+  box-shadow: var(--tm-shadow);
 }
 
-.profile-card strong {
-  color: var(--tm-heading);
-  font-size: 1.1rem;
+.mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--tm-border);
+  border-radius: 999px;
+  background: var(--tm-surface-soft);
 }
 
-.profile-card span {
+.mode-switch button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
   color: var(--tm-muted);
+  cursor: pointer;
+  font-weight: 850;
 }
 
-.account-links {
-  display: grid;
-  gap: 10px;
+.mode-switch button.is-active {
+  background: var(--tm-emerald);
+  color: #fff;
 }
 
-@media (max-width: 860px) {
-  .account-grid {
+@media (max-width: 900px) {
+  .quick-links {
     grid-template-columns: 1fr;
+  }
+
+  .account-cols,
+  .auth-split {
+    grid-template-columns: 1fr;
+  }
+
+  .account-head {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
 @media (max-width: 560px) {
   .detail-grid,
-  .address-grid {
+  .field-grid {
     grid-template-columns: 1fr;
   }
 
-  .address-actions .p-button {
+  .form-actions .p-button {
     width: 100%;
   }
 }

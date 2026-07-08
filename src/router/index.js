@@ -44,6 +44,41 @@ const router = createRouter({
           component: HomeView,
         },
         {
+          path: 'shop',
+          name: 'shop',
+          component: ProductCatalogView,
+          meta: {
+            title: 'Shop',
+            eyebrow: 'Shop',
+            catalogMode: 'shop',
+            description: 'Browse the full Trimobe catalog — phones, accessories, and more.',
+          },
+        },
+        {
+          path: 'tech',
+          name: 'tech',
+          component: ProductCatalogView,
+          meta: {
+            title: 'Tech',
+            eyebrow: 'Shop',
+            catalogMode: 'department',
+            department: 'tech',
+            description: 'Phones, laptops, audio, and accessories.',
+          },
+        },
+        {
+          path: 'fashion',
+          name: 'fashion',
+          component: ProductCatalogView,
+          meta: {
+            title: 'Fashion',
+            eyebrow: 'Shop',
+            catalogMode: 'department',
+            department: 'fashion',
+            description: 'Clothing and footwear — pick your size and color.',
+          },
+        },
+        {
           path: 'phones',
           name: 'phones',
           component: ProductCatalogView,
@@ -70,9 +105,9 @@ const router = createRouter({
           name: 'coffee',
           component: CoffeeMisionaView,
           meta: {
-            title: 'Cofee Misiona',
+            title: 'Kafe Misiona',
             eyebrow: 'Coffee',
-            description: 'Cofee Misiona coffee packs and gift-ready selections.',
+            description: 'Kafe Misiona coffee packs and gift-ready selections.',
           },
         },
         {
@@ -228,6 +263,44 @@ const router = createRouter({
           name: 'admin-product-detail',
           component: AdminProductDetailView,
           meta: { title: 'Product detail', description: 'Edit a product, its specs, variants, and images.' },
+        },
+
+        // Department-scoped catalog: same generic screens, filtered to tech/fashion.
+        {
+          path: 'tech/categories',
+          name: 'admin-tech-categories',
+          component: AdminResourceView,
+          meta: { title: 'Tech categories', resource: 'categories', department: 'tech', description: 'Phone, laptop & accessory categories.' },
+        },
+        {
+          path: 'tech/brands',
+          name: 'admin-tech-brands',
+          component: AdminResourceView,
+          meta: { title: 'Tech brands', resource: 'brands', department: 'tech', description: 'Manufacturers for the tech catalog.' },
+        },
+        {
+          path: 'tech/products',
+          name: 'admin-tech-products',
+          component: AdminResourceView,
+          meta: { title: 'Tech products', resource: 'products', department: 'tech', description: 'Phones, laptops, audio, and accessories.' },
+        },
+        {
+          path: 'fashion/categories',
+          name: 'admin-fashion-categories',
+          component: AdminResourceView,
+          meta: { title: 'Fashion categories', resource: 'categories', department: 'fashion', description: 'Clothing & footwear categories.' },
+        },
+        {
+          path: 'fashion/brands',
+          name: 'admin-fashion-brands',
+          component: AdminResourceView,
+          meta: { title: 'Fashion brands', resource: 'brands', department: 'fashion', description: 'Labels for the fashion catalog.' },
+        },
+        {
+          path: 'fashion/products',
+          name: 'admin-fashion-products',
+          component: AdminResourceView,
+          meta: { title: 'Fashion products', resource: 'products', department: 'fashion', description: 'Clothing & footwear products.' },
         },
         {
           path: 'cars',

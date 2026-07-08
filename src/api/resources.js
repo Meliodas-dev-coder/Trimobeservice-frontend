@@ -59,8 +59,9 @@ export async function uploadImage(file) {
 }
 
 // Load {label,value} options for a relation select field (e.g. category_id).
-export async function loadFieldOptions(field) {
-  const data = await api.get(field.optionsEndpoint, { params: { limit: 100 } });
+// `extra` adds query params — e.g. { department } to scope options to a section.
+export async function loadFieldOptions(field, extra = {}) {
+  const data = await api.get(field.optionsEndpoint, { params: { limit: 100, ...extra } });
   const items = data?.[field.collectionKey] ?? [];
   return items.map((item) => ({ label: item[field.optionLabel], value: item[field.optionValue], item }));
 }

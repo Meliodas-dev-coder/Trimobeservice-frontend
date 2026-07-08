@@ -14,8 +14,8 @@ const cart = useCartStore();
 const { languageLabel, t, toggleLanguage } = usePublicI18n();
 
 const navItems = [
-  { label: 'Phones', to: '/phones' },
-  { label: 'Accessories', to: '/accessories' },
+  { label: 'Tech', to: '/tech' },
+  { label: 'Fashion', to: '/fashion' },
   { label: 'Coffee', to: '/coffee' },
   { label: 'Cars', to: '/cars' },
   { label: 'Events', to: '/events' },
@@ -87,7 +87,7 @@ onMounted(syncCart);
           :aria-label="languageLabel === 'FR' ? t('Switch to French') : t('Switch to English')"
           @click="toggleLanguage"
         />
-        <RouterLink class="admin-link" to="/admin/login">{{ t('Admin') }}</RouterLink>
+        <!-- <RouterLink class="admin-link" to="/admin/login">{{ t('Admin') }}</RouterLink> -->
         <RouterLink class="cart-action" to="/cart" :aria-label="t('Cart')">
           <i class="pi pi-shopping-bag" />
           <span v-if="cart.itemCount">{{ cart.itemCount }}</span>

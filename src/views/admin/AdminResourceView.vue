@@ -29,9 +29,26 @@ const confirm = useConfirm();
 const { enumLabel, localeCode, t, translateConfig } = useAdminI18n();
 
 const resourceKey = computed(() => route.meta.resource || 'products');
+const department = computed(() => route.meta.department || '');
 const baseResource = computed(() => adminResources[resourceKey.value] || adminResources.products);
 const resource = computed(() => translateConfig(baseResource.value));
 const serverPaginated = computed(() => isPaginated(resource.value));
+
+// Merge the section's department into create defaults (e.g. new brands land in
+// the current department; new items in the right section).
+const dialogDefaults = computed(() => ({
+  ...(resource.value.defaultRow || {}),
+  ...(department.value ? { department: department.value } : {}),
+}));
+
+// "Fashion · Catalog" when scoped to a department, else the plain eyebrow.
+const heroEyebrow = computed(() => {
+  if (!department.value) {
+    return resource.value.eyebrow;
+  }
+  const label = department.value.charAt(0).toUpperCase() + department.value.slice(1);
+  return `${t(label)} · ${resource.value.eyebrow}`;
+});
 
 const canCreate = computed(
   () => resource.value.capabilities?.create !== false && Boolean(resource.value.actionLabel),
@@ -131,7 +148,7 @@ async function fetchData() {
       page,
       limit: limit.value,
       q: serverPaginated.value ? search.value.trim() : '',
-      filters: activeFilters(),
+      filters: { ...activeFilters(), ...(department.value ? { department: department.value } : {}) },
     });
     rows.value = items;
     total.value = meta.total ?? items.length;
@@ -167,7 +184,7 @@ watch(search, () => {
   }, 350);
 });
 
-watch(resourceKey, () => {
+watch([resourceKey, department], () => {
   dialogOpen.value = false;
   viewMode.value = 'table';
   resetAndFetch();
@@ -196,7 +213,11 @@ function filterOptions(filter) {
 
 function openCreate() {
   if (resource.value.createRoute) {
-    router.push(resource.value.createRoute());
+    const target = resource.value.createRoute();
+    if (department.value) {
+      target.query = { ...(target.query || {}), department: department.value };
+    }
+    router.push(target);
     return;
   }
   dialogMode.value = 'create';
@@ -381,7 +402,7 @@ function displayValue(row, column) {
   <section class="admin-resource">
     <div class="resource-hero">
       <div>
-        <p>{{ resource.eyebrow }}</p>
+        <p>{{ heroEyebrow }}</p>
         <h2>{{ resource.plural }}</h2>
         <span>{{ resource.description }}</span>
       </div>
@@ -566,7 +587,8 @@ function displayValue(row, column) {
       :title="dialogMode === 'edit' ? t('Edit {resource}', { resource: resource.singular }) : resource.actionLabel || t('Create')"
       :fields="dialogFields"
       :initial="editing"
-      :defaults="resource.defaultRow"
+      :defaults="dialogDefaults"
+      :department="department"
       :loading="saving"
       :errors="formErrors"
       @submit="handleSubmit"

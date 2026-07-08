@@ -20,6 +20,7 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   errors: { type: Object, default: () => ({}) }, // field key -> server error message
   templateKey: { type: String, default: '' }, // fixes the attributes template (variant form)
+  department: { type: String, default: '' }, // scopes department-aware selects to a section
 });
 
 const emit = defineEmits(['update:visible', 'submit']);
@@ -198,12 +199,25 @@ async function loadTemplates() {
 
 async function loadRelationOptions() {
   for (const field of props.fields) {
-    if (field.optionsEndpoint) {
-      try {
-        optionsMap[field.key] = await loadFieldOptions(field);
-      } catch {
-        optionsMap[field.key] = [];
+    if (!field.optionsEndpoint) {
+      continue;
+    }
+    const scoped = field.scopeByDepartment && props.department;
+    try {
+      let opts = await loadFieldOptions(field, scoped ? { department: props.department } : {});
+      if (scoped) {
+        // Endpoints that don't filter server-side (product-templates) still carry
+        // `department` per item; drop anything from another department.
+        opts = opts.filter((o) => !o.item?.department || o.item.department === props.department);
+        // If the draft's default (e.g. 'generic') isn't in this department, snap to
+        // the first valid option so we never submit a cross-department value.
+        if (!opts.some((o) => o.value === draft[field.key])) {
+          draft[field.key] = opts[0]?.value ?? '';
+        }
       }
+      optionsMap[field.key] = opts;
+    } catch {
+      optionsMap[field.key] = [];
     }
   }
 }

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Trimobe</string>
+    <string name="title_activity_main">Trimobe</string>
+    <string name="package_name">com.trimobe.services</string>
+    <string name="custom_url_scheme">com.trimobe.services</string>
+</resources>

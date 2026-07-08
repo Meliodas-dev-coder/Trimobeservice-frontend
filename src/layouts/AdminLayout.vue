@@ -25,12 +25,21 @@ const groupedNav = [
   {
     key: 'tech',
     label: 'Tech',
+    icon: 'pi pi-mobile',
+    items: [
+      { label: 'Categories', icon: 'pi pi-tags', to: '/admin/tech/categories' },
+      { label: 'Brands', icon: 'pi pi-bookmark', to: '/admin/tech/brands' },
+      { label: 'Products', icon: 'pi pi-mobile', to: '/admin/tech/products' },
+    ],
+  },
+  {
+    key: 'fashion',
+    label: 'Fashion',
     icon: 'pi pi-shopping-bag',
     items: [
-      { label: 'Categories', icon: 'pi pi-tags', to: '/admin/categories' },
-      { label: 'Brands', icon: 'pi pi-bookmark', to: '/admin/brands' },
-      { label: 'Products', icon: 'pi pi-mobile', to: '/admin/products' },
-      { label: 'Orders', icon: 'pi pi-receipt', to: '/admin/orders' },
+      { label: 'Categories', icon: 'pi pi-tags', to: '/admin/fashion/categories' },
+      { label: 'Brands', icon: 'pi pi-bookmark', to: '/admin/fashion/brands' },
+      { label: 'Products', icon: 'pi pi-shopping-bag', to: '/admin/fashion/products' },
     ],
   },
   {
@@ -58,12 +67,14 @@ const groupedNav = [
 ];
 
 const secondaryNav = [
+  { label: 'Orders', icon: 'pi pi-receipt', to: '/admin/orders' },
   { label: 'Payments', icon: 'pi pi-wallet', to: '/admin/payments' },
   { label: 'Customers', icon: 'pi pi-users', to: '/admin/customers' },
 ];
 
 const openGroups = ref({
   tech: false,
+  fashion: false,
   mobility: false,
   events: false,
 });

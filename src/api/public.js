@@ -8,13 +8,13 @@ function listEnvelope(data, key, page = 1, limit = 20) {
   };
 }
 
-export async function listCategories() {
-  const data = await api.get('/categories', { auth: false });
+export async function listCategories({ department = '' } = {}) {
+  const data = await api.get('/categories', { auth: false, params: { department } });
   return data?.categories || [];
 }
 
-export async function listBrands() {
-  const data = await api.get('/brands', { auth: false });
+export async function listBrands({ department = '' } = {}) {
+  const data = await api.get('/brands', { auth: false, params: { department } });
   return data?.brands || [];
 }
 
@@ -26,10 +26,11 @@ export async function listProducts({
   brand_id = '',
   template_key = '',
   exclude_template_key = '',
+  department = '',
 } = {}) {
   const data = await api.get('/products', {
     auth: false,
-    params: { page, limit, q, category_id, brand_id, template_key, exclude_template_key },
+    params: { page, limit, q, category_id, brand_id, template_key, exclude_template_key, department },
   });
   return listEnvelope(data, 'products', page, limit);
 }

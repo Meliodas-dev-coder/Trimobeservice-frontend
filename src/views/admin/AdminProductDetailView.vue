@@ -23,6 +23,9 @@ const productsResource = computed(() => translateConfig(adminResources.products)
 
 const isNew = computed(() => route.name === 'admin-product-new');
 const productId = computed(() => Number(route.params.id));
+// When created from a Tech/Fashion section, scope the category/brand pickers to
+// that department (passed as ?department=).
+const department = computed(() => route.query.department || '');
 
 const product = ref(null);
 const loading = ref(false);
@@ -142,8 +145,9 @@ async function loadOptions() {
     if (!field.optionsEndpoint) {
       continue;
     }
+    const scoped = field.scopeByDepartment && department.value;
     try {
-      optionsMap[field.key] = await loadFieldOptions(field);
+      optionsMap[field.key] = await loadFieldOptions(field, scoped ? { department: department.value } : {});
     } catch {
       optionsMap[field.key] = [];
     }

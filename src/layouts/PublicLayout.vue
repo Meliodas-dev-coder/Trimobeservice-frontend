@@ -18,6 +18,7 @@ const { t } = usePublicI18n();
       </div>
     </footer>
     <Toast position="bottom-right" />
+    <ConfirmDialog />
   </div>
 </template>
 
