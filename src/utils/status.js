@@ -3,8 +3,8 @@
 // (Previously copy-pasted into each view, which is how `driver_assigned` drifted
 // to green on the car detail page but amber everywhere else.)
 
-const SUCCESS = new Set(['paid', 'confirmed', 'delivered', 'picked_up', 'completed', 'in_progress', 'active', 'available']);
-const WARN = new Set(['unpaid', 'pending', 'requested', 'reviewing', 'quoted', 'shipped', 'driver_assigned', 'maintenance', 'not_available']);
+const SUCCESS = new Set(['paid', 'confirmed', 'delivered', 'picked_up', 'completed', 'in_progress', 'active', 'available', 'doctor']);
+const WARN = new Set(['unpaid', 'pending', 'requested', 'reviewing', 'quoted', 'shipped', 'driver_assigned', 'assigned', 'maintenance', 'not_available', 'nurse']);
 const DANGER = new Set(['cancelled', 'expired', 'refunded', 'inactive']);
 
 export function statusSeverity(value) {

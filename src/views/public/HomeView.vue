@@ -35,7 +35,7 @@ const serviceDoors = [
   { n: '01', title: 'Phones & accessories', detail: 'Devices, audio, and chargers with clear stock and Ariary pricing.', to: '/phones', icon: 'pi pi-mobile' },
   { n: '02', title: 'Cars with driver', detail: 'Chauffeured vehicles by the day, booked around your dates.', to: '/cars', icon: 'pi pi-car' },
   { n: '03', title: 'Event planning', detail: 'Sound, light, catering, and gospel artists in one request.', to: '/events', icon: 'pi pi-calendar' },
-  { n: '04', title: 'Kafe Misiona', detail: 'Trimobe’s coffee brand for daily service and premium gifts.', to: '/coffee', icon: 'pi pi-shopping-bag' },
+  { n: '04', title: 'Healthcare', detail: 'Home consultations and care packages with doctors and nurses.', to: '/healthcare', icon: 'pi pi-heart' },
 ];
 
 const howItWorks = [

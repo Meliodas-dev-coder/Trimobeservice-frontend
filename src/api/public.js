@@ -159,6 +159,51 @@ export async function cancelMyEventRequest(id) {
   return data?.event_request || null;
 }
 
+// --- healthcare ---
+
+export async function getHealthcareEmergency() {
+  const data = await api.get('/healthcare/emergency', { auth: false });
+  return data?.emergency || null;
+}
+
+export async function listHealthcareCategories() {
+  const data = await api.get('/healthcare/categories', { auth: false });
+  return data?.healthcare_service_categories || [];
+}
+
+export async function listHealthcareServices({ category_id = '', type = '' } = {}) {
+  const data = await api.get('/healthcare/services', {
+    auth: false,
+    params: { category_id, type },
+  });
+  return data?.healthcare_services || [];
+}
+
+export async function getHealthcareService(slug) {
+  const data = await api.get(`/healthcare/services/${encodeURIComponent(slug)}`, { auth: false });
+  return data?.healthcare_service || null;
+}
+
+export async function createHealthcareRequest(body) {
+  const data = await api.post('/healthcare/requests', body);
+  return data?.healthcare_request || null;
+}
+
+export async function listMyHealthcareRequests({ page = 1, limit = 20 } = {}) {
+  const data = await api.get('/healthcare/requests', { params: { page, limit } });
+  return listEnvelope(data, 'healthcare_requests', page, limit);
+}
+
+export async function getMyHealthcareRequest(id) {
+  const data = await api.get(`/healthcare/requests/${id}`);
+  return data?.healthcare_request || null;
+}
+
+export async function cancelMyHealthcareRequest(id) {
+  const data = await api.post(`/healthcare/requests/${id}/cancel`, {});
+  return data?.healthcare_request || null;
+}
+
 export async function listAddresses() {
   const data = await api.get('/account/addresses');
   return data?.addresses || [];

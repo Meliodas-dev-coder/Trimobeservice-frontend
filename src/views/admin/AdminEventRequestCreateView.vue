@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 
+import GooglePlaceInput from '@/components/GooglePlaceInput.vue';
 import { api } from '@/api/client';
 import { useAdminI18n } from '@/i18n/admin';
 import { formatMGA } from '@/utils/format';
@@ -233,7 +234,7 @@ onMounted(async () => {
             </label>
             <label class="field">
               <span>{{ t('Location') }}<small>*</small></span>
-              <InputText v-model="form.location" :placeholder="t('Venue, hotel, city, or address')" />
+              <GooglePlaceInput v-model="form.location" :placeholder="t('Venue, hotel, city, or address')" />
               <small v-if="errors.location" class="field__error">{{ t(errors.location) }}</small>
             </label>
             <label class="field">

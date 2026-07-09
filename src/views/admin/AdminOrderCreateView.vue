@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 
+import GooglePlaceInput from '@/components/GooglePlaceInput.vue';
 import { api } from '@/api/client';
 import { useAdminI18n } from '@/i18n/admin';
 import { formatMGA } from '@/utils/format';
@@ -130,6 +131,24 @@ function stockNote(row) {
 function overStock(row) {
   const v = selectedVariant(row);
   return v ? row.quantity > v.stock_quantity : false;
+}
+
+function applyDeliveryPlace(selection) {
+  const selectedAddress = selection?.address;
+  if (!selectedAddress) {
+    address.city = '';
+    address.region = '';
+    address.postal_code = '';
+    return;
+  }
+  address.line1 = selectedAddress.line1 || selectedAddress.formatted_address || selection.value || address.line1;
+  if (selectedAddress.line2 && !address.line2) {
+    address.line2 = selectedAddress.line2;
+  }
+  address.city = selectedAddress.city || '';
+  address.region = selectedAddress.region || '';
+  address.country = selectedAddress.country || 'Madagascar';
+  address.postal_code = selectedAddress.postal_code || '';
 }
 
 async function submit() {
@@ -307,7 +326,7 @@ onMounted(async () => {
             </label>
             <label class="field field--wide">
               <span>{{ t('Address line 1') }}<small>*</small></span>
-              <InputText v-model="address.line1" />
+              <GooglePlaceInput v-model="address.line1" @place-select="applyDeliveryPlace" />
               <small v-if="errors['shipping_address.line1']" class="field__error">{{ t(errors['shipping_address.line1']) }}</small>
             </label>
             <label class="field field--wide">

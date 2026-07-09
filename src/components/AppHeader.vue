@@ -19,6 +19,7 @@ const navItems = [
   { label: 'Coffee', to: '/coffee' },
   { label: 'Cars', to: '/cars' },
   { label: 'Events', to: '/events' },
+  { label: 'Healthcare', to: '/healthcare' },
   { label: 'Orders', to: '/orders' },
 ];
 

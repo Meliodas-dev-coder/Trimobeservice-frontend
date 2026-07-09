@@ -7,12 +7,15 @@ import { useConfirm } from 'primevue/useconfirm';
 import {
   cancelMyBooking,
   cancelMyEventRequest,
+  cancelMyHealthcareRequest,
   cancelMyOrder,
   getMyBooking,
   getMyEventRequest,
+  getMyHealthcareRequest,
   getMyOrder,
   listMyBookings,
   listMyEventRequests,
+  listMyHealthcareRequests,
   listMyOrders,
 } from '@/api/public';
 import { usePublicI18n } from '@/i18n/public';
@@ -31,11 +34,15 @@ const TYPES = {
   orders: { get: getMyOrder, cancel: cancelMyOrder, numberField: 'order_number' },
   bookings: { get: getMyBooking, cancel: cancelMyBooking, numberField: 'booking_number' },
   events: { get: getMyEventRequest, cancel: cancelMyEventRequest, numberField: 'request_number' },
+  healthcare: { get: getMyHealthcareRequest, cancel: cancelMyHealthcareRequest, numberField: 'request_number' },
 };
+
+const TAB_VALUES = ['orders', 'bookings', 'events', 'healthcare'];
 
 const orders = ref([]);
 const bookings = ref([]);
 const events = ref([]);
+const healthcare = ref([]);
 const loading = ref(false);
 const error = ref('');
 const activeTab = ref(initialTab());
@@ -50,16 +57,16 @@ const tabs = computed(() => [
   { label: t('Orders'), value: 'orders', icon: 'pi pi-receipt' },
   { label: t('Bookings'), value: 'bookings', icon: 'pi pi-calendar-clock' },
   { label: t('Events'), value: 'events', icon: 'pi pi-calendar' },
+  { label: t('Healthcare'), value: 'healthcare', icon: 'pi pi-heart' },
 ]);
 
-const visibleItems = computed(() => {
-  if (activeTab.value === 'events') {
-    return events.value;
-  }
-  return activeTab.value === 'orders' ? orders.value : bookings.value;
-});
+const COLLECTIONS = { orders, bookings, events, healthcare };
+const visibleItems = computed(() => COLLECTIONS[activeTab.value]?.value || []);
 
 const emptyCta = computed(() => {
+  if (activeTab.value === 'healthcare') {
+    return { to: '/healthcare/request', label: t('Request a home consultation'), icon: 'pi pi-heart' };
+  }
   if (activeTab.value === 'events') {
     return { to: '/events', label: t('Plan an event'), icon: 'pi pi-calendar' };
   }
@@ -70,6 +77,9 @@ const emptyCta = computed(() => {
 });
 
 const emptyMessage = computed(() => {
+  if (activeTab.value === 'healthcare') {
+    return t('No healthcare requests found for this account.');
+  }
   if (activeTab.value === 'events') {
     return t('No event requests found for this account.');
   }
@@ -80,7 +90,7 @@ const emptyMessage = computed(() => {
 });
 
 function initialTab() {
-  return ['orders', 'bookings', 'events'].includes(route.query.tab) ? route.query.tab : 'orders';
+  return TAB_VALUES.includes(route.query.tab) ? route.query.tab : 'orders';
 }
 
 async function load() {
@@ -90,14 +100,16 @@ async function load() {
   loading.value = true;
   error.value = '';
   try {
-    const [orderRes, bookingRes, eventRes] = await Promise.all([
+    const [orderRes, bookingRes, eventRes, healthcareRes] = await Promise.all([
       listMyOrders({ limit: 50 }),
       listMyBookings({ limit: 50 }),
       listMyEventRequests({ limit: 50 }),
+      listMyHealthcareRequests({ limit: 50 }),
     ]);
     orders.value = orderRes.items || [];
     bookings.value = bookingRes.items || [];
     events.value = eventRes.items || [];
+    healthcare.value = healthcareRes.items || [];
   } catch (err) {
     error.value = err?.message || t('Could not load history');
   } finally {
@@ -126,6 +138,9 @@ const detailNumber = computed(() => detail.value?.[TYPES[detailType.value].numbe
 const detailServices = computed(() => detail.value?.services || []);
 const detailArtists = computed(() => detail.value?.artists || []);
 const detailItems = computed(() => detail.value?.items || []);
+const detailAssignments = computed(() => detail.value?.assignments || []);
+const detailStaff = computed(() => detail.value?.staff || []);
+const detailIsPackage = computed(() => detail.value?.request_type === 'package');
 
 const detailFacts = computed(() => {
   const it = detail.value;
@@ -168,6 +183,25 @@ const detailFacts = computed(() => {
     if (it.note) rows.push({ label: t('Note'), value: it.note });
     return rows;
   }
+  if (detailType.value === 'healthcare') {
+    const rows = [
+      { label: t('Service'), value: it.service_name || t('General consultation') },
+      { label: t('Patient'), value: it.patient_name },
+    ];
+    if (it.patient_age !== null && it.patient_age !== undefined) rows.push({ label: t('Age'), value: it.patient_age });
+    if (it.patient_gender) rows.push({ label: t('Gender'), value: t(titleize(it.patient_gender)) });
+    if (it.request_type === 'package' && it.start_at) {
+      rows.push({ label: t('Coverage start'), value: formatDate(it.start_at) });
+      if (it.end_at) rows.push({ label: t('Coverage end'), value: formatDate(it.end_at) });
+    } else if (it.preferred_at) {
+      rows.push({ label: t('Preferred time'), value: formatDateTime(it.preferred_at) });
+    }
+    rows.push({ label: t('Address'), value: it.address });
+    rows.push({ label: t('Contact'), value: it.contact_phone });
+    if (it.contact_email) rows.push({ label: t('Email'), value: it.contact_email });
+    if (it.symptoms) rows.push({ label: t('Reason / symptoms'), value: it.symptoms });
+    return rows;
+  }
   const rows = [
     { label: t('Event type'), value: t(titleize(it.event_type)) },
     { label: t('Start'), value: formatDateTime(it.event_start) },
@@ -190,7 +224,18 @@ const detailTotal = computed(() => {
   if (detailType.value === 'events') {
     return it.quoted_price ? formatMGA(Number(it.quoted_price)) : t('Pending quote');
   }
+  if (detailType.value === 'healthcare') {
+    if (it.quoted_price) return formatMGA(Number(it.quoted_price));
+    if (it.price_snapshot) return `${t('From')} ${formatMGA(Number(it.price_snapshot))}`;
+    return t('Pending quote');
+  }
   return formatMGA(Number(detailType.value === 'orders' ? it.total : it.total_price || 0));
+});
+
+const grandTotalLabel = computed(() => {
+  if (detailType.value === 'events') return t('Quote');
+  if (detailType.value === 'healthcare') return detailIsPackage.value ? t('Price') : t('Quote');
+  return t('Total');
 });
 
 const canCancelDetail = computed(() => {
@@ -200,6 +245,7 @@ const canCancelDetail = computed(() => {
   }
   if (detailType.value === 'orders') return canCancelOrder(it);
   if (detailType.value === 'bookings') return canCancelBooking(it);
+  if (detailType.value === 'healthcare') return canCancelHealthcare(it);
   return canCancelEvent(it);
 });
 
@@ -217,8 +263,13 @@ function canCancelEvent(eventRequest) {
   return ['requested', 'reviewing', 'quoted', 'confirmed'].includes(eventRequest.status) && eventRequest.payment_status !== 'paid';
 }
 
+function canCancelHealthcare(request) {
+  return ['requested', 'reviewing', 'quoted', 'confirmed'].includes(request.status) && request.payment_status !== 'paid';
+}
+
 function canCancelItem(item) {
   if (activeTab.value === 'events') return canCancelEvent(item);
+  if (activeTab.value === 'healthcare') return canCancelHealthcare(item);
   return activeTab.value === 'orders' ? canCancelOrder(item) : canCancelBooking(item);
 }
 
@@ -249,16 +300,21 @@ async function performCancel(item, type) {
 
 function itemEyebrow(item) {
   if (activeTab.value === 'events') return t(titleize(item.event_type));
+  if (activeTab.value === 'healthcare') return t(titleize(item.request_type));
   return activeTab.value === 'orders' ? t(titleize(item.fulfillment_type)) : item.car_name;
 }
 
 function itemTitle(item) {
-  if (activeTab.value === 'events') return item.request_number;
+  if (activeTab.value === 'events' || activeTab.value === 'healthcare') return item.request_number;
   return activeTab.value === 'orders' ? item.order_number : item.booking_number;
 }
 
 function itemDate(item) {
   if (activeTab.value === 'events') return formatDate(item.event_start);
+  if (activeTab.value === 'healthcare') {
+    if (item.request_type === 'package' && item.start_at) return `${formatDate(item.start_at)} - ${formatDate(item.end_at)}`;
+    return item.preferred_at ? formatDateTime(item.preferred_at) : formatDate(item.created_at);
+  }
   if (activeTab.value === 'orders') return formatDateTime(item.created_at);
   return `${formatDate(item.start_at)} - ${formatDate(item.end_at)}`;
 }
@@ -266,6 +322,11 @@ function itemDate(item) {
 function itemTotal(item) {
   if (activeTab.value === 'events') {
     return item.quoted_price ? formatMGA(Number(item.quoted_price || 0)) : t('Pending quote');
+  }
+  if (activeTab.value === 'healthcare') {
+    if (item.quoted_price) return formatMGA(Number(item.quoted_price || 0));
+    if (item.price_snapshot) return `${t('From')} ${formatMGA(Number(item.price_snapshot || 0))}`;
+    return t('Pending quote');
   }
   return formatMGA(Number(activeTab.value === 'orders' ? item.total : item.total_price || 0));
 }
@@ -287,8 +348,8 @@ onMounted(load);
       <header class="orders-hero">
         <div>
           <p class="eyebrow">{{ t('Account') }}</p>
-          <h1>{{ t('Orders, bookings, and events') }}</h1>
-          <p>{{ t('Track product fulfillment, car bookings, event requests, assisted payment status, and allowed cancellations.') }}</p>
+          <h1>{{ t('Your requests & history') }}</h1>
+          <p>{{ t('Track product orders, car bookings, event requests, healthcare requests, assisted payment status, and allowed cancellations.') }}</p>
         </div>
         <Button v-if="auth.isAuthenticated" icon="pi pi-refresh" :label="t('Refresh')" severity="secondary" outlined :loading="loading" @click="load" />
       </header>
@@ -435,6 +496,27 @@ onMounted(load);
           </div>
         </section>
 
+        <!-- Healthcare package staff -->
+        <section v-if="detailType === 'healthcare' && detailStaff.length" class="dlg__section">
+          <h4>{{ t('This package includes') }}</h4>
+          <div v-for="line in detailStaff" :key="line.practitioner_type" class="dlg-line">
+            <strong>{{ line.quantity }} × {{ t(titleize(line.practitioner_type)) }}</strong>
+            <span /><span />
+          </div>
+        </section>
+
+        <!-- Healthcare care team -->
+        <section v-if="detailType === 'healthcare' && detailAssignments.length" class="dlg__section">
+          <h4>{{ t('Care team') }}</h4>
+          <div v-for="member in detailAssignments" :key="member.id" class="dlg-line">
+            <div>
+              <strong>{{ member.practitioner_name }}</strong>
+              <small>{{ t(titleize(member.practitioner_type)) }}</small>
+            </div>
+            <span /><span />
+          </div>
+        </section>
+
         <div class="dlg__totals">
           <div v-if="detailType === 'orders'" class="dlg__totals-row">
             <span>{{ t('Subtotal') }}</span>
@@ -445,7 +527,7 @@ onMounted(load);
             <span>{{ formatMGA(Number(detail.shipping_fee || 0)) }}</span>
           </div>
           <div class="dlg__totals-row dlg__totals-row--grand">
-            <span>{{ detailType === 'events' ? t('Quote') : t('Total') }}</span>
+            <span>{{ grandTotalLabel }}</span>
             <strong>{{ detailTotal }}</strong>
           </div>
         </div>
@@ -515,7 +597,7 @@ onMounted(load);
 
 .history-tabs {
   display: inline-grid;
-  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
   gap: 6px;
   margin-bottom: 18px;
   padding: 5px;
@@ -781,6 +863,7 @@ onMounted(load);
 
   .history-tabs {
     width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .history-card {

@@ -1,4 +1,5 @@
 let mapsPromise = null;
+let placesService = null;
 
 function apiKey() {
   return import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
@@ -52,6 +53,66 @@ export async function getPlacePredictions(input) {
       resolve(predictions);
     });
   });
+}
+
+export async function getPlaceDetails(placeId) {
+  if (!placeId) {
+    return null;
+  }
+  const maps = await loadGoogleMaps();
+  if (!placesService) {
+    placesService = new maps.places.PlacesService(document.createElement('div'));
+  }
+  return new Promise((resolve, reject) => {
+    placesService.getDetails(
+      {
+        placeId,
+        fields: ['place_id', 'name', 'formatted_address', 'address_components', 'geometry'],
+      },
+      (place, status) => {
+        if (status !== maps.places.PlacesServiceStatus.OK || !place) {
+          reject(new Error('Could not load place details'));
+          return;
+        }
+        resolve(place);
+      },
+    );
+  });
+}
+
+function addressComponent(components, types, key = 'long_name') {
+  const found = components.find((component) => types.every((type) => component.types.includes(type)));
+  return found?.[key] || '';
+}
+
+export function parseGoogleAddress(place) {
+  const components = place?.address_components || [];
+  const streetNumber = addressComponent(components, ['street_number']);
+  const route = addressComponent(components, ['route']);
+  const subpremise = addressComponent(components, ['subpremise']);
+  const neighborhood =
+    addressComponent(components, ['neighborhood']) ||
+    addressComponent(components, ['sublocality']) ||
+    addressComponent(components, ['sublocality_level_1']);
+  const city =
+    addressComponent(components, ['locality']) ||
+    addressComponent(components, ['postal_town']) ||
+    addressComponent(components, ['administrative_area_level_2']) ||
+    neighborhood;
+  const region = addressComponent(components, ['administrative_area_level_1']);
+  const country = addressComponent(components, ['country']);
+  const postalCode = addressComponent(components, ['postal_code']);
+  const street = [streetNumber, route].filter(Boolean).join(' ');
+
+  return {
+    line1: street || place?.name || place?.formatted_address || '',
+    line2: subpremise,
+    city,
+    region,
+    country,
+    postal_code: postalCode,
+    formatted_address: place?.formatted_address || '',
+  };
 }
 
 export async function getDrivingDistanceKm(originPlaceId, destinationPlaceId) {

@@ -64,6 +64,18 @@ const groupedNav = [
       { label: 'Event requests', icon: 'pi pi-calendar-plus', to: '/admin/event-requests' },
     ],
   },
+  {
+    key: 'healthcare',
+    label: 'Healthcare',
+    icon: 'pi pi-heart',
+    items: [
+      { label: 'Practitioners', icon: 'pi pi-id-card', to: '/admin/practitioners' },
+      { label: 'Care categories', icon: 'pi pi-sitemap', to: '/admin/healthcare/categories' },
+      { label: 'Care services', icon: 'pi pi-plus-circle', to: '/admin/healthcare/services' },
+      { label: 'Care requests', icon: 'pi pi-calendar-plus', to: '/admin/healthcare/requests' },
+      { label: 'Emergency contact', icon: 'pi pi-phone', to: '/admin/healthcare/settings' },
+    ],
+  },
 ];
 
 const secondaryNav = [
@@ -77,6 +89,7 @@ const openGroups = ref({
   fashion: false,
   mobility: false,
   events: false,
+  healthcare: false,
 });
 
 function isActive(to) {

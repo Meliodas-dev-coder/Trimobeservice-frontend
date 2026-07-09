@@ -95,6 +95,53 @@ const isStandardBooking = (_draft, ctx) => !ctx.optionFor('car_id')?.item?.is_ca
 const isOrderTarget = (target) => target?.type === 'order';
 const isBookingTarget = (target) => target?.type === 'booking';
 const isEventTarget = (target) => target?.type === 'event';
+const isHealthcareTarget = (target) => target?.type === 'healthcare';
+
+// Healthcare service form: consultations are quote-priced; packages carry a
+// fixed price plus a doctor/nurse makeup.
+const isHealthcarePackage = (draft) => draft.service_type === 'package';
+const isHealthcareConsultation = (draft) => draft.service_type !== 'package';
+
+// Package staff makeup is entered as two counts (persist:false) and folded into
+// the `staff` array the backend expects. Consultations send an empty array,
+// which the backend ignores.
+function packageStaffBody(_value, values) {
+  const staff = [];
+  if (values.service_type === 'package') {
+    const doctors = Number(values.staff_doctors) || 0;
+    const nurses = Number(values.staff_nurses) || 0;
+    if (doctors > 0) {
+      staff.push({ practitioner_type: 'doctor', quantity: doctors });
+    }
+    if (nurses > 0) {
+      staff.push({ practitioner_type: 'nurse', quantity: nurses });
+    }
+  }
+  return { staff };
+}
+
+// A healthcare service's price cell: package = fixed price, consultation = "from".
+function healthcarePriceLabel(row) {
+  if (row.service_type === 'package') {
+    return row.price != null && row.price !== '' ? formatMGA(Number(row.price)) : '—';
+  }
+  return row.from_price != null && row.from_price !== '' ? formatMGA(Number(row.from_price)) : '—';
+}
+
+// A package's staff makeup as a compact cell: "1D · 2N".
+function healthcareStaffLabel(row) {
+  if (row.service_type !== 'package') {
+    return '—';
+  }
+  const parts = [];
+  if (row.staff_doctors) {
+    parts.push(`${row.staff_doctors}D`);
+  }
+  if (row.staff_nurses) {
+    parts.push(`${row.staff_nurses}N`);
+  }
+  return parts.length ? parts.join(' · ') : '—';
+}
 
 function todayStart() {
   const date = new Date();
@@ -627,7 +674,7 @@ export const adminResources = {
       { key: 'stage_name', label: 'Stage / ministry name', type: 'text', required: true, placeholder: 'Voninavo Praise' },
       { key: 'tagline', label: 'Tagline', type: 'text', placeholder: 'Worship leader for services and crusades' },
       { key: 'photo_url', label: 'Photo', type: 'image' },
-      { key: 'home_base', label: 'Home base', type: 'text', placeholder: 'Antananarivo' },
+      { key: 'home_base', label: 'Home base', type: 'place', placeholder: 'Antananarivo' },
       { key: 'group_size', label: 'Group size', type: 'text', placeholder: 'Solo, Band of 6, Choir 20+' },
       { key: 'genres', label: 'Genres (comma-separated)', type: 'text', placeholder: 'gospel, praise & worship, choir' },
       { key: 'formats', label: 'Formats (comma-separated)', type: 'text', placeholder: 'worship leader, soloist, band' },
@@ -786,11 +833,12 @@ export const adminResources = {
         minDate: todayStart,
         toBody: cargoServiceWindow,
       },
-      { key: 'pickup_location', label: 'From / pickup location', type: 'place', required: true },
+      { key: 'pickup_location', label: 'From / pickup location', type: 'place', required: true, manualFallback: false },
       {
         key: 'dropoff_location',
         label: 'To / dropoff location',
         type: 'place',
+        manualFallback: false,
         requiredWhen: isCargoBooking,
         showWhen: isCargoBooking,
       },
@@ -865,7 +913,7 @@ export const adminResources = {
     },
     capabilities: { create: true, edit: false, remove: false },
     filters: [
-      { key: 'payable_type', label: 'For', options: ['order', 'booking', 'event'] },
+      { key: 'payable_type', label: 'For', options: ['order', 'booking', 'event', 'healthcare'] },
       { key: 'status', label: 'Status', options: ['pending', 'paid', 'refunded'] },
       { key: 'method', label: 'Method', options: ['cash', 'bank_transfer', 'mobile_money', 'other'] },
     ],
@@ -892,6 +940,7 @@ export const adminResources = {
           { label: 'Order', value: 'order' },
           { label: 'Booking', value: 'booking' },
           { label: 'Event', value: 'event' },
+          { label: 'Healthcare', value: 'healthcare' },
         ],
       },
       { key: 'payable_id', label: 'Target ID', type: 'number', required: true },
@@ -939,6 +988,233 @@ export const adminResources = {
       { field: 'booking_count', header: 'Bookings', type: 'number' },
       { field: 'is_active', header: 'Active', type: 'boolean' },
       { field: 'created_at', header: 'Joined', type: 'date' },
+    ],
+    formFields: [],
+  },
+
+  practitioners: {
+    id: 'practitioners',
+    singular: 'practitioner',
+    plural: 'Practitioners',
+    eyebrow: 'Healthcare',
+    description: 'Doctor and nurse roster, assigned to home consultations and care packages. Unique phone.',
+    actionLabel: 'Add practitioner',
+    rowKey: 'id',
+    api: {
+      list: '/admin/practitioners',
+      create: '/admin/practitioners',
+      itemBase: '/admin/practitioners',
+      collectionKey: 'practitioners',
+      itemKey: 'practitioner',
+    },
+    capabilities: { create: true, edit: true, remove: true },
+    defaultRow: { status: 'active', type: 'doctor' },
+    filters: [
+      { key: 'type', label: 'Type', options: ['doctor', 'nurse'] },
+    ],
+    columns: [
+      { field: 'full_name', header: 'Name' },
+      { field: 'type', header: 'Type', type: 'status' },
+      { field: 'specialty', header: 'Specialty' },
+      { field: 'phone', header: 'Phone' },
+      { field: 'status', header: 'Status', type: 'status' },
+    ],
+    cardView: {
+      imageField: 'photo_url',
+      titleField: 'full_name',
+      subtitleField: 'specialty',
+      badgeField: 'status',
+      details: [
+        { field: 'type', label: 'Type' },
+        { field: 'phone', label: 'Phone' },
+      ],
+    },
+    formFields: [
+      {
+        key: 'type',
+        label: 'Type',
+        type: 'select',
+        required: true,
+        defaultValue: 'doctor',
+        options: [
+          { label: 'Doctor', value: 'doctor' },
+          { label: 'Nurse', value: 'nurse' },
+        ],
+      },
+      { key: 'full_name', label: 'Full name', type: 'text', required: true, placeholder: 'Dr. Hery Rakoto' },
+      { key: 'specialty', label: 'Specialty', type: 'text', placeholder: 'General medicine, Pediatrics' },
+      { key: 'phone', label: 'Phone', type: 'text', required: true, placeholder: '+261 …' },
+      { key: 'email', label: 'Email', type: 'text', placeholder: 'name@example.com' },
+      { key: 'license_number', label: 'License number', type: 'text' },
+      { key: 'photo_url', label: 'Photo', type: 'image' },
+      { key: 'bio', label: 'Bio', type: 'textarea' },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        defaultValue: 'active',
+        options: [
+          { label: 'Active', value: 'active' },
+          { label: 'Inactive', value: 'inactive' },
+        ],
+      },
+    ],
+  },
+
+  'healthcare-service-categories': {
+    id: 'healthcare-service-categories',
+    singular: 'care category',
+    plural: 'Care categories',
+    eyebrow: 'Healthcare',
+    description: 'Groups of healthcare services (home consultation, nursing care, care packages).',
+    actionLabel: 'Add category',
+    rowKey: 'id',
+    api: {
+      list: '/admin/healthcare/categories',
+      create: '/admin/healthcare/categories',
+      itemBase: '/admin/healthcare/categories',
+      collectionKey: 'healthcare_service_categories',
+      itemKey: 'healthcare_service_category',
+    },
+    capabilities: { create: true, edit: true, remove: true },
+    defaultRow: { is_active: true },
+    columns: [
+      { field: 'name', header: 'Category' },
+      { field: 'slug', header: 'Slug' },
+      { field: 'service_count', header: 'Services', type: 'number' },
+      { field: 'is_active', header: 'Active', type: 'boolean' },
+    ],
+    formFields: [
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'Home Consultation', required: true },
+      { key: 'icon', label: 'Icon (PrimeIcons class)', type: 'text', placeholder: 'pi pi-home' },
+      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'image_url', label: 'Image', type: 'image' },
+      { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
+      { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
+    ],
+  },
+
+  'healthcare-services': {
+    id: 'healthcare-services',
+    singular: 'care service',
+    plural: 'Care services',
+    eyebrow: 'Healthcare',
+    description: 'Consultations (quote-priced) and packages (fixed price + a doctor/nurse makeup).',
+    actionLabel: 'Add service',
+    rowKey: 'id',
+    api: {
+      list: '/admin/healthcare/services',
+      create: '/admin/healthcare/services',
+      itemBase: '/admin/healthcare/services',
+      collectionKey: 'healthcare_services',
+      itemKey: 'healthcare_service',
+    },
+    capabilities: { create: true, edit: true, remove: true },
+    defaultRow: { is_active: true, service_type: 'consultation', staff_doctors: 0, staff_nurses: 0 },
+    filters: [
+      { key: 'type', label: 'Type', options: ['consultation', 'package'] },
+    ],
+    columns: [
+      { field: 'name', header: 'Service' },
+      { field: 'category_name', header: 'Category' },
+      { field: 'service_type', header: 'Type', type: 'status' },
+      { field: 'price', header: 'Price', format: healthcarePriceLabel },
+      { field: 'staff', header: 'Staff', format: healthcareStaffLabel },
+      { field: 'is_active', header: 'Availability', type: 'boolean', trueLabel: 'Available', falseLabel: 'Unavailable' },
+    ],
+    cardView: {
+      imageField: 'image_url',
+      titleField: 'name',
+      subtitleField: 'category_name',
+      badgeField: 'service_type',
+      details: [
+        { field: 'price', label: 'Price', format: healthcarePriceLabel },
+        { field: 'staff', label: 'Staff', format: healthcareStaffLabel },
+      ],
+    },
+    formFields: [
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'General home consultation', required: true },
+      {
+        key: 'category_id',
+        label: 'Category',
+        type: 'select',
+        options: [],
+        optionsEndpoint: '/admin/healthcare/categories',
+        collectionKey: 'healthcare_service_categories',
+        optionLabel: 'name',
+        optionValue: 'id',
+        required: true,
+      },
+      {
+        key: 'service_type',
+        label: 'Type',
+        type: 'select',
+        defaultValue: 'consultation',
+        required: true,
+        options: [
+          { label: 'Consultation (quote-priced)', value: 'consultation' },
+          { label: 'Package (fixed price)', value: 'package' },
+        ],
+      },
+      { key: 'from_price', label: 'From price (indicative)', type: 'money', showWhen: isHealthcareConsultation },
+      { key: 'price', label: 'Package price', type: 'money', requiredWhen: isHealthcarePackage, showWhen: isHealthcarePackage },
+      { key: 'duration_days', label: 'Coverage (days)', type: 'number', showWhen: isHealthcarePackage },
+      {
+        key: 'staff_doctors',
+        label: 'Doctors in package',
+        type: 'number',
+        defaultValue: 0,
+        showWhen: isHealthcarePackage,
+        persist: false,
+        toBody: packageStaffBody,
+      },
+      {
+        key: 'staff_nurses',
+        label: 'Nurses in package',
+        type: 'number',
+        defaultValue: 0,
+        showWhen: isHealthcarePackage,
+        persist: false,
+      },
+      { key: 'price_unit', label: 'Price unit', type: 'text', placeholder: 'per visit, per month' },
+      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'image_url', label: 'Image', type: 'image' },
+      { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
+      { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
+    ],
+  },
+
+  'healthcare-requests': {
+    id: 'healthcare-requests',
+    singular: 'care request',
+    plural: 'Care requests',
+    eyebrow: 'Healthcare',
+    description: 'Client home-care requests. Review, quote consultations, assign practitioners, then record payment.',
+    actionLabel: null,
+    rowKey: 'id',
+    api: {
+      list: '/admin/healthcare/requests',
+      create: null,
+      itemBase: '/admin/healthcare/requests',
+      collectionKey: 'healthcare_requests',
+      itemKey: 'healthcare_request',
+    },
+    capabilities: { create: false, edit: false, remove: false },
+    filters: [
+      { key: 'status', label: 'Status', options: ['requested', 'reviewing', 'quoted', 'confirmed', 'assigned', 'in_progress', 'completed', 'cancelled'] },
+      { key: 'payment_status', label: 'Payment', options: ['unpaid', 'paid', 'refunded'] },
+      { key: 'type', label: 'Type', options: ['consultation', 'package'] },
+    ],
+    columns: [
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'request_number', header: 'Request' },
+      { field: 'customer_name', header: 'Customer' },
+      { field: 'patient_name', header: 'Patient' },
+      { field: 'request_type', header: 'Type' },
+      { field: 'status', header: 'Status', type: 'status' },
+      { field: 'payment_status', header: 'Payment', type: 'status' },
+      { field: 'quoted_price', header: 'Quote', type: 'money' },
+      { field: 'created_at', header: 'Requested', type: 'date' },
     ],
     formFields: [],
   },
@@ -1296,6 +1572,11 @@ adminResources.payments.manage = {
       { key: 'end_at', label: 'Event end', type: 'date', showWhen: isEventTarget },
       { key: 'pickup_location', label: 'Location', showWhen: isEventTarget },
       { key: 'contact_phone', label: 'Contact', showWhen: isEventTarget },
+      { key: 'car_name', label: 'Service', showWhen: isHealthcareTarget },
+      { key: 'event_type', label: 'Request type', type: 'enum', showWhen: isHealthcareTarget },
+      { key: 'start_at', label: 'Date', type: 'date', showWhen: isHealthcareTarget },
+      { key: 'pickup_location', label: 'Address', showWhen: isHealthcareTarget },
+      { key: 'contact_phone', label: 'Contact', showWhen: isHealthcareTarget },
       { key: 'created_at', label: 'Created', type: 'date' },
     ],
     itemsTable: {
@@ -1332,5 +1613,136 @@ adminResources.customers.manage = {
     { key: 'booking_count', label: 'Bookings' },
     { key: 'is_active', label: 'Active', type: 'boolean' },
     { key: 'created_at', label: 'Joined', type: 'date' },
+  ],
+};
+
+adminResources['healthcare-requests'].manage = {
+  fields: [
+    { key: 'id', label: 'Request ID' },
+    { key: 'request_number', label: 'Request number' },
+    { key: 'customer_name', label: 'Customer' },
+    { key: 'user_id', label: 'Customer ID' },
+    { key: 'request_type', label: 'Type', type: 'enum' },
+    { key: 'service_name', label: 'Service' },
+    { key: 'category_name', label: 'Category' },
+    { key: 'status', label: 'Status', type: 'enum' },
+    { key: 'payment_status', label: 'Payment', type: 'enum' },
+    { key: 'patient_name', label: 'Patient' },
+    { key: 'patient_age', label: 'Age' },
+    { key: 'patient_gender', label: 'Gender', type: 'enum' },
+    { key: 'preferred_at', label: 'Preferred time', type: 'date' },
+    { key: 'start_at', label: 'Coverage start', type: 'date' },
+    { key: 'end_at', label: 'Coverage end', type: 'date' },
+    { key: 'address', label: 'Address' },
+    { key: 'symptoms', label: 'Reason / symptoms' },
+    { key: 'price_snapshot', label: 'Indicative', type: 'money' },
+    { key: 'quoted_price', label: 'Quote', type: 'money' },
+    { key: 'contact_phone', label: 'Contact' },
+    { key: 'contact_email', label: 'Email' },
+    { key: 'admin_note', label: 'Internal note' },
+  ],
+  itemsTable: {
+    key: 'staff',
+    title: 'Package staff needed',
+    columns: [
+      { field: 'practitioner_type', header: 'Role' },
+      { field: 'quantity', header: 'Qty' },
+    ],
+  },
+  nested: [
+    {
+      key: 'assignments',
+      title: 'Assigned practitioners',
+      singular: 'assignment',
+      collectionKey: 'assignments',
+      addLabel: 'Assign practitioner',
+      addPath: (id) => `/admin/healthcare/requests/${id}/assignments`,
+      removePath: (row) => `/admin/healthcare/assignments/${row.id}`,
+      columns: [
+        { field: 'practitioner_name', header: 'Practitioner' },
+        { field: 'practitioner_type', header: 'Role' },
+        { field: 'note', header: 'Note' },
+      ],
+      formFields: [
+        {
+          key: 'practitioner_id',
+          label: 'Practitioner',
+          type: 'select',
+          required: true,
+          options: [],
+          optionsEndpoint: '/admin/practitioners',
+          collectionKey: 'practitioners',
+          optionLabel: 'full_name',
+          optionValue: 'id',
+        },
+        { key: 'note', label: 'Note', type: 'text' },
+      ],
+    },
+  ],
+  actions: [
+    {
+      key: 'quote',
+      label: 'Set quote',
+      type: 'form',
+      method: 'PATCH',
+      path: (id) => `/admin/healthcare/requests/${id}/quote`,
+      icon: 'pi pi-tag',
+      successSummary: 'Quote saved',
+      errorSummary: 'Quote failed',
+      enabled: (req) => ['requested', 'reviewing', 'quoted'].includes(req.status),
+      body: (values) => values,
+      formFields: [
+        { key: 'quoted_price', label: 'Quote amount', type: 'money', required: true },
+        { key: 'admin_note', label: 'Internal note', type: 'textarea' },
+      ],
+    },
+    {
+      key: 'record-payment',
+      label: 'Record payment',
+      type: 'form',
+      method: 'POST',
+      path: () => '/admin/payments',
+      icon: 'pi pi-wallet',
+      severity: 'success',
+      successSummary: 'Payment recorded',
+      errorSummary: 'Payment failed',
+      enabled: (req) => req.payment_status !== 'paid' && req.status !== 'cancelled' && Boolean(req.quoted_price),
+      body: (values, req) => ({ payable_type: 'healthcare', payable_id: req.id, ...values }),
+      formFields: [
+        {
+          key: 'method',
+          label: 'Payment method',
+          type: 'select',
+          defaultValue: 'cash',
+          required: true,
+          options: [
+            { label: 'Cash', value: 'cash' },
+            { label: 'Bank transfer', value: 'bank_transfer' },
+            { label: 'Mobile money', value: 'mobile_money' },
+            { label: 'Other', value: 'other' },
+          ],
+        },
+        { key: 'amount', label: 'Amount (blank = quote)', type: 'money' },
+        { key: 'reference', label: 'Reference', type: 'text' },
+        { key: 'note', label: 'Note', type: 'textarea' },
+      ],
+    },
+    {
+      key: 'status',
+      label: 'Advance status',
+      type: 'select-transition',
+      method: 'PATCH',
+      bodyKey: 'status',
+      path: (id) => `/admin/healthcare/requests/${id}/status`,
+      next: (req) =>
+        ({
+          requested: ['reviewing', 'quoted', 'cancelled'],
+          reviewing: ['quoted', 'cancelled'],
+          quoted: ['confirmed', 'cancelled'],
+          confirmed: ['assigned', 'in_progress', 'cancelled'],
+          assigned: ['in_progress', 'cancelled'],
+          in_progress: ['completed'],
+        })[req.status] || [],
+    },
   ],
 };

@@ -6,6 +6,7 @@ import AdminCarDetailView from '@/views/admin/AdminCarDetailView.vue';
 import AdminProductDetailView from '@/views/admin/AdminProductDetailView.vue';
 import AdminOrderCreateView from '@/views/admin/AdminOrderCreateView.vue';
 import AdminEventRequestCreateView from '@/views/admin/AdminEventRequestCreateView.vue';
+import AdminHealthcareSettingsView from '@/views/admin/AdminHealthcareSettingsView.vue';
 import AdminLoginView from '@/views/admin/AdminLoginView.vue';
 import AdminResourceView from '@/views/admin/AdminResourceView.vue';
 import AccountView from '@/views/public/AccountView.vue';
@@ -19,6 +20,9 @@ import EventRequestConfirmationView from '@/views/public/EventRequestConfirmatio
 import EventsView from '@/views/public/EventsView.vue';
 import ArtistsView from '@/views/public/ArtistsView.vue';
 import ArtistDetailView from '@/views/public/ArtistDetailView.vue';
+import HealthcareView from '@/views/public/HealthcareView.vue';
+import HealthcareRequestView from '@/views/public/HealthcareRequestView.vue';
+import HealthcareRequestConfirmationView from '@/views/public/HealthcareRequestConfirmationView.vue';
 import HomeView from '@/views/public/HomeView.vue';
 import NotFoundView from '@/views/public/NotFoundView.vue';
 import OrderConfirmationView from '@/views/public/OrderConfirmationView.vue';
@@ -168,6 +172,28 @@ const router = createRouter({
           path: 'event-requests/:id/confirmation',
           name: 'event-request-confirmation',
           component: EventRequestConfirmationView,
+          meta: { title: 'Request received' },
+        },
+        {
+          path: 'healthcare',
+          name: 'healthcare',
+          component: HealthcareView,
+          meta: {
+            title: 'Healthcare',
+            eyebrow: 'Care',
+            description: 'Home consultations and care packages with doctors and nurses.',
+          },
+        },
+        {
+          path: 'healthcare/request',
+          name: 'healthcare-request',
+          component: HealthcareRequestView,
+          meta: { title: 'Request home care' },
+        },
+        {
+          path: 'healthcare-requests/:id/confirmation',
+          name: 'healthcare-request-confirmation',
+          component: HealthcareRequestConfirmationView,
           meta: { title: 'Request received' },
         },
         {
@@ -373,6 +399,36 @@ const router = createRouter({
           name: 'admin-event-request-new',
           component: AdminEventRequestCreateView,
           meta: { title: 'New event request', description: 'Log a phone/walk-in event request.' },
+        },
+        {
+          path: 'practitioners',
+          name: 'admin-practitioners',
+          component: AdminResourceView,
+          meta: { title: 'Practitioners', resource: 'practitioners', description: 'Manage the doctor & nurse roster.' },
+        },
+        {
+          path: 'healthcare/categories',
+          name: 'admin-healthcare-categories',
+          component: AdminResourceView,
+          meta: { title: 'Care categories', resource: 'healthcare-service-categories', description: 'Healthcare service categories.' },
+        },
+        {
+          path: 'healthcare/services',
+          name: 'admin-healthcare-services',
+          component: AdminResourceView,
+          meta: { title: 'Care services', resource: 'healthcare-services', description: 'Consultations and care packages.' },
+        },
+        {
+          path: 'healthcare/requests',
+          name: 'admin-healthcare-requests',
+          component: AdminResourceView,
+          meta: { title: 'Care requests', resource: 'healthcare-requests', description: 'Review requests, quote, assign staff, record payment.' },
+        },
+        {
+          path: 'healthcare/settings',
+          name: 'admin-healthcare-settings',
+          component: AdminHealthcareSettingsView,
+          meta: { title: 'Emergency contact', description: 'Edit the emergency number shown on the client healthcare page.' },
         },
         {
           path: 'payments',

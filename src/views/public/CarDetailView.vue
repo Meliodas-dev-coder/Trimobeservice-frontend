@@ -3,12 +3,13 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 
+import GooglePlaceInput from '@/components/GooglePlaceInput.vue';
 import VisualPlaceholder from '@/components/VisualPlaceholder.vue';
 import { checkAvailability, createBooking, getCar, listBookedRanges } from '@/api/public';
 import { usePublicI18n } from '@/i18n/public';
 import { useAuthStore } from '@/stores/auth';
 import { formatMGA, setPageTitle } from '@/utils/format';
-import { getDrivingDistanceKm, getPlacePredictions, hasGoogleMapsKey } from '@/utils/googleMaps';
+import { getDrivingDistanceKm, hasGoogleMapsKey } from '@/utils/googleMaps';
 import { statusSeverity } from '@/utils/status';
 
 const route = useRoute();
@@ -41,19 +42,7 @@ const form = reactive({
   contact_phone: '',
   note: '',
 });
-const placeInputs = reactive({
-  pickup_location: '',
-  dropoff_location: '',
-});
-const placeSuggestions = reactive({
-  pickup_location: [],
-  dropoff_location: [],
-});
 const placeMeta = reactive({});
-const placeLoading = reactive({
-  pickup_location: false,
-  dropoff_location: false,
-});
 
 const isCargo = computed(() => Boolean(car.value?.is_cargo_transport));
 const images = computed(() => car.value?.images || []);
@@ -178,16 +167,11 @@ function inclusiveDays(startValue, endValue) {
   return Math.max(1, diff + 1);
 }
 
-function isPlacePrediction(value) {
-  return Boolean(value && typeof value === 'object' && value.place_id);
-}
-
 function clearComputedDistance() {
   form.distance_km = null;
 }
 
 function clearPlaceField(key) {
-  placeInputs[key] = '';
   form[key] = '';
   delete placeMeta[key];
   if (key === 'pickup_location' || key === 'dropoff_location') {
@@ -198,42 +182,18 @@ function clearPlaceField(key) {
 function resetBookingLocations() {
   clearPlaceField('pickup_location');
   clearPlaceField('dropoff_location');
-  placeSuggestions.pickup_location = [];
-  placeSuggestions.dropoff_location = [];
 }
 
-function updatePlaceValue(value, key) {
-  if (isPlacePrediction(value)) {
-    selectPlace(value, key);
-    return;
-  }
-  placeInputs[key] = value || '';
-  form[key] = '';
+function handlePlaceClear(key) {
   delete placeMeta[key];
   clearComputedDistance();
 }
 
-function selectPlace(place, key) {
-  placeInputs[key] = place;
-  form[key] = place.description || '';
-  placeMeta[key] = place;
+function handlePlaceSelect(selection, key) {
+  form[key] = selection.value || selection.prediction?.description || '';
+  placeMeta[key] = selection.prediction;
   clearComputedDistance();
   maybeComputeDistance();
-}
-
-async function searchPlaces(event, key) {
-  if (!hasGoogleMapsKey()) {
-    placeSuggestions[key] = [];
-    return;
-  }
-  placeLoading[key] = true;
-  try {
-    placeSuggestions[key] = await getPlacePredictions(event.query || '');
-  } catch {
-    placeSuggestions[key] = [];
-  } finally {
-    placeLoading[key] = false;
-  }
 }
 
 async function maybeComputeDistance() {
@@ -458,38 +418,22 @@ onMounted(load);
               <div class="place-grid">
                 <label>
                   <span>{{ t('Pickup location*') }}</span>
-                  <AutoComplete
-                    :modelValue="placeInputs.pickup_location"
-                    :suggestions="placeSuggestions.pickup_location"
-                    optionLabel="description"
-                    dataKey="place_id"
-                    forceSelection
-                    :minLength="3"
-                    :delay="250"
-                    :loading="placeLoading.pickup_location"
+                  <GooglePlaceInput
+                    v-model="form.pickup_location"
+                    :manualFallback="false"
                     :placeholder="t('Hotel, airport, office...')"
-                    fluid
-                    @update:modelValue="updatePlaceValue($event, 'pickup_location')"
-                    @option-select="selectPlace($event.value, 'pickup_location')"
-                    @complete="searchPlaces($event, 'pickup_location')"
+                    @place-select="handlePlaceSelect($event, 'pickup_location')"
+                    @place-clear="handlePlaceClear('pickup_location')"
                   />
                 </label>
                 <label>
                   <span>{{ isCargo ? t('Dropoff location*') : t('Dropoff location') }}</span>
-                  <AutoComplete
-                    :modelValue="placeInputs.dropoff_location"
-                    :suggestions="placeSuggestions.dropoff_location"
-                    optionLabel="description"
-                    dataKey="place_id"
-                    forceSelection
-                    :minLength="3"
-                    :delay="250"
-                    :loading="placeLoading.dropoff_location"
+                  <GooglePlaceInput
+                    v-model="form.dropoff_location"
+                    :manualFallback="false"
                     :placeholder="t('Optional for standard hire')"
-                    fluid
-                    @update:modelValue="updatePlaceValue($event, 'dropoff_location')"
-                    @option-select="selectPlace($event.value, 'dropoff_location')"
-                    @complete="searchPlaces($event, 'dropoff_location')"
+                    @place-select="handlePlaceSelect($event, 'dropoff_location')"
+                    @place-clear="handlePlaceClear('dropoff_location')"
                   />
                 </label>
               </div>

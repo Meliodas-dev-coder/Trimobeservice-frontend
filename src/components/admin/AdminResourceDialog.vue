@@ -5,7 +5,8 @@ import { useToast } from 'primevue/usetoast';
 import { api } from '@/api/client';
 import { loadFieldOptions, uploadImage } from '@/api/resources';
 import { useAdminI18n } from '@/i18n/admin';
-import { getDrivingDistanceKm, getPlacePredictions, hasGoogleMapsKey } from '@/utils/googleMaps';
+import { getDrivingDistanceKm } from '@/utils/googleMaps';
+import GooglePlaceInput from '@/components/GooglePlaceInput.vue';
 import DynamicSpecFields from '@/components/admin/DynamicSpecFields.vue';
 
 const toast = useToast();
@@ -29,10 +30,7 @@ const draft = reactive({});
 const optionsMap = reactive({}); // field.key -> [{ label, value }]
 const pendingFiles = reactive({}); // field.key -> File (selected, not yet uploaded)
 const previews = reactive({}); // field.key -> local object URL for preview
-const placeInputs = reactive({}); // field.key -> AutoComplete model
-const placeSuggestions = reactive({}); // field.key -> Google place predictions
 const placeMeta = reactive({}); // field.key -> selected prediction
-const placeLoading = reactive({}); // field.key -> true while searching Google
 const submitting = ref(false); // true while uploading images during save
 const computingDistance = ref(false);
 
@@ -146,10 +144,7 @@ function clearPending() {
   Object.values(previews).forEach((url) => URL.revokeObjectURL(url));
   Object.keys(previews).forEach((key) => delete previews[key]);
   Object.keys(pendingFiles).forEach((key) => delete pendingFiles[key]);
-  Object.keys(placeInputs).forEach((key) => delete placeInputs[key]);
-  Object.keys(placeSuggestions).forEach((key) => delete placeSuggestions[key]);
   Object.keys(placeMeta).forEach((key) => delete placeMeta[key]);
-  Object.keys(placeLoading).forEach((key) => delete placeLoading[key]);
   carBookings.value = [];
 }
 
@@ -175,9 +170,6 @@ function resetDraft() {
   props.fields.forEach((field) => {
     const value = initialValue(field);
     draft[field.key] = value;
-    if (field.type === 'place') {
-      placeInputs[field.key] = value || '';
-    }
   });
   if (attributeField.value) {
     draft.attributes = cloneAttributes(props.initial?.attributes);
@@ -354,51 +346,23 @@ function closeDialog() {
   isOpen.value = false;
 }
 
-async function searchPlaces(event, field) {
-  if (!hasGoogleMapsKey()) {
-    placeSuggestions[field.key] = [];
-    return;
-  }
-  placeLoading[field.key] = true;
-  try {
-    placeSuggestions[field.key] = await getPlacePredictions(event.query || '');
-  } catch {
-    placeSuggestions[field.key] = [];
-  } finally {
-    placeLoading[field.key] = false;
-  }
-}
-
-function updatePlaceValue(value, field) {
-  if (isPlacePrediction(value)) {
-    selectPlace(value, field);
-    return;
-  }
-
-  placeInputs[field.key] = value || '';
-  draft[field.key] = '';
-  delete placeMeta[field.key];
-  if (field.key === 'pickup_location' || field.key === 'dropoff_location') {
-    clearComputedDistance();
-  }
-}
-
-function selectPlace(place, field) {
-  placeInputs[field.key] = place;
-  draft[field.key] = place.description || '';
-  placeMeta[field.key] = place;
+function handlePlaceSelect(selection, field) {
+  draft[field.key] = selection.value || selection.prediction?.description || '';
+  placeMeta[field.key] = selection.prediction;
   if (field.key === 'pickup_location' || field.key === 'dropoff_location') {
     clearComputedDistance();
   }
   maybeComputeDistance();
 }
 
-function isPlacePrediction(value) {
-  return Boolean(value && typeof value === 'object' && value.place_id);
+function handlePlaceClear(field) {
+  delete placeMeta[field.key];
+  if (field.key === 'pickup_location' || field.key === 'dropoff_location') {
+    clearComputedDistance();
+  }
 }
 
 function clearRouteField(key) {
-  placeInputs[key] = '';
   draft[key] = '';
   delete placeMeta[key];
 }
@@ -576,21 +540,13 @@ watch(
           <span>{{ field.checkboxLabel || field.label }}</span>
         </div>
 
-        <AutoComplete
+        <GooglePlaceInput
           v-else-if="field.type === 'place'"
-          :modelValue="placeInputs[field.key]"
-          :suggestions="placeSuggestions[field.key] || []"
-          optionLabel="description"
-          dataKey="place_id"
-          forceSelection
-          :minLength="3"
-          :delay="250"
-          :loading="placeLoading[field.key] || false"
+          v-model="draft[field.key]"
+          :manualFallback="field.manualFallback !== false"
           :placeholder="field.placeholder"
-          fluid
-          @update:modelValue="updatePlaceValue($event, field)"
-          @option-select="selectPlace($event.value, field)"
-          @complete="searchPlaces($event, field)"
+          @place-select="handlePlaceSelect($event, field)"
+          @place-clear="handlePlaceClear(field)"
         />
 
         <div v-else-if="field.type === 'image'" class="image-field">

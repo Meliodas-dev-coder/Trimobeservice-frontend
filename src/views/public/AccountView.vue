@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 
+import GooglePlaceInput from '@/components/GooglePlaceInput.vue';
 import { createAddress, deleteAddress, listAddresses, updateAddress } from '@/api/public';
 import { usePublicI18n } from '@/i18n/public';
 import { useAuthStore } from '@/stores/auth';
@@ -122,6 +123,24 @@ function addressPayload() {
     postal_code: address.postal_code.trim() || null,
     is_default: true,
   };
+}
+
+function applyAddressPlace(selection) {
+  const selectedAddress = selection?.address;
+  if (!selectedAddress) {
+    address.city = '';
+    address.region = '';
+    address.postal_code = '';
+    return;
+  }
+  address.line1 = selectedAddress.line1 || selectedAddress.formatted_address || selection.value || address.line1;
+  if (selectedAddress.line2 && !address.line2) {
+    address.line2 = selectedAddress.line2;
+  }
+  address.city = selectedAddress.city || '';
+  address.region = selectedAddress.region || '';
+  address.country = selectedAddress.country || 'Madagascar';
+  address.postal_code = selectedAddress.postal_code || '';
 }
 
 async function loadAddresses() {
@@ -325,7 +344,7 @@ onMounted(() => {
 
             <label>
               <span>{{ t('Address line 1*') }}</span>
-              <InputText v-model="address.line1" autocomplete="address-line1" required />
+              <GooglePlaceInput v-model="address.line1" @place-select="applyAddressPlace" />
               <small v-if="addressErrors.line1">{{ addressErrors.line1 }}</small>
             </label>
 

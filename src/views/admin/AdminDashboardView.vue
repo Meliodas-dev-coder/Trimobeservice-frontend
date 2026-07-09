@@ -64,6 +64,15 @@ const tiles = computed(() => {
       noteWarn: Number(k.bookings_to_confirm) > 0,
     },
     {
+      key: 'healthcare',
+      icon: 'pi pi-heart',
+      tone: 'rose',
+      label: t('Care requests'),
+      value: String(k.healthcare_total ?? 0),
+      note: Number(k.healthcare_to_review) > 0 ? t('{n} to review', { n: k.healthcare_to_review }) : t('All reviewed'),
+      noteWarn: Number(k.healthcare_to_review) > 0,
+    },
+    {
       key: 'customers',
       icon: 'pi pi-users',
       tone: 'coral',
@@ -106,6 +115,7 @@ const paymentTotal = computed(() =>
 
 const orderStatusBars = computed(() => statusBars(data.value?.orders_by_status));
 const bookingStatusBars = computed(() => statusBars(data.value?.bookings_by_status));
+const healthcareStatusBars = computed(() => statusBars(data.value?.healthcare_by_status));
 
 function statusBars(list) {
   return (list || []).map((row) => ({
@@ -117,6 +127,7 @@ function statusBars(list) {
 
 const unpaidOrders = computed(() => data.value?.attention?.unpaid_orders || []);
 const bookingsToConfirm = computed(() => data.value?.attention?.bookings_to_confirm || []);
+const healthcareToReview = computed(() => data.value?.attention?.healthcare_to_review || []);
 
 const fleetNote = computed(() => {
   const k = kpis.value;
@@ -271,6 +282,42 @@ onMounted(load);
         </ul>
       </section>
     </div>
+
+    <div class="panel-grid panel-grid--split">
+      <section class="panel">
+        <div class="panel__head">
+          <div>
+            <p>{{ t('Healthcare') }}</p>
+            <h2>{{ t('Requests by status') }}</h2>
+          </div>
+          <Button as="router-link" to="/admin/healthcare/requests" :label="t('View all')" icon="pi pi-arrow-up-right" text />
+        </div>
+        <BarBreakdown :items="healthcareStatusBars">
+          <template #empty>{{ t('No care requests yet.') }}</template>
+        </BarBreakdown>
+      </section>
+
+      <section class="panel">
+        <div class="panel__head">
+          <div>
+            <p>{{ t('Needs attention') }}</p>
+            <h2>{{ t('Requests to review') }}</h2>
+          </div>
+          <Button as="router-link" to="/admin/healthcare/requests" :label="t('View all')" icon="pi pi-arrow-up-right" text />
+        </div>
+        <ul class="queue">
+          <li v-for="item in healthcareToReview" :key="item.number">
+            <div>
+              <strong>{{ item.number }}</strong>
+              <span>{{ enumLabel(item.label) }}</span>
+            </div>
+            <span class="queue__amount">{{ shortDate(item.created_at) }}</span>
+            <Tag :value="enumLabel(item.status)" severity="warn" />
+          </li>
+          <li v-if="!healthcareToReview.length" class="queue__empty">{{ t('No requests waiting.') }}</li>
+        </ul>
+      </section>
+    </div>
   </section>
 </template>
 
@@ -310,7 +357,7 @@ onMounted(load);
 .tile-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
 .tile {
@@ -336,6 +383,7 @@ onMounted(load);
 .tile--emerald::before { background: var(--tm-chart-2); }
 .tile--blue::before { background: var(--tm-chart-3); }
 .tile--coral::before { background: var(--tm-chart-4); }
+.tile--rose::before { background: #c05a7d; }
 
 .tile__icon {
   display: grid;
@@ -350,6 +398,7 @@ onMounted(load);
 .tile--emerald .tile__icon i { color: var(--tm-chart-2); }
 .tile--blue .tile__icon i { color: var(--tm-chart-3); }
 .tile--coral .tile__icon i { color: var(--tm-chart-4); }
+.tile--rose .tile__icon i { color: #c05a7d; }
 
 .tile__label {
   color: var(--tm-muted);

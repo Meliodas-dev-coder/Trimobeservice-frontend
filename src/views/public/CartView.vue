@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 
+import GooglePlaceInput from '@/components/GooglePlaceInput.vue';
 import { listAddresses } from '@/api/public';
 import { usePublicI18n } from '@/i18n/public';
 import { useAuthStore } from '@/stores/auth';
@@ -81,6 +82,24 @@ function fillDeliveryAddress(saved) {
     country: saved.country || 'Madagascar',
     postal_code: saved.postal_code || '',
   });
+}
+
+function applyDeliveryPlace(selection) {
+  const selectedAddress = selection?.address;
+  if (!selectedAddress) {
+    address.city = '';
+    address.region = '';
+    address.postal_code = '';
+    return;
+  }
+  address.line1 = selectedAddress.line1 || selectedAddress.formatted_address || selection.value || address.line1;
+  if (selectedAddress.line2 && !address.line2) {
+    address.line2 = selectedAddress.line2;
+  }
+  address.city = selectedAddress.city || '';
+  address.region = selectedAddress.region || '';
+  address.country = selectedAddress.country || 'Madagascar';
+  address.postal_code = selectedAddress.postal_code || '';
 }
 
 async function loadSavedAddress() {
@@ -295,7 +314,7 @@ onMounted(loadCart);
             </label>
             <label class="address-grid__wide">
               <span>{{ t('Address line 1*') }}</span>
-              <InputText v-model="address.line1" />
+              <GooglePlaceInput v-model="address.line1" @place-select="applyDeliveryPlace" />
               <small v-if="checkoutErrors['shipping_address.line1']">{{ checkoutErrors['shipping_address.line1'] }}</small>
             </label>
             <label class="address-grid__wide">
