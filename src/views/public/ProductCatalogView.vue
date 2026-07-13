@@ -11,7 +11,7 @@ import { queryInt, sameQuery } from '@/utils/query';
 
 const route = useRoute();
 const router = useRouter();
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 
 const QUERY_KEYS = ['q', 'category_id', 'brand_id', 'page'];
 
@@ -78,10 +78,10 @@ const categoryScoped = computed(() => ['phones', 'accessories'].includes(mode.va
 const categoryLocked = computed(() => mode.value === 'phones' && modeCategories.value.length > 0);
 const categoryOptions = computed(() => {
   const source = categoryScoped.value ? modeCategories.value : categories.value;
-  return source.map((category) => ({ label: category.name, value: category.id }));
+  return source.map((category) => ({ label: content(category, 'name') || category.name, value: category.id }));
 });
 const categoryDisabled = computed(() => categoryLocked.value && categoryOptions.value.length <= 1);
-const brandOptions = computed(() => brands.value.map((brand) => ({ label: brand.name, value: brand.id })));
+const brandOptions = computed(() => brands.value.map((brand) => ({ label: content(brand, 'name') || brand.name, value: brand.id })));
 const totalPages = computed(() => Math.max(1, Math.ceil(Number(meta.value.total || 0) / limit)));
 const productTemplateFilters = computed(() => {
   if (mode.value === 'phones') {
@@ -126,7 +126,8 @@ function isSmartphoneCategory(category) {
 }
 
 function categoryName(id) {
-  return categories.value.find((category) => category.id === id)?.name || t('Catalog');
+  const category = categories.value.find((item) => item.id === id);
+  return category ? content(category, 'name') || category.name : t('Catalog');
 }
 
 function priceRange(product) {

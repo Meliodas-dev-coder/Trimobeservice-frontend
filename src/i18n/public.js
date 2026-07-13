@@ -1,5 +1,7 @@
 import { computed, ref } from 'vue';
 
+import { localizedValue } from '@/utils/localized';
+
 const STORAGE_KEY = 'trimobe-public-language';
 const initialLanguage = localStorage.getItem(STORAGE_KEY) === 'fr' ? 'fr' : 'en';
 const language = ref(initialLanguage);
@@ -712,6 +714,10 @@ const fr = {
   'Your requests & history': 'Vos demandes et historique',
   'Track product orders, car bookings, event requests, healthcare requests, assisted payment status, and allowed cancellations.':
     'Suivez commandes produits, réservations de voitures, demandes événementielles, demandes de soins, statut de paiement assisté et annulations autorisées.',
+  'View cart': 'Voir le panier',
+  options: 'options',
+  'Pick a pack, choose your size, and add it to your cart — checkout and delivery work just like the rest of the shop.':
+    'Choisissez un paquet et sa taille, puis ajoutez-le au panier — paiement et livraison comme le reste de la boutique.',
 };
 
 function translate(value, params = {}) {
@@ -731,8 +737,13 @@ function toggleLanguage() {
   setLanguage(language.value === 'fr' ? 'en' : 'fr');
 }
 
+function content(record, field) {
+  return localizedValue(record, field, language.value);
+}
+
 export function usePublicI18n() {
   return {
+    content,
     language,
     languageLabel: computed(() => (language.value === 'fr' ? 'EN' : 'FR')),
     localeCode: computed(() => (language.value === 'fr' ? 'fr-FR' : 'en')),

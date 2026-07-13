@@ -6,11 +6,13 @@ import { useConfirm } from 'primevue/useconfirm';
 
 import AdminResourceDialog from '@/components/admin/AdminResourceDialog.vue';
 import CarUsageCalendar from '@/components/admin/CarUsageCalendar.vue';
+import LocalizedFieldControl from '@/components/admin/LocalizedFieldControl.vue';
 import { api } from '@/api/client';
 import { loadFieldOptions, serializeForm } from '@/api/resources';
 import { adminResources } from '@/data/adminResources';
 import { useAdminI18n } from '@/i18n/admin';
 import { formatDateTime, formatMGA } from '@/utils/format';
+import { cloneTranslations, ensureTranslationBucket } from '@/utils/localized';
 import { statusSeverity } from '@/utils/status';
 
 const route = useRoute();
@@ -43,6 +45,7 @@ const carsResource = computed(() => translateConfig(adminResources.cars));
 const carFields = computed(() =>
   (carsResource.value.formFields || []).filter((field) => !field.createOnly && field.persist !== false),
 );
+const localizedCarFields = computed(() => carFields.value.filter((field) => field.localized));
 
 const imageFields = computed(() => {
   const images = carsResource.value.manage?.nested?.find((item) => item.key === 'images');
@@ -85,6 +88,17 @@ function resetDraft() {
       draft[field.key] = fieldDefault(field);
     }
   }
+  if (localizedCarFields.value.length) {
+    draft.translations = cloneTranslations(car.value?.translations);
+    localizedCarFields.value.forEach((field) => ensureTranslationBucket(draft.translations, field.key));
+  }
+}
+
+function setTranslation({ field, locale, value }) {
+  if (!draft.translations) {
+    draft.translations = {};
+  }
+  ensureTranslationBucket(draft.translations, field)[locale] = value;
 }
 
 async function loadOptions() {
@@ -253,15 +267,23 @@ watch(carId, () => {
             v-for="field in carFields"
             :key="field.key"
             class="car-form__field"
-            :class="{ 'car-form__field--wide': field.type === 'textarea' }"
+            :class="{ 'car-form__field--wide': field.localized || field.type === 'textarea' }"
           >
             <span>
               {{ field.label }}
               <small v-if="field.required">*</small>
             </span>
 
+            <LocalizedFieldControl
+              v-if="field.localized"
+              v-model="draft[field.key]"
+              :field="field"
+              :translations="draft.translations"
+              @update:translation="setTranslation"
+            />
+
             <Textarea
-              v-if="field.type === 'textarea'"
+              v-else-if="field.type === 'textarea'"
               v-model="draft[field.key]"
               :placeholder="field.placeholder"
               rows="3"

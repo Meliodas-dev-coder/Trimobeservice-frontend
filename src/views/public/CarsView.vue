@@ -10,7 +10,7 @@ import { queryInt, sameQuery } from '@/utils/query';
 
 const route = useRoute();
 const router = useRouter();
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 
 const QUERY_KEYS = ['q', 'category_id', 'page'];
 
@@ -24,7 +24,7 @@ const categoryId = ref(null);
 const page = ref(1);
 const limit = 12;
 
-const categoryOptions = computed(() => categories.value.map((category) => ({ label: category.name, value: category.id })));
+const categoryOptions = computed(() => categories.value.map((category) => ({ label: content(category, 'name') || category.name, value: category.id })));
 const totalPages = computed(() => Math.max(1, Math.ceil(Number(meta.value.total || 0) / limit)));
 const carCards = computed(() =>
   cars.value.map((car) => ({
@@ -36,7 +36,8 @@ const carCards = computed(() =>
 );
 
 function categoryName(id) {
-  return categories.value.find((category) => category.id === id)?.name || t('Car');
+  const category = categories.value.find((item) => item.id === id);
+  return category ? content(category, 'name') || category.name : t('Car');
 }
 
 function readRouteState() {

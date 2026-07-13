@@ -6,11 +6,13 @@ import { useConfirm } from 'primevue/useconfirm';
 
 import AdminResourceDialog from '@/components/admin/AdminResourceDialog.vue';
 import DynamicSpecFields from '@/components/admin/DynamicSpecFields.vue';
+import LocalizedFieldControl from '@/components/admin/LocalizedFieldControl.vue';
 import { api } from '@/api/client';
 import { loadFieldOptions, serializeForm, uploadImage } from '@/api/resources';
 import { adminResources } from '@/data/adminResources';
 import { useAdminI18n } from '@/i18n/admin';
 import { formatMGA } from '@/utils/format';
+import { cloneTranslations, ensureTranslationBucket } from '@/utils/localized';
 import { statusSeverity } from '@/utils/status';
 
 const route = useRoute();
@@ -52,6 +54,7 @@ const basicsFields = computed(() =>
     (field) => field.type !== 'attributes' && !field.createOnly && field.persist !== false,
   ),
 );
+const localizedBasicsFields = computed(() => basicsFields.value.filter((field) => field.localized));
 const variantFields = computed(() => productsResource.value.variantForm || []);
 
 const selectedCategory = computed(
@@ -137,7 +140,18 @@ function resetDraft() {
       draft[field.key] = fieldDefault(field);
     }
   }
+  if (localizedBasicsFields.value.length) {
+    draft.translations = cloneTranslations(product.value?.translations);
+    localizedBasicsFields.value.forEach((field) => ensureTranslationBucket(draft.translations, field.key));
+  }
   draft.attributes = cloneAttributes(product.value?.attributes);
+}
+
+function setTranslation({ field, locale, value }) {
+  if (!draft.translations) {
+    draft.translations = {};
+  }
+  ensureTranslationBucket(draft.translations, field)[locale] = value;
 }
 
 async function loadOptions() {
@@ -479,11 +493,18 @@ watch(
             v-for="field in basicsFields"
             :key="field.key"
             class="basics-form__field"
-            :class="{ 'basics-form__field--wide': field.type === 'textarea' }"
+            :class="{ 'basics-form__field--wide': field.localized || field.type === 'textarea' }"
           >
             <span>{{ field.label }}<small v-if="field.required">*</small></span>
 
-            <Textarea v-if="field.type === 'textarea'" v-model="draft[field.key]" :placeholder="field.placeholder" rows="3" autoResize />
+            <LocalizedFieldControl
+              v-if="field.localized"
+              v-model="draft[field.key]"
+              :field="field"
+              :translations="draft.translations"
+              @update:translation="setTranslation"
+            />
+            <Textarea v-else-if="field.type === 'textarea'" v-model="draft[field.key]" :placeholder="field.placeholder" rows="3" autoResize />
             <InputNumber v-else-if="field.type === 'money'" v-model="draft[field.key]" :min="0" :useGrouping="true" suffix=" MGA" fluid />
             <InputNumber v-else-if="field.type === 'number'" v-model="draft[field.key]" :useGrouping="false" fluid />
             <Select

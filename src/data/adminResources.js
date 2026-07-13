@@ -36,6 +36,7 @@ const IS_ACTIVE_OPTIONS = [
 const DEPARTMENT_OPTIONS = [
   { label: 'Tech', value: 'tech' },
   { label: 'Fashion', value: 'fashion' },
+  { label: 'Coffee', value: 'coffee' },
 ];
 
 // Commerce catalog (categories, brands, products, variants) presents its is_active
@@ -70,6 +71,39 @@ function productPriceLabel(row) {
 // "phone" -> "Phone", "storage_type" -> "Storage type".
 function titleize(value) {
   return value ? String(value).replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '—';
+}
+
+// --- audit log display helpers ---
+// Who performed the action (falls back to the raw id if the account was removed).
+function auditActor(row) {
+  return row.actor_name || (row.actor_user_id != null ? `User #${row.actor_user_id}` : 'Unknown');
+}
+
+// HTTP verb + any trailing sub-action → a plain-language action, e.g.
+// PATCH /admin/orders/5/status → "Update · status"; POST /admin/products → "Create".
+function auditAction(row) {
+  const verb = { POST: 'Create', PUT: 'Update', PATCH: 'Update', DELETE: 'Delete' }[row.method] || row.method;
+  const parts = String(row.path || '').split('/').filter(Boolean);
+  const last = parts[parts.length - 1];
+  const sub = last && !/^\d+$/.test(last) && last !== 'admin' && last !== row.target_type ? last : '';
+  return sub ? `${verb} · ${sub.replace(/-/g, ' ')}` : verb;
+}
+
+// What was touched: "Orders #5", "Products".
+function auditTarget(row) {
+  if (!row.target_type) {
+    return '—';
+  }
+  return `${titleize(row.target_type)}${row.target_id != null ? ` #${row.target_id}` : ''}`;
+}
+
+// Compact preview of the request body (what changed).
+function auditChanges(row) {
+  if (!row.payload || typeof row.payload !== 'object') {
+    return '—';
+  }
+  const text = JSON.stringify(row.payload);
+  return text.length > 70 ? `${text.slice(0, 67)}…` : text;
 }
 
 // The dynamic-attributes control: the dialog renders the selected category's
@@ -188,7 +222,7 @@ export const adminResources = {
       { ...AVAILABILITY_COLUMN },
     ],
     formFields: [
-      { key: 'name', label: 'Name', type: 'text', placeholder: 'Smartphones', required: true },
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'Smartphones', required: true, localized: true },
       {
         key: 'template_key',
         label: 'Product type',
@@ -214,7 +248,7 @@ export const adminResources = {
         placeholder: 'None',
         scopeByDepartment: true,
       },
-      { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Optional summary' },
+      { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Optional summary', localized: true },
       { key: 'image_url', label: 'Image', type: 'image' },
       { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
     ],
@@ -244,7 +278,7 @@ export const adminResources = {
       { ...AVAILABILITY_COLUMN },
     ],
     formFields: [
-      { key: 'name', label: 'Name', type: 'text', placeholder: 'Astra', required: true },
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'Astra', required: true, localized: true },
       { key: 'department', label: 'Department', type: 'select', options: DEPARTMENT_OPTIONS },
       { key: 'logo_url', label: 'Logo', type: 'image' },
       { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
@@ -309,7 +343,7 @@ export const adminResources = {
       ],
     },
     formFields: [
-      { key: 'name', label: 'Product name', type: 'text', placeholder: 'Astra X10 Pro', required: true },
+      { key: 'name', label: 'Product name', type: 'text', placeholder: 'Astra X10 Pro', required: true, localized: true },
       {
         key: 'category_id',
         label: 'Category',
@@ -334,7 +368,7 @@ export const adminResources = {
         placeholder: 'None',
         scopeByDepartment: true,
       },
-      { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Catalog summary' },
+      { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Catalog summary', localized: true },
       { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
       { ...PRODUCT_ATTRIBUTES_FIELD },
     ],
@@ -377,7 +411,7 @@ export const adminResources = {
       ],
     },
     formFields: [
-      { key: 'name', label: 'Display name', type: 'text', placeholder: 'Mercedes S-Class 2023', required: true },
+      { key: 'name', label: 'Display name', type: 'text', placeholder: 'Mercedes S-Class 2023', required: true, localized: true },
       {
         key: 'category_id',
         label: 'Category',
@@ -425,7 +459,7 @@ export const adminResources = {
           { label: 'Inactive', value: 'inactive' },
         ],
       },
-      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'description', label: 'Description', type: 'textarea', localized: true },
     ],
     afterSave: [
       {
@@ -469,7 +503,7 @@ export const adminResources = {
       { field: 'is_active', header: 'Active', type: 'boolean' },
     ],
     formFields: [
-      { key: 'name', label: 'Name', type: 'text', placeholder: 'Luxury', required: true },
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'Luxury', required: true, localized: true },
       { key: 'default_daily_rate', label: 'Default daily rate', type: 'money' },
       {
         key: 'is_cargo_transport',
@@ -492,7 +526,7 @@ export const adminResources = {
         requiredWhen: isCargoCategory,
         showWhen: isCargoCategory,
       },
-      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'description', label: 'Description', type: 'textarea', localized: true },
       { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
     ],
   },
@@ -563,9 +597,9 @@ export const adminResources = {
       { field: 'is_active', header: 'Active', type: 'boolean' },
     ],
     formFields: [
-      { key: 'name', label: 'Name', type: 'text', placeholder: 'Sound & PA', required: true },
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'Sound & PA', required: true, localized: true },
       { key: 'icon', label: 'Icon (PrimeIcons class)', type: 'text', placeholder: 'pi pi-volume-up' },
-      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'description', label: 'Description', type: 'textarea', localized: true },
       { key: 'image_url', label: 'Image', type: 'image' },
       { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
       { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
@@ -610,7 +644,7 @@ export const adminResources = {
       ],
     },
     formFields: [
-      { key: 'name', label: 'Name', type: 'text', placeholder: 'Live band', required: true },
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'Live band', required: true, localized: true },
       {
         key: 'category_id',
         label: 'Category',
@@ -623,8 +657,8 @@ export const adminResources = {
         required: true,
       },
       { key: 'from_price', label: 'From price (indicative)', type: 'money' },
-      { key: 'price_unit', label: 'Price unit', type: 'text', placeholder: 'per event, per guest, per artist' },
-      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'price_unit', label: 'Price unit', type: 'text', placeholder: 'per event, per guest, per artist', localized: true },
+      { key: 'description', label: 'Description', type: 'textarea', localized: true },
       { key: 'image_url', label: 'Image', type: 'image' },
       { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
       { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
@@ -672,7 +706,7 @@ export const adminResources = {
     },
     formFields: [
       { key: 'stage_name', label: 'Stage / ministry name', type: 'text', required: true, placeholder: 'Voninavo Praise' },
-      { key: 'tagline', label: 'Tagline', type: 'text', placeholder: 'Worship leader for services and crusades' },
+      { key: 'tagline', label: 'Tagline', type: 'text', placeholder: 'Worship leader for services and crusades', localized: true },
       { key: 'photo_url', label: 'Photo', type: 'image' },
       { key: 'home_base', label: 'Home base', type: 'place', placeholder: 'Antananarivo' },
       { key: 'group_size', label: 'Group size', type: 'text', placeholder: 'Solo, Band of 6, Choir 20+' },
@@ -683,7 +717,7 @@ export const adminResources = {
       { key: 'from_fee', label: 'From fee (indicative)', type: 'money' },
       { key: 'sample_links', label: 'Sample links (one per line)', type: 'textarea', placeholder: 'https://youtube.com/...' },
       { key: 'social_links', label: 'Social links (one per line)', type: 'textarea', placeholder: 'https://facebook.com/...' },
-      { key: 'bio', label: 'Bio', type: 'textarea' },
+      { key: 'bio', label: 'Bio', type: 'textarea', localized: true },
       { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
       {
         key: 'is_featured',
@@ -992,6 +1026,46 @@ export const adminResources = {
     formFields: [],
   },
 
+  'audit-logs': {
+    id: 'audit-logs',
+    singular: 'log entry',
+    plural: 'Activity log',
+    eyebrow: 'System',
+    description: 'Who changed what in the admin dashboard, and when. Every create, update, and delete is recorded with the staff member who made it.',
+    actionLabel: null,
+    rowKey: 'id',
+    api: {
+      list: '/admin/audit-logs',
+      create: null,
+      itemBase: '/admin/audit-logs',
+      collectionKey: 'logs',
+      itemKey: 'log',
+    },
+    // Append-only trail: never created, edited, or deleted from the UI.
+    capabilities: { create: false, edit: false, remove: false },
+    filters: [
+      { key: 'method', label: 'Action', options: ['POST', 'PATCH', 'PUT', 'DELETE'] },
+      {
+        key: 'target_type',
+        label: 'Target',
+        options: [
+          'products', 'categories', 'brands', 'cars', 'car-categories', 'drivers',
+          'orders', 'bookings', 'event-services', 'event-requests', 'artists',
+          'healthcare', 'practitioners', 'payments',
+        ],
+      },
+    ],
+    columns: [
+      { field: 'created_at', header: 'When', type: 'datetime' },
+      { field: 'actor_name', header: 'Who', format: auditActor },
+      { field: 'method', header: 'Action', format: auditAction },
+      { field: 'target_type', header: 'Target', format: auditTarget },
+      { field: 'payload', header: 'Changes', format: auditChanges },
+      { field: 'status_code', header: 'Status', type: 'number' },
+    ],
+    formFields: [],
+  },
+
   practitioners: {
     id: 'practitioners',
     singular: 'practitioner',
@@ -1042,12 +1116,12 @@ export const adminResources = {
         ],
       },
       { key: 'full_name', label: 'Full name', type: 'text', required: true, placeholder: 'Dr. Hery Rakoto' },
-      { key: 'specialty', label: 'Specialty', type: 'text', placeholder: 'General medicine, Pediatrics' },
+      { key: 'specialty', label: 'Specialty', type: 'text', placeholder: 'General medicine, Pediatrics', localized: true },
       { key: 'phone', label: 'Phone', type: 'text', required: true, placeholder: '+261 …' },
       { key: 'email', label: 'Email', type: 'text', placeholder: 'name@example.com' },
       { key: 'license_number', label: 'License number', type: 'text' },
       { key: 'photo_url', label: 'Photo', type: 'image' },
-      { key: 'bio', label: 'Bio', type: 'textarea' },
+      { key: 'bio', label: 'Bio', type: 'textarea', localized: true },
       {
         key: 'status',
         label: 'Status',
@@ -1085,9 +1159,9 @@ export const adminResources = {
       { field: 'is_active', header: 'Active', type: 'boolean' },
     ],
     formFields: [
-      { key: 'name', label: 'Name', type: 'text', placeholder: 'Home Consultation', required: true },
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'Home Consultation', required: true, localized: true },
       { key: 'icon', label: 'Icon (PrimeIcons class)', type: 'text', placeholder: 'pi pi-home' },
-      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'description', label: 'Description', type: 'textarea', localized: true },
       { key: 'image_url', label: 'Image', type: 'image' },
       { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
       { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
@@ -1133,7 +1207,7 @@ export const adminResources = {
       ],
     },
     formFields: [
-      { key: 'name', label: 'Name', type: 'text', placeholder: 'General home consultation', required: true },
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'General home consultation', required: true, localized: true },
       {
         key: 'category_id',
         label: 'Category',
@@ -1176,8 +1250,8 @@ export const adminResources = {
         showWhen: isHealthcarePackage,
         persist: false,
       },
-      { key: 'price_unit', label: 'Price unit', type: 'text', placeholder: 'per visit, per month' },
-      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'price_unit', label: 'Price unit', type: 'text', placeholder: 'per visit, per month', localized: true },
+      { key: 'description', label: 'Description', type: 'textarea', localized: true },
       { key: 'image_url', label: 'Image', type: 'image' },
       { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
       { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },

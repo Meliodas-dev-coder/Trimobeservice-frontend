@@ -13,7 +13,7 @@ const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const auth = useAuthStore();
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 
 const categories = ref([]);
 const services = ref([]);
@@ -121,7 +121,16 @@ function priceLabel(service) {
   if (service.from_price === null || service.from_price === undefined || service.from_price === '') {
     return t('Quote by request');
   }
-  return `${formatMGA(Number(service.from_price || 0))}${service.price_unit ? ` ${service.price_unit}` : ''}`;
+  const unit = content(service, 'price_unit') || service.price_unit || '';
+  return `${formatMGA(Number(service.from_price || 0))}${unit ? ` ${unit}` : ''}`;
+}
+
+function categoryName(category) {
+  return t(content(category, 'name') || category.name);
+}
+
+function serviceName(service) {
+  return t(content(service, 'name') || service.name);
 }
 
 async function load() {
@@ -325,13 +334,13 @@ onMounted(async () => {
             <fieldset v-for="section in categorySections" :key="section.category.id" class="service-section">
               <legend>
                 <i :class="section.category.icon || 'pi pi-calendar'" />
-                {{ t(section.category.name) }}
+                {{ categoryName(section.category) }}
               </legend>
 
               <label v-for="service in section.services" :key="service.id" class="service-choice">
                 <Checkbox v-model="selectedServiceIds" :inputId="`event-service-${service.id}`" :value="service.id" />
                 <span>
-                  <strong>{{ service.name }}</strong>
+                  <strong>{{ serviceName(service) }}</strong>
                   <small>{{ priceLabel(service) }}</small>
                 </span>
               </label>

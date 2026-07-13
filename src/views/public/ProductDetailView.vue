@@ -15,7 +15,7 @@ const route = useRoute();
 const toast = useToast();
 const auth = useAuthStore();
 const cart = useCartStore();
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 
 const product = ref(null);
 const related = ref([]);
@@ -48,6 +48,14 @@ const galleryImages = computed(() => {
 const attributes = computed(() => parseAttributes(product.value?.attributes));
 const selectedAttrs = computed(() => parseAttributes(selectedVariant.value?.attributes));
 const canAdd = computed(() => Boolean(selectedVariant.value && selectedVariant.value.stock_quantity > 0 && quantity.value > 0));
+const productName = computed(() => (product.value ? content(product.value, 'name') || product.value.name : ''));
+const productDescription = computed(() => (product.value ? content(product.value, 'description') || product.value.description : ''));
+const categoryName = computed(() => (
+  product.value?.category ? content(product.value.category, 'name') || product.value.category.name : t('Catalog')
+));
+const brandName = computed(() => (
+  product.value?.brand ? content(product.value.brand, 'name') || product.value.brand.name : ''
+));
 
 const relatedCards = computed(() =>
   related.value
@@ -55,7 +63,7 @@ const relatedCards = computed(() =>
     .slice(0, 3)
     .map((item) => ({
       ...item,
-      categoryLabel: product.value?.category?.name || t('Catalog'),
+      categoryLabel: categoryName.value,
       image: item.primary_image_url,
       priceLabel: priceRange(item),
       stockLabel: item.variant_count ? `${item.variant_count} ${t('variants')}` : t('Variant details available soon'),
@@ -126,7 +134,7 @@ async function load() {
   selectedImageUrl.value = '';
   try {
     product.value = await getProduct(route.params.slug);
-    setPageTitle(product.value?.name);
+    setPageTitle(productName.value);
     selectedVariantId.value = variants.value[0]?.id || null;
     if (product.value?.category_id) {
       const res = await listProducts({ category_id: product.value.category_id, limit: 4 });
@@ -149,14 +157,14 @@ async function addToCart() {
     // The snapshot lets a signed-out visitor keep a local cart line; it is
     // ignored for signed-in users (the server cart snapshots prices itself).
     await cart.addItem(selectedVariant.value.id, Number(quantity.value || 1), {
-      product_name: product.value.name,
+      product_name: productName.value,
       product_slug: product.value.slug,
       variant_label: variantTitle(selectedVariant.value),
       sku: selectedVariant.value.sku,
       unit_price: selectedVariant.value.price,
       in_stock: selectedVariant.value.stock_quantity,
     });
-    toast.add({ severity: 'success', summary: t('Added to cart'), detail: product.value.name, life: 2600 });
+    toast.add({ severity: 'success', summary: t('Added to cart'), detail: productName.value, life: 2600 });
   } catch (err) {
     toast.add({ severity: 'error', summary: t('Could not add item'), detail: err?.message || t('Request failed'), life: 4200 });
   } finally {
@@ -201,7 +209,7 @@ onMounted(load);
         <section class="product-detail">
           <div class="product-media">
             <figure v-if="heroImage" class="product-media__hero">
-              <img :src="heroImage" :alt="product.name" />
+              <img :src="heroImage" :alt="productName" />
             </figure>
             <VisualPlaceholder v-else kind="phone" tone="emerald" />
 
@@ -213,18 +221,18 @@ onMounted(load);
                 :class="{ 'is-active': heroImage === image.url }"
                 @click="selectedImageUrl = image.url"
               >
-                <img :src="image.url" :alt="image.alt_text || product.name" />
+                <img :src="image.url" :alt="image.alt_text || productName" />
               </button>
             </div>
           </div>
 
           <div class="product-info">
-            <p class="eyebrow">{{ t(product.category?.name || 'Catalog') }}</p>
-            <h1>{{ product.name }}</h1>
-            <p v-if="product.description" class="product-info__description">{{ product.description }}</p>
+            <p class="eyebrow">{{ categoryName }}</p>
+            <h1>{{ productName }}</h1>
+            <p v-if="productDescription" class="product-info__description">{{ productDescription }}</p>
 
             <div class="product-info__meta">
-              <Tag v-if="product.brand" :value="product.brand.name" severity="secondary" />
+              <Tag v-if="brandName" :value="brandName" severity="secondary" />
               <Tag :value="product.is_active ? t('Available') : t('Unavailable')" :severity="product.is_active ? 'success' : 'secondary'" />
               <Tag :value="`${variants.length} ${t('variants')}`" severity="info" />
             </div>

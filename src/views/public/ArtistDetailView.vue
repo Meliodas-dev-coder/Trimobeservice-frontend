@@ -7,7 +7,7 @@ import { usePublicI18n } from '@/i18n/public';
 import { formatMGA, setPageTitle } from '@/utils/format';
 
 const route = useRoute();
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 
 const artist = ref(null);
 const loading = ref(false);
@@ -55,6 +55,8 @@ const tagGroups = computed(() => {
 
 const sampleLinks = computed(() => splitLinks(artist.value?.sample_links));
 const socialLinks = computed(() => splitLinks(artist.value?.social_links));
+const artistTagline = computed(() => (artist.value ? content(artist.value, 'tagline') || artist.value.tagline : ''));
+const artistBio = computed(() => (artist.value ? content(artist.value, 'bio') || artist.value.bio : ''));
 
 const feeLabel = computed(() => {
   const fee = artist.value?.from_fee;
@@ -119,7 +121,7 @@ onMounted(load);
           <div class="artist-info">
             <p class="eyebrow">{{ artist.is_featured ? t('Featured artist') : t('Gospel artist') }}</p>
             <h1>{{ artist.stage_name }}</h1>
-            <p v-if="artist.tagline" class="artist-info__tagline">{{ artist.tagline }}</p>
+            <p v-if="artistTagline" class="artist-info__tagline">{{ artistTagline }}</p>
 
             <ul class="artist-info__facts">
               <li v-if="artist.group_size"><i class="pi pi-users" />{{ artist.group_size }}</li>
@@ -146,9 +148,9 @@ onMounted(load);
           </div>
         </section>
 
-        <section v-if="artist.bio" class="artist-block">
+        <section v-if="artistBio" class="artist-block">
           <h2 class="section-title">{{ t('About') }}</h2>
-          <p class="artist-bio">{{ artist.bio }}</p>
+          <p class="artist-bio">{{ artistBio }}</p>
         </section>
 
         <section v-if="sampleLinks.length" class="artist-block">

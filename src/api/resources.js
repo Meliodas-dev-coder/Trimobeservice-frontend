@@ -1,6 +1,7 @@
 // Generic CRUD helpers that drive the admin resource screens from the
 // `adminResources` contract.
 import { api, uploadFile } from '@/api/client';
+import { cleanTranslations, localizedValue } from '@/utils/localized';
 
 // These admin list endpoints support server-side pagination (+ ?q / filters).
 // The rest return the full list in one shot (categories, brands, car-categories,
@@ -63,7 +64,12 @@ export async function uploadImage(file) {
 export async function loadFieldOptions(field, extra = {}) {
   const data = await api.get(field.optionsEndpoint, { params: { limit: 100, ...extra } });
   const items = data?.[field.collectionKey] ?? [];
-  return items.map((item) => ({ label: item[field.optionLabel], value: item[field.optionValue], item }));
+  const language = localStorage.getItem('trimobe-admin-language') === 'fr' ? 'fr' : 'en';
+  return items.map((item) => ({
+    label: localizedValue(item, field.optionLabel, language) || item[field.optionLabel],
+    value: item[field.optionValue],
+    item,
+  }));
 }
 
 // Build an API request body from raw form values, coercing types to match the
@@ -87,7 +93,11 @@ function cleanAttributes(attrs) {
 
 export function serializeForm(fields, values) {
   const body = {};
+  const localizedKeys = [];
   for (const field of fields) {
+    if (field.localized) {
+      localizedKeys.push(field.key);
+    }
     if (field.type === 'attributes') {
       body.attributes = cleanAttributes(values.attributes);
       continue;
@@ -141,6 +151,9 @@ export function serializeForm(fields, values) {
       continue; // omit optional blanks (relation selects, optional text)
     }
     body[field.key] = value;
+  }
+  if (localizedKeys.length) {
+    body.translations = cleanTranslations(values.translations, localizedKeys);
   }
   return body;
 }

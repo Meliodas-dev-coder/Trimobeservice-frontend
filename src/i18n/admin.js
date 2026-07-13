@@ -135,6 +135,8 @@ const fr = {
   'Remove image': "Retirer l'image",
   'Replace image': "Remplacer l'image",
   'Select image': 'Sélectionner une image',
+  Translations: 'Traductions',
+  '{lang} version': 'Version {lang}',
 
   // Login
   'Trimobe admin': 'Administration Trimobe',

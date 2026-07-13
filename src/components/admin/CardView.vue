@@ -4,6 +4,7 @@ import Paginator from 'primevue/paginator';
 
 import { useAdminI18n } from '@/i18n/admin';
 import { formatDate, formatMGA } from '@/utils/format';
+import { localizedValue } from '@/utils/localized';
 import { statusSeverity } from '@/utils/status';
 
 const props = defineProps({
@@ -21,7 +22,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['manage', 'edit', 'remove', 'page']);
-const { enumLabel, localeCode, t } = useAdminI18n();
+const { enumLabel, language, localeCode, t } = useAdminI18n();
 
 const spec = computed(() => props.resource.cardView || {});
 const imageField = computed(() => spec.value.imageField || 'primary_image_url');
@@ -38,15 +39,18 @@ function rowID(row) {
 }
 
 function rawValue(row, field) {
-  return row[field.field || field.key];
+  const fieldName = field.field || field.key;
+  return field.localized || isLocalizedField(fieldName)
+    ? localizedValue(row, fieldName, language.value)
+    : row[fieldName];
 }
 
 function title(row) {
-  return row[titleField.value] || props.resource.singular;
+  return displayField(row, titleField.value) || props.resource.singular;
 }
 
 function subtitle(row) {
-  const value = row[subtitleField.value];
+  const value = displayField(row, subtitleField.value);
   return value || `#${rowID(row)}`;
 }
 
@@ -56,6 +60,14 @@ function imageSrc(row) {
 
 function imageAlt(row) {
   return row[spec.value.imageAltField] || title(row);
+}
+
+function isLocalizedField(fieldName) {
+  return Boolean((props.resource.formFields || []).find((field) => field.key === fieldName && field.localized));
+}
+
+function displayField(row, fieldName) {
+  return isLocalizedField(fieldName) ? localizedValue(row, fieldName, language.value) : row[fieldName];
 }
 
 function badgeVisible(row) {

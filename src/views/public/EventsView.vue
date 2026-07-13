@@ -7,7 +7,7 @@ import eventPlanningShowcase from '@/assets/events/event-planning-showcase.png';
 import { usePublicI18n } from '@/i18n/public';
 import { formatMGA } from '@/utils/format';
 
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 const categories = ref([]);
 const services = ref([]);
 const loading = ref(false);
@@ -50,7 +50,8 @@ function priceLabel(service) {
   if (service.from_price === null || service.from_price === undefined || service.from_price === '') {
     return t('Quote by request');
   }
-  return `${t('From')} ${formatMGA(Number(service.from_price || 0))}${service.price_unit ? ` ${service.price_unit}` : ''}`;
+  const unit = content(service, 'price_unit') || service.price_unit || '';
+  return `${t('From')} ${formatMGA(Number(service.from_price || 0))}${unit ? ` ${unit}` : ''}`;
 }
 
 function serviceImage(service) {
@@ -58,9 +59,27 @@ function serviceImage(service) {
 }
 
 function serviceImageAlt(service, category) {
+  const serviceName = content(service, 'name') || service.name;
+  const categoryName = content(category, 'name') || category.name;
   return service.image_url
-    ? service.name
-    : `${category.name} event service setup with stage, lighting, catering, and decor`;
+    ? serviceName
+    : `${categoryName} event service setup with stage, lighting, catering, and decor`;
+}
+
+function categoryName(category) {
+  return t(content(category, 'name') || category.name);
+}
+
+function categoryDescription(category) {
+  return t(content(category, 'description') || category.description || '');
+}
+
+function serviceName(service) {
+  return t(content(service, 'name') || service.name);
+}
+
+function serviceDescription(service) {
+  return content(service, 'description') || service.description || t('Custom event support from the Trimobe planning team.');
 }
 
 async function load() {
@@ -124,12 +143,12 @@ onMounted(load);
         <section v-for="section in sections" :key="section.category.id" class="event-category">
           <div class="section-header">
             <div>
-              <p class="eyebrow">{{ t(section.category.name) }}</p>
+              <p class="eyebrow">{{ categoryName(section.category) }}</p>
               <h2 class="section-title">
                 <i :class="section.category.icon || 'pi pi-calendar'" />
-                {{ t(section.category.name) }}
+                {{ categoryName(section.category) }}
               </h2>
-              <p v-if="section.category.description" class="section-copy">{{ t(section.category.description) }}</p>
+              <p v-if="categoryDescription(section.category)" class="section-copy">{{ categoryDescription(section.category) }}</p>
             </div>
           </div>
 
@@ -141,9 +160,9 @@ onMounted(load);
 
               <div class="event-card__body">
                 <div>
-                  <p>{{ t(section.category.name) }}</p>
-                  <h3>{{ service.name }}</h3>
-                  <span>{{ service.description || t('Custom event support from the Trimobe planning team.') }}</span>
+                  <p>{{ categoryName(section.category) }}</p>
+                  <h3>{{ serviceName(service) }}</h3>
+                  <span>{{ serviceDescription(service) }}</span>
                 </div>
                 <div class="event-card__footer">
                   <strong>{{ priceLabel(service) }}</strong>

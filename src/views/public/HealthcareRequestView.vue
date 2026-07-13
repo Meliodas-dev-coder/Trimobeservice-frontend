@@ -13,7 +13,7 @@ const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const auth = useAuthStore();
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 
 const categories = ref([]);
 const services = ref([]);
@@ -62,6 +62,9 @@ const selectedService = computed(
   () => services.value.find((service) => Number(service.id) === Number(selectedServiceId.value)) || null,
 );
 const isPackage = computed(() => selectedService.value?.service_type === 'package');
+const selectedServiceName = computed(() => (
+  selectedService.value ? serviceName(selectedService.value) : t('General consultation')
+));
 
 const priceHint = computed(() => {
   const service = selectedService.value;
@@ -69,7 +72,8 @@ const priceHint = computed(() => {
     return t('A general home consultation. Our team reviews and sends a quote.');
   }
   if (service.service_type === 'package') {
-    return `${formatMGA(Number(service.price || 0))}${service.price_unit ? ` ${service.price_unit}` : ''}`;
+    const unit = content(service, 'price_unit') || service.price_unit || '';
+    return `${formatMGA(Number(service.price || 0))}${unit ? ` ${unit}` : ''}`;
   }
   if (service.from_price) {
     return `${t('From')} ${formatMGA(Number(service.from_price || 0))} — ${t('final quote after review')}`;
@@ -103,6 +107,18 @@ function defaultStartDate() {
 
 function selectService(id) {
   selectedServiceId.value = id;
+}
+
+function categoryName(category) {
+  return t(content(category, 'name') || category.name);
+}
+
+function serviceName(service) {
+  return t(content(service, 'name') || service.name);
+}
+
+function serviceUnit(service) {
+  return content(service, 'price_unit') || service.price_unit || '';
 }
 
 async function load() {
@@ -227,7 +243,7 @@ onMounted(async () => {
         </div>
         <div class="request-hero__summary soft-panel">
           <span>{{ isPackage ? t('Package') : t('Consultation') }}</span>
-          <strong>{{ selectedService ? selectedService.name : t('General consultation') }}</strong>
+          <strong>{{ selectedServiceName }}</strong>
           <small>{{ priceHint }}</small>
         </div>
       </header>
@@ -261,7 +277,7 @@ onMounted(async () => {
             <fieldset v-for="section in categorySections" :key="section.category.id" class="service-section">
               <legend>
                 <i :class="section.category.icon || 'pi pi-heart'" />
-                {{ t(section.category.name) }}
+                {{ categoryName(section.category) }}
               </legend>
 
               <label
@@ -273,7 +289,7 @@ onMounted(async () => {
                 <RadioButton v-model="selectedServiceId" :value="service.id" :inputId="`care-service-${service.id}`" />
                 <span>
                   <strong>
-                    {{ service.name }}
+                    {{ serviceName(service) }}
                     <Tag
                       class="service-choice__tag"
                       :value="service.service_type === 'package' ? t('Package') : t('Consultation')"
@@ -282,7 +298,7 @@ onMounted(async () => {
                   </strong>
                   <small>
                     <template v-if="service.service_type === 'package'">
-                      {{ formatMGA(Number(service.price || 0)) }}{{ service.price_unit ? ` ${service.price_unit}` : '' }}
+                      {{ formatMGA(Number(service.price || 0)) }}{{ serviceUnit(service) ? ` ${serviceUnit(service)}` : '' }}
                     </template>
                     <template v-else-if="service.from_price">
                       {{ t('From') }} {{ formatMGA(Number(service.from_price || 0)) }}

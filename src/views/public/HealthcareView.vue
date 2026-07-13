@@ -6,7 +6,7 @@ import { getHealthcareEmergency, listHealthcareCategories, listHealthcareService
 import { usePublicI18n } from '@/i18n/public';
 import { formatMGA } from '@/utils/format';
 
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 
 const emergency = ref(null);
 const categories = ref([]);
@@ -15,6 +15,12 @@ const loading = ref(false);
 const error = ref('');
 
 const serviceCount = computed(() => services.value.length);
+const emergencyHours = computed(() => (
+  emergency.value ? content(emergency.value, 'emergency_hours') || emergency.value.emergency_hours : ''
+));
+const emergencyNote = computed(() => (
+  emergency.value ? content(emergency.value, 'emergency_note') || emergency.value.emergency_note : ''
+));
 
 const sections = computed(() => {
   const grouped = new Map();
@@ -45,15 +51,14 @@ function isPackage(service) {
 }
 
 function priceLabel(service) {
+  const unit = content(service, 'price_unit') || service.price_unit || '';
   if (isPackage(service)) {
-    const unit = service.price_unit ? ` ${service.price_unit}` : '';
-    return `${formatMGA(Number(service.price || 0))}${unit}`;
+    return `${formatMGA(Number(service.price || 0))}${unit ? ` ${unit}` : ''}`;
   }
   if (service.from_price === null || service.from_price === undefined || service.from_price === '') {
     return t('Quote after review');
   }
-  const unit = service.price_unit ? ` ${service.price_unit}` : '';
-  return `${t('From')} ${formatMGA(Number(service.from_price || 0))}${unit}`;
+  return `${t('From')} ${formatMGA(Number(service.from_price || 0))}${unit ? ` ${unit}` : ''}`;
 }
 
 function staffLabel(service) {
@@ -65,6 +70,22 @@ function staffLabel(service) {
     parts.push(`${service.staff_nurses} ${service.staff_nurses > 1 ? t('nurses') : t('nurse')}`);
   }
   return parts.join(' · ');
+}
+
+function categoryName(category) {
+  return t(content(category, 'name') || category.name);
+}
+
+function categoryDescription(category) {
+  return t(content(category, 'description') || category.description || '');
+}
+
+function serviceName(service) {
+  return t(content(service, 'name') || service.name);
+}
+
+function serviceDescription(service) {
+  return content(service, 'description') || service.description || t('Home healthcare from the Trimobe network.');
 }
 
 async function load() {
@@ -113,8 +134,8 @@ onMounted(load);
           <a class="care-emergency__phone" :href="`tel:${emergency.emergency_phone.replace(/\s+/g, '')}`">
             {{ emergency.emergency_phone }}
           </a>
-          <span v-if="emergency.emergency_hours" class="care-emergency__hours">{{ emergency.emergency_hours }}</span>
-          <p v-if="emergency.emergency_note" class="care-emergency__note">{{ emergency.emergency_note }}</p>
+          <span v-if="emergencyHours" class="care-emergency__hours">{{ emergencyHours }}</span>
+          <p v-if="emergencyNote" class="care-emergency__note">{{ emergencyNote }}</p>
         </aside>
       </header>
 
@@ -132,12 +153,12 @@ onMounted(load);
         <p class="care-count">{{ serviceCount }} {{ t('services and packages available') }}</p>
         <section v-for="section in sections" :key="section.category.id" class="care-category">
           <div class="section-header">
-            <p class="eyebrow">{{ t(section.category.name) }}</p>
+            <p class="eyebrow">{{ categoryName(section.category) }}</p>
             <h2 class="section-title">
               <i :class="section.category.icon || 'pi pi-heart'" />
-              {{ t(section.category.name) }}
+              {{ categoryName(section.category) }}
             </h2>
-            <p v-if="section.category.description" class="section-copy">{{ t(section.category.description) }}</p>
+            <p v-if="categoryDescription(section.category)" class="section-copy">{{ categoryDescription(section.category) }}</p>
           </div>
 
           <div class="care-grid">
@@ -150,8 +171,8 @@ onMounted(load);
                       :severity="isPackage(service) ? 'success' : 'info'"
                     />
                   </p>
-                  <h3>{{ service.name }}</h3>
-                  <span>{{ service.description || t('Home healthcare from the Trimobe network.') }}</span>
+                  <h3>{{ serviceName(service) }}</h3>
+                  <span>{{ serviceDescription(service) }}</span>
                   <ul v-if="isPackage(service)" class="care-card__meta">
                     <li v-if="staffLabel(service)"><i class="pi pi-users" /> {{ staffLabel(service) }}</li>
                     <li v-if="service.duration_days"><i class="pi pi-calendar" /> {{ service.duration_days }} {{ t('days') }}</li>

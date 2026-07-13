@@ -8,6 +8,8 @@ import { useAdminI18n } from '@/i18n/admin';
 import { getDrivingDistanceKm } from '@/utils/googleMaps';
 import GooglePlaceInput from '@/components/GooglePlaceInput.vue';
 import DynamicSpecFields from '@/components/admin/DynamicSpecFields.vue';
+import LocalizedFieldControl from '@/components/admin/LocalizedFieldControl.vue';
+import { cloneTranslations, ensureTranslationBucket } from '@/utils/localized';
 
 const toast = useToast();
 const { t } = useAdminI18n();
@@ -76,6 +78,7 @@ const attributeFields = computed(() => {
 });
 
 const standardFields = computed(() => visibleFields.value.filter((field) => field.type !== 'attributes'));
+const localizedFields = computed(() => props.fields.filter((field) => field.localized));
 
 const canSave = computed(() => {
   const requiredOk = standardFields.value.every((field) => {
@@ -171,6 +174,10 @@ function resetDraft() {
     const value = initialValue(field);
     draft[field.key] = value;
   });
+  if (localizedFields.value.length) {
+    draft.translations = cloneTranslations(props.initial?.translations);
+    localizedFields.value.forEach((field) => ensureTranslationBucket(draft.translations, field.key));
+  }
   if (attributeField.value) {
     draft.attributes = cloneAttributes(props.initial?.attributes);
   }
@@ -216,6 +223,13 @@ async function loadRelationOptions() {
 
 function optionsFor(field) {
   return optionsMap[field.key] || field.options || [];
+}
+
+function setTranslation({ field, locale, value }) {
+  if (!draft.translations) {
+    draft.translations = {};
+  }
+  ensureTranslationBucket(draft.translations, field)[locale] = value;
 }
 
 function fieldMinDate(field) {
@@ -457,15 +471,23 @@ watch(
         v-for="field in standardFields"
         :key="field.key"
         class="resource-form__field"
-        :class="{ 'resource-form__field--wide': field.type === 'textarea' || field.type === 'image' || field.fullWidth }"
+        :class="{ 'resource-form__field--wide': field.localized || field.type === 'textarea' || field.type === 'image' || field.fullWidth }"
       >
         <span class="resource-form__label">
           {{ field.label }}
           <small v-if="isRequired(field)">*</small>
         </span>
 
+        <LocalizedFieldControl
+          v-if="field.localized"
+          v-model="draft[field.key]"
+          :field="field"
+          :translations="draft.translations"
+          @update:translation="setTranslation"
+        />
+
         <Textarea
-          v-if="field.type === 'textarea'"
+          v-else-if="field.type === 'textarea'"
           v-model="draft[field.key]"
           :placeholder="field.placeholder"
           rows="3"

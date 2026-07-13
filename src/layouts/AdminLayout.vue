@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import BrandMark from '@/components/BrandMark.vue';
+import NotificationBell from '@/components/admin/NotificationBell.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import { useAdminI18n } from '@/i18n/admin';
 import { useAuthStore } from '@/stores/auth';
@@ -40,6 +41,14 @@ const groupedNav = [
       { label: 'Categories', icon: 'pi pi-tags', to: '/admin/fashion/categories' },
       { label: 'Brands', icon: 'pi pi-bookmark', to: '/admin/fashion/brands' },
       { label: 'Products', icon: 'pi pi-shopping-bag', to: '/admin/fashion/products' },
+    ],
+  },
+  {
+    key: 'coffee',
+    label: 'Coffee',
+    icon: 'pi pi-inbox',
+    items: [
+      { label: 'Products', icon: 'pi pi-inbox', to: '/admin/coffee/products' },
     ],
   },
   {
@@ -82,11 +91,13 @@ const secondaryNav = [
   { label: 'Orders', icon: 'pi pi-receipt', to: '/admin/orders' },
   { label: 'Payments', icon: 'pi pi-wallet', to: '/admin/payments' },
   { label: 'Customers', icon: 'pi pi-users', to: '/admin/customers' },
+  { label: 'Activity log', icon: 'pi pi-history', to: '/admin/audit-logs' },
 ];
 
 const openGroups = ref({
   tech: false,
   fashion: false,
+  coffee: false,
   mobility: false,
   events: false,
   healthcare: false,
@@ -189,6 +200,7 @@ watch(
           <h1>{{ route.meta.title || 'Dashboard' }}</h1> -->
         </div>
         <div class="admin-topbar__actions">
+          <NotificationBell />
           <ThemeToggle />
           <Button icon="pi pi-language" :label="languageLabel" severity="secondary" outlined @click="toggleLanguage" />
           <!-- <Button as="router-link" to="/" icon="pi pi-external-link" :label="t('Client app')" outlined /> -->

@@ -13,9 +13,10 @@ const props = defineProps({
   },
 });
 
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 const cardTag = computed(() => (props.car.to ? RouterLink : 'article'));
 const image = computed(() => props.car.image || props.car.primary_image_url || '');
+const name = computed(() => content(props.car, 'name') || props.car.name);
 const category = computed(() => t(props.car.category || props.car.categoryLabel || props.car.car_category || 'Car'));
 const seats = computed(() => props.car.seats || 4);
 const dailyRate = computed(() => Number(props.car.dailyRate ?? props.car.daily_rate ?? 0));
@@ -25,14 +26,14 @@ const availability = computed(() => t(props.car.availability || (props.car.statu
 <template>
   <component :is="cardTag" class="car-card" :to="car.to || undefined">
     <figure v-if="image" class="car-card__image">
-      <img :src="image" :alt="car.name" loading="lazy" />
+      <img :src="image" :alt="name" loading="lazy" />
     </figure>
     <VisualPlaceholder v-else kind="car" :tone="car.tone" />
     <div class="car-card__body">
       <div class="car-card__heading">
         <div>
           <p>{{ category }}</p>
-          <h3>{{ car.name }}</h3>
+          <h3>{{ name }}</h3>
         </div>
         <Tag :value="`${seats} ${t('seats')}`" severity="secondary" />
       </div>

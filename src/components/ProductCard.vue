@@ -13,10 +13,11 @@ const props = defineProps({
   },
 });
 
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 
 const cardTag = computed(() => (props.product.to ? RouterLink : 'article'));
 const image = computed(() => props.product.image || props.product.primary_image_url || '');
+const name = computed(() => content(props.product, 'name') || props.product.name);
 const category = computed(() => t(props.product.category || props.product.categoryLabel || 'Product'));
 const variant = computed(() => props.product.variant || props.product.variantLabel || '');
 const priceText = computed(() => {
@@ -43,13 +44,13 @@ const stockText = computed(() => {
 <template>
   <component :is="cardTag" class="product-card" :to="product.to || undefined">
     <figure v-if="image" class="product-card__image">
-      <img :src="image" :alt="product.imageAlt || product.name" loading="lazy" />
+      <img :src="image" :alt="product.imageAlt || name" loading="lazy" />
     </figure>
     <VisualPlaceholder v-else :kind="product.visualKind || 'phone'" :tone="product.tone" />
     <div class="product-card__body">
       <div>
         <p>{{ category }}</p>
-        <h3>{{ product.name }}</h3>
+        <h3>{{ name }}</h3>
         <span>{{ variant }}</span>
       </div>
       <div class="product-card__footer">

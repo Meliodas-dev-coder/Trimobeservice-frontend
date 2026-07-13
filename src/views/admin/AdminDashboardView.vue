@@ -1,11 +1,12 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import RevenueAreaChart from '@/components/admin/charts/RevenueAreaChart.vue';
 import DonutChart from '@/components/admin/charts/DonutChart.vue';
 import BarBreakdown from '@/components/admin/charts/BarBreakdown.vue';
 import { api } from '@/api/client';
 import { useAdminI18n } from '@/i18n/admin';
+import { useNotificationsStore } from '@/stores/notifications';
 import { formatDate, formatMGA } from '@/utils/format';
 import { statusSeverity } from '@/utils/status';
 
@@ -153,7 +154,35 @@ function shortDate(value) {
   return formatDate(value, localeCode.value);
 }
 
+// --- Live activity (SSE) ---
+const notifications = useNotificationsStore();
+const activity = computed(() => notifications.items.slice(0, 8));
+const streamConnected = computed(() => notifications.connected);
+
+function amountLabel(n) {
+  return n.amount != null && n.amount !== '' ? formatMGA(Number(n.amount)) : '';
+}
+
+function shortTime(ts) {
+  return new Date(ts).toLocaleTimeString(localeCode.value, { hour: '2-digit', minute: '2-digit' });
+}
+
+// When live events arrive, refresh the KPIs/charts a beat later so a burst of
+// events collapses into a single refetch instead of hammering the endpoint.
+let refetchTimer = null;
+watch(
+  () => notifications.lastEventAt,
+  (ts) => {
+    if (!ts) {
+      return;
+    }
+    clearTimeout(refetchTimer);
+    refetchTimer = setTimeout(load, 1200);
+  },
+);
+
 onMounted(load);
+onBeforeUnmount(() => clearTimeout(refetchTimer));
 </script>
 
 <template>
@@ -178,6 +207,43 @@ onMounted(load);
         <p v-else class="tile__note" :class="{ 'tile__note--warn': tile.noteWarn }">{{ tile.note }}</p>
       </article>
     </div>
+
+    <section class="panel live-panel">
+      <div class="panel__head">
+        <div>
+          <p>{{ t('Realtime') }}</p>
+          <h2>{{ t('Live activity') }}</h2>
+        </div>
+        <span class="live-status" :class="{ 'is-live': streamConnected }">
+          <i class="live-status__dot" />
+          {{ streamConnected ? t('Live') : t('Connecting…') }}
+        </span>
+      </div>
+
+      <ul v-if="activity.length" class="live-list">
+        <li v-for="n in activity" :key="n.id">
+          <RouterLink class="live-item" :to="n.to">
+            <span class="live-item__icon"><i :class="n.icon" /></span>
+            <span class="live-item__body">
+              <span class="live-item__title">
+                {{ t(n.title) }} <span v-if="n.number" class="live-item__num">{{ n.number }}</span>
+              </span>
+              <span class="live-item__meta">
+                <template v-if="n.customer">{{ n.customer }}</template>
+                <template v-else-if="n.method">{{ enumLabel(n.method) }}</template>
+                <template v-if="amountLabel(n)"> · {{ amountLabel(n) }}</template>
+                <span v-if="n.showStatus && n.status" class="live-item__chip">{{ enumLabel(n.status) }}</span>
+              </span>
+            </span>
+            <span class="live-item__time">{{ shortTime(n.at) }}</span>
+            <i class="pi pi-angle-right live-item__go" />
+          </RouterLink>
+        </li>
+      </ul>
+      <p v-else class="panel__empty">
+        {{ t('New orders, bookings, and requests appear here the moment they come in.') }}
+      </p>
+    </section>
 
     <div class="panel-grid panel-grid--primary">
       <section class="panel">
@@ -535,6 +601,121 @@ onMounted(load);
   margin: 0;
   color: var(--tm-muted);
   font-weight: 700;
+}
+
+/* --- live activity feed --- */
+.live-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--tm-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.live-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tm-muted);
+}
+
+.live-status.is-live {
+  color: #2fbf71;
+}
+
+.live-status.is-live .live-status__dot {
+  background: #2fbf71;
+  box-shadow: 0 0 0 3px rgba(47, 191, 113, 0.18);
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  50% {
+    box-shadow: 0 0 0 6px rgba(47, 191, 113, 0);
+  }
+}
+
+.live-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.live-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: 8px;
+  color: var(--tm-heading);
+  text-decoration: none;
+}
+
+.live-item:hover {
+  background: var(--tm-surface-muted, rgba(125, 125, 125, 0.1));
+}
+
+.live-item__icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--tm-charcoal, rgba(0, 0, 0, 0.35));
+  color: var(--tm-gold);
+}
+
+.live-item__body {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.live-item__title {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-item__num {
+  color: var(--tm-muted);
+  font-weight: 700;
+}
+
+.live-item__meta {
+  overflow: hidden;
+  color: var(--tm-muted);
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-item__chip {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--tm-surface-muted, rgba(125, 125, 125, 0.18));
+  color: var(--tm-heading);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.live-item__time {
+  flex: 0 0 auto;
+  color: var(--tm-muted);
+  font-size: 0.8rem;
+}
+
+.live-item__go {
+  flex: 0 0 auto;
+  color: var(--tm-muted);
+  font-size: 0.8rem;
 }
 
 /* --- attention queues --- */

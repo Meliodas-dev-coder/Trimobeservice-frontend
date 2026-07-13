@@ -16,7 +16,7 @@ const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const auth = useAuthStore();
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 
 const car = ref(null);
 const loading = ref(false);
@@ -45,6 +45,11 @@ const form = reactive({
 const placeMeta = reactive({});
 
 const isCargo = computed(() => Boolean(car.value?.is_cargo_transport));
+const carName = computed(() => (car.value ? content(car.value, 'name') || car.value.name : ''));
+const carDescription = computed(() => (car.value ? content(car.value, 'description') || car.value.description : ''));
+const categoryName = computed(() => (
+  car.value?.category ? content(car.value.category, 'name') || car.value.category.name : t('Fleet')
+));
 const images = computed(() => car.value?.images || []);
 const primaryImage = computed(() => images.value.find((image) => image.is_primary)?.url || images.value[0]?.url || '');
 const heroImage = computed(() => selectedImageUrl.value || primaryImage.value);
@@ -67,12 +72,15 @@ const estimatedTotal = computed(() => {
   }
   return inclusiveDays(startDate.value, endDate.value) * Number(car.value.daily_rate || 0);
 });
-// Every calendar day touched by an occupying booking, expanded so the date
-// pickers can grey them out. Capped ~9 months ahead to bound the array.
+// Every calendar day touched by a booking, expanded so the pickers can flag
+// them. Bounded to a window around today (~6 months back → 9 months ahead) so
+// recent-past and upcoming bookings both show without unbounding the array.
 const disabledDates = computed(() => {
   const out = [];
   const horizon = new Date(today);
   horizon.setMonth(horizon.getMonth() + 9);
+  const pastHorizon = new Date(today);
+  pastHorizon.setMonth(pastHorizon.getMonth() - 6);
   for (const range of bookedRanges.value) {
     const start = new Date(range.start_at);
     const end = new Date(range.end_at);
@@ -82,7 +90,7 @@ const disabledDates = computed(() => {
     const day = new Date(start);
     day.setHours(0, 0, 0, 0);
     while (day < end && day <= horizon) {
-      if (day >= today) {
+      if (day >= pastHorizon) {
         out.push(new Date(day));
       }
       day.setDate(day.getDate() + 1);
@@ -90,6 +98,22 @@ const disabledDates = computed(() => {
   }
   return out;
 });
+
+// Fast lookup of every booked calendar day (keyed local Y-M-D) so the pickers
+// can flag them red — not just disable them (a plain disabled day reads the same
+// as a past day, so clients couldn't tell "booked" from "unavailable").
+const bookedDayKeys = computed(() => {
+  const set = new Set();
+  for (const day of disabledDates.value) {
+    set.add(`${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`);
+  }
+  return set;
+});
+
+// slotDate is PrimeVue's date-slot payload ({ day, month (0-based), year }).
+function isBookedDay(slotDate) {
+  return bookedDayKeys.value.has(`${slotDate.year}-${slotDate.month}-${slotDate.day}`);
+}
 
 // True when the selected window overlaps a booked one — used to block the
 // submit before the server would refuse it anyway.
@@ -228,7 +252,7 @@ async function load() {
   resetBookingLocations();
   try {
     car.value = await getCar(route.params.slug);
-    setPageTitle(car.value?.name);
+    setPageTitle(carName.value);
     loadBookedRanges();
   } catch (err) {
     car.value = null;
@@ -305,7 +329,7 @@ async function submitBooking() {
       body.note = form.note.trim();
     }
     const created = await createBooking(body);
-    toast.add({ severity: 'success', summary: t('Booking created'), detail: created?.booking_number || car.value.name, life: 3400 });
+    toast.add({ severity: 'success', summary: t('Booking created'), detail: created?.booking_number || carName.value, life: 3400 });
     if (created?.id) {
       router.push({ name: 'booking-confirmation', params: { id: created.id } });
     } else {
@@ -354,7 +378,7 @@ onMounted(load);
         <section class="car-detail">
           <div class="car-media">
             <figure v-if="heroImage" class="car-media__hero">
-              <img :src="heroImage" :alt="car.name" />
+              <img :src="heroImage" :alt="carName" />
             </figure>
             <VisualPlaceholder v-else kind="car" tone="charcoal" />
 
@@ -366,15 +390,15 @@ onMounted(load);
                 :class="{ 'is-active': heroImage === image.url }"
                 @click="selectedImageUrl = image.url"
               >
-                <img :src="image.url" :alt="image.alt_text || car.name" />
+                <img :src="image.url" :alt="image.alt_text || carName" />
               </button>
             </div>
           </div>
 
           <div class="car-info">
-            <p class="eyebrow">{{ t(car.category?.name || 'Fleet') }}</p>
-            <h1>{{ car.name }}</h1>
-            <p v-if="car.description" class="car-info__description">{{ car.description }}</p>
+            <p class="eyebrow">{{ categoryName }}</p>
+            <h1>{{ carName }}</h1>
+            <p v-if="carDescription" class="car-info__description">{{ carDescription }}</p>
 
             <div class="car-info__meta">
               <Tag :value="t(titleize(car.status))" :severity="statusSeverity(car.status)" />
@@ -393,12 +417,20 @@ onMounted(load);
               <div class="date-grid">
                 <label v-if="isCargo">
                   <span>{{ t('Transport date') }}</span>
-                  <DatePicker v-model="serviceDate" showIcon fluid dateFormat="dd M yy" :minDate="today" :disabledDates="disabledDates" />
+                  <DatePicker v-model="serviceDate" showIcon fluid dateFormat="dd M yy" :minDate="today" :disabledDates="disabledDates">
+                    <template #date="slotProps">
+                      <span :class="{ 'booked-day': isBookedDay(slotProps.date) }">{{ slotProps.date.day }}</span>
+                    </template>
+                  </DatePicker>
                 </label>
                 <template v-else>
                   <label>
                     <span>{{ t('Start') }}</span>
-                    <DatePicker v-model="startDate" showIcon fluid dateFormat="dd M yy" :minDate="today" :disabledDates="disabledDates" />
+                    <DatePicker v-model="startDate" showIcon fluid dateFormat="dd M yy" :minDate="today" :disabledDates="disabledDates">
+                      <template #date="slotProps">
+                        <span :class="{ 'booked-day': isBookedDay(slotProps.date) }">{{ slotProps.date.day }}</span>
+                      </template>
+                    </DatePicker>
                   </label>
                   <label>
                     <span>{{ t('End') }}</span>
@@ -409,11 +441,18 @@ onMounted(load);
                       dateFormat="dd M yy"
                       :minDate="startDate || today"
                       :disabledDates="disabledDates"
-                    />
+                    >
+                      <template #date="slotProps">
+                        <span :class="{ 'booked-day': isBookedDay(slotProps.date) }">{{ slotProps.date.day }}</span>
+                      </template>
+                    </DatePicker>
                   </label>
                 </template>
               </div>
-              <p v-if="disabledDates.length" class="booking-panel__hint">{{ t('Greyed-out days in the calendar are already booked.') }}</p>
+              <div v-if="hasDateConflict" class="calendar-legend">
+                <span class="calendar-legend__item"><i class="legend-dot legend-dot--booked" />{{ t('Booked — unavailable') }}</span>
+                <span class="calendar-legend__hint">{{ t('Your dates overlap an existing booking — pick free (non-red) days.') }}</span>
+              </div>
 
               <div class="place-grid">
                 <label>
@@ -468,12 +507,7 @@ onMounted(load);
                 <Textarea v-model="form.note" rows="3" autoResize />
               </label>
 
-              <div v-if="hasDateConflict" class="availability-result">
-                <i class="pi pi-times-circle" />
-                <span>{{ t('These dates overlap an existing booking — pick different days.') }}</span>
-              </div>
-
-              <div v-else-if="availability" class="availability-result" :class="{ 'is-free': availability.available }">
+              <div v-if="availability && !hasDateConflict" class="availability-result" :class="{ 'is-free': availability.available }">
                 <i :class="availability.available ? 'pi pi-check-circle' : 'pi pi-times-circle'" />
                 <span>{{ availability.available ? t('Available for these dates') : t('Not available for these dates') }}</span>
               </div>
@@ -708,6 +742,62 @@ onMounted(load);
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Booked day inside the (teleported) date picker. A plain scoped class on the
+   slot span reaches it because the span carries this component's data-v
+   attribute — no :deep needed. Kept subtle to match the admin booking form:
+   dimmed red + a marker dot, and the day is already non-selectable via
+   :disabledDates. */
+.booked-day {
+  position: relative;
+  color: var(--tm-coral);
+  font-weight: 900;
+}
+
+.booked-day::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--tm-coral);
+  transform: translateX(-50%);
+}
+
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+
+.calendar-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tm-coral);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.calendar-legend__hint {
+  color: var(--tm-muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.legend-dot--booked {
+  background: var(--tm-coral);
 }
 
 .availability-result {

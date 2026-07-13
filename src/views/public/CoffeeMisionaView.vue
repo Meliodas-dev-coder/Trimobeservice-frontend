@@ -1,11 +1,71 @@
 <script setup>
+import { computed, onMounted, ref } from 'vue';
+
 import ProductCard from '@/components/ProductCard.vue';
 import kafeMisionaPremiumRed from '@/assets/coffee/kafe-misiona-premium-red.jpeg';
 import kafeMisionaRange from '@/assets/coffee/kafe-misiona-range.jpeg';
-import { featuredCoffee } from '@/data/trimobe';
+import { listProducts } from '@/api/public';
 import { usePublicI18n } from '@/i18n/public';
+import { formatMGA } from '@/utils/format';
 
 const { t } = usePublicI18n();
+
+// Live coffee catalog: coffee is a real store department, so these are the same
+// products admins manage — clicking a card opens the product page where a weight
+// variant is picked and added to the cart, exactly like ordering a phone.
+const liveProducts = ref([]);
+const loaded = ref(false);
+
+function coffeePrice(product) {
+  const min = product.price_min != null ? Number(product.price_min) : null;
+  const max = product.price_max != null ? Number(product.price_max) : null;
+  if (min == null) {
+    return '';
+  }
+  if (max != null && max !== min) {
+    return `${formatMGA(min)} – ${formatMGA(max)}`;
+  }
+  return formatMGA(min);
+}
+
+// Live products mapped to ProductCard's shape; falls back to the static
+// marketing selection until the first coffee product is published.
+const coffeeCards = computed(() =>
+  liveProducts.value.map((product) => ({
+    ...product,
+    visualKind: 'coffee',
+    image: product.primary_image_url,
+    priceLabel: coffeePrice(product),
+    stockLabel: product.variant_count
+      ? `${product.variant_count} ${t('options')}`
+      : t('Available'),
+    to: { name: 'product-detail', params: { slug: product.slug } },
+  })),
+);
+
+const isLive = computed(() => coffeeCards.value.length > 0);
+
+// Copy adapts to load state so an empty catalog never advertises packs that
+// aren't actually purchasable (the static fallback cards used to imply that).
+const sectionCopy = computed(() => {
+  if (!loaded.value) {
+    return t('Loading the latest Kafe Misiona packs…');
+  }
+  return isLive.value
+    ? t('Pick a pack, choose your size, and add it to your cart — checkout and delivery work just like the rest of the shop.')
+    : t('Kafe Misiona packs are being prepared — they will appear here as soon as they are published.');
+});
+
+onMounted(async () => {
+  try {
+    const res = await listProducts({ department: 'coffee', limit: 12 });
+    liveProducts.value = res.items || [];
+  } catch {
+    liveProducts.value = [];
+  } finally {
+    loaded.value = true;
+  }
+});
 
 const coffeeHighlights = [
   {
@@ -45,7 +105,7 @@ const coffeeMoments = [
           </p>
           <div class="coffee-hero__actions">
             <Button as="a" href="#selection" :label="t('View selection')" icon="pi pi-shopping-bag" />
-            <Button as="router-link" to="/account" :label="t('Request coffee')" icon="pi pi-user" outlined />
+            <Button as="router-link" to="/cart" :label="t('View cart')" icon="pi pi-shopping-cart" outlined />
           </div>
         </div>
 
@@ -73,15 +133,22 @@ const coffeeMoments = [
           <div>
             <p class="eyebrow">{{ t('Selection') }}</p>
             <h2 class="section-title">{{ t('Kafe Misiona packs') }}</h2>
-            <p class="section-copy">
-              {{ t('Choose a smooth everyday pack, a bold premium roast, or an assorted gift-ready range for guests, teams, and coffee lovers.') }}
-            </p>
+            <p class="section-copy">{{ sectionCopy }}</p>
           </div>
-          <Button as="router-link" to="/" :label="t('Back home')" icon="pi pi-home" outlined />
+          <Button v-if="isLive" as="router-link" to="/cart" :label="t('View cart')" icon="pi pi-shopping-cart" outlined />
         </div>
 
-        <div class="coffee-product-grid">
-          <ProductCard v-for="product in featuredCoffee" :key="product.id" :product="product" />
+        <div v-if="!loaded" class="coffee-product-grid">
+          <Skeleton v-for="n in 3" :key="n" height="320px" borderRadius="8px" />
+        </div>
+        <div v-else-if="isLive" class="coffee-product-grid">
+          <ProductCard v-for="product in coffeeCards" :key="product.id" :product="product" />
+        </div>
+        <div v-else class="coffee-empty">
+          <i class="pi pi-inbox" />
+          <h3>{{ t('Fresh packs are on the way') }}</h3>
+          <p>{{ t('Our Kafe Misiona selection is being prepared. Check back soon, or browse the rest of the shop in the meantime.') }}</p>
+          <Button as="router-link" to="/tech" :label="t('Continue shopping')" icon="pi pi-shopping-bag" outlined />
         </div>
       </div>
     </section>
@@ -108,12 +175,12 @@ const coffeeMoments = [
     <section class="coffee-cta">
       <div class="app-container coffee-cta__inner">
         <div>
-          <p class="eyebrow">{{ t('Coffee request') }}</p>
+          <p class="eyebrow">{{ t('Order coffee') }}</p>
           <h2>{{ t('Interested in Kafe Misiona?') }}</h2>
         </div>
         <div class="coffee-cta__actions">
-          <Button as="router-link" to="/account" :label="t('Sign in to request')" icon="pi pi-user" />
-          <Button as="router-link" to="/phones" :label="t('Continue shopping')" icon="pi pi-mobile" outlined />
+          <Button as="a" href="#selection" :label="t('View selection')" icon="pi pi-shopping-bag" />
+          <Button as="router-link" to="/tech" :label="t('Continue shopping')" icon="pi pi-mobile" outlined />
         </div>
       </div>
     </section>
@@ -249,6 +316,41 @@ const coffeeMoments = [
   display: grid;
   gap: 18px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.coffee-empty {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 56px 24px;
+  border: 1px dashed var(--tm-border);
+  border-radius: 8px;
+  background: var(--tm-surface-soft);
+  text-align: center;
+}
+
+.coffee-empty i {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--tm-charcoal);
+  color: var(--tm-gold);
+  font-size: 1.4rem;
+}
+
+.coffee-empty h3 {
+  margin: 0;
+  color: var(--tm-heading);
+  font-size: 1.2rem;
+}
+
+.coffee-empty p {
+  max-width: 440px;
+  margin: 0;
+  color: var(--tm-muted);
+  line-height: 1.6;
 }
 
 .coffee-section--story {

@@ -7,6 +7,7 @@ import { api } from '@/api/client';
 import { getResource, serializeForm } from '@/api/resources';
 import { useAdminI18n } from '@/i18n/admin';
 import { formatMGA } from '@/utils/format';
+import { statusSeverity } from '@/utils/status';
 import AdminResourceDialog from '@/components/admin/AdminResourceDialog.vue';
 
 const props = defineProps({
@@ -222,6 +223,15 @@ function applyAction(action) {
   runAction(() => apiCall(action.method, actionPath(action), { [action.bodyKey]: value }));
 }
 
+// One-click status change: each reachable status is its own button (no
+// select-then-validate step). Called directly from the transition buttons.
+function applyTransition(action, value) {
+  if (busy.value || !actionEnabled(action) || value === null || value === undefined || value === '') {
+    return;
+  }
+  runAction(() => apiCall(action.method, actionPath(action), { [action.bodyKey]: value }));
+}
+
 // --- nested collections ---
 
 function nestedRows(nested) {
@@ -377,6 +387,24 @@ function cellDisplay(row, column) {
               :disabled="!actionEnabled(action) || busy || actionSaving"
               @click="applyAction(action)"
             />
+          </template>
+          <template v-else-if="action.type === 'select-transition'">
+            <span class="manage-action__label">{{ action.label }}</span>
+            <div class="manage-action__choices">
+              <Button
+                v-for="opt in actionOptionsFor(action)"
+                :key="opt.value"
+                :label="opt.label"
+                size="small"
+                :severity="statusSeverity(opt.value)"
+                :disabled="busy"
+                :loading="busy"
+                @click="applyTransition(action, opt.value)"
+              />
+              <span v-if="!actionOptionsFor(action).length" class="manage-action__empty">
+                {{ t('No further status changes') }}
+              </span>
+            </div>
           </template>
           <template v-else>
             <Select
@@ -575,6 +603,26 @@ function cellDisplay(row, column) {
 
 .manage-action__select {
   min-width: 200px;
+}
+
+/* Status transitions: one button per reachable status, coloured by severity —
+   click it to apply directly (no select + validate step). */
+.manage-action__label {
+  color: var(--tm-muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.manage-action__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.manage-action__empty {
+  color: var(--tm-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 
 .manage-section__head {

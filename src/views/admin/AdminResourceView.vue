@@ -10,7 +10,8 @@ import CardView from '@/components/admin/CardView.vue';
 import { api } from '@/api/client';
 import { adminResources } from '@/data/adminResources';
 import { useAdminI18n } from '@/i18n/admin';
-import { formatDate, formatMGA } from '@/utils/format';
+import { formatDate, formatDateTime, formatMGA } from '@/utils/format';
+import { localizedValue } from '@/utils/localized';
 import { statusSeverity } from '@/utils/status';
 import {
   createResource,
@@ -26,7 +27,7 @@ const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
-const { enumLabel, localeCode, t, translateConfig } = useAdminI18n();
+const { enumLabel, language, localeCode, t, translateConfig } = useAdminI18n();
 
 const resourceKey = computed(() => route.meta.resource || 'products');
 const department = computed(() => route.meta.department || '');
@@ -374,16 +375,25 @@ function capitalize(value) {
   return String(value).replace(/^\w/, (c) => c.toUpperCase());
 }
 
+function isLocalizedField(fieldName) {
+  return Boolean((resource.value.formFields || []).find((field) => field.key === fieldName && field.localized));
+}
+
 function displayValue(row, column) {
   if (typeof column.format === 'function') {
     return column.format(row);
   }
-  const value = row[column.field];
+  const value = column.localized || isLocalizedField(column.field)
+    ? localizedValue(row, column.field, language.value)
+    : row[column.field];
   if (column.type === 'money') {
     return formatMGA(Number(value || 0));
   }
   if (column.type === 'date') {
     return formatDate(value, localeCode.value);
+  }
+  if (column.type === 'datetime') {
+    return formatDateTime(value, localeCode.value);
   }
   if (column.type === 'boolean') {
     return value ? column.trueLabel || t('Active') : column.falseLabel || t('Inactive');

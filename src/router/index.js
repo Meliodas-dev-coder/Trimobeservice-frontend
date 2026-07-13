@@ -82,28 +82,11 @@ const router = createRouter({
             description: 'Clothing and footwear — pick your size and color.',
           },
         },
-        {
-          path: 'phones',
-          name: 'phones',
-          component: ProductCatalogView,
-          meta: {
-            title: 'Phones',
-            eyebrow: 'Shop',
-            catalogMode: 'phones',
-            description: 'Product catalog with variants, storage, colors, stock, and MGA prices.',
-          },
-        },
-        {
-          path: 'accessories',
-          name: 'accessories',
-          component: ProductCatalogView,
-          meta: {
-            title: 'Accessories',
-            eyebrow: 'Shop',
-            catalogMode: 'accessories',
-            description: 'Accessories catalog for chargers, cases, audio, and everyday phone needs.',
-          },
-        },
+        // The standalone Smartphones/Accessories pages were folded into the Tech
+        // department. Keep the old paths as redirects so any lingering links
+        // resolve to /tech instead of a removed page (search query preserved).
+        { path: 'phones', redirect: (to) => ({ name: 'tech', query: to.query }) },
+        { path: 'accessories', redirect: (to) => ({ name: 'tech', query: to.query }) },
         {
           path: 'coffee',
           name: 'coffee',
@@ -328,6 +311,14 @@ const router = createRouter({
           component: AdminResourceView,
           meta: { title: 'Fashion products', resource: 'products', department: 'fashion', description: 'Clothing & footwear products.' },
         },
+        // Coffee is a products-only department (its category + Kafe Misiona brand
+        // are seeded), sold like phones: product → variants (SKUs) → cart → order.
+        {
+          path: 'coffee/products',
+          name: 'admin-coffee-products',
+          component: AdminResourceView,
+          meta: { title: 'Coffee products', resource: 'products', department: 'coffee', description: 'Kafe Misiona coffee packs — variants, prices, stock, and images.' },
+        },
         {
           path: 'cars',
           name: 'admin-cars',
@@ -441,6 +432,12 @@ const router = createRouter({
           name: 'admin-customers',
           component: AdminResourceView,
           meta: { title: 'Customers', resource: 'customers', description: 'View customer accounts (read-only).' },
+        },
+        {
+          path: 'audit-logs',
+          name: 'admin-audit-logs',
+          component: AdminResourceView,
+          meta: { title: 'Activity log', resource: 'audit-logs', description: 'Who changed what in the dashboard, and when.' },
         },
       ],
     },

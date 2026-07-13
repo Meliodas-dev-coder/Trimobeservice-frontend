@@ -10,7 +10,7 @@
 // The access token and refresh handler are injected from the auth store to keep
 // this module free of a circular import.
 
-const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+export const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 let accessToken = null;
 let refreshHandler = null; // async () => newAccessToken | null

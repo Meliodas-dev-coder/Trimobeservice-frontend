@@ -11,7 +11,7 @@ import { formatMGA } from '@/utils/format';
 import { homepageOffers } from '@/data/trimobe';
 
 const router = useRouter();
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 
 const searchTerm = ref('');
 const products = ref([]);
@@ -32,7 +32,7 @@ const coffeeOffer = computed(() => homepageOffers.find((offer) => offer.id === '
 
 // The four service "doors" — the primary way into each domain.
 const serviceDoors = [
-  { n: '01', title: 'Phones & accessories', detail: 'Devices, audio, and chargers with clear stock and Ariary pricing.', to: '/phones', icon: 'pi pi-mobile' },
+  { n: '01', title: 'Phones & accessories', detail: 'Devices, audio, and chargers with clear stock and Ariary pricing.', to: '/tech', icon: 'pi pi-mobile' },
   { n: '02', title: 'Cars with driver', detail: 'Chauffeured vehicles by the day, booked around your dates.', to: '/cars', icon: 'pi pi-car' },
   { n: '03', title: 'Event planning', detail: 'Sound, light, catering, and gospel artists in one request.', to: '/events', icon: 'pi pi-calendar' },
   { n: '04', title: 'Healthcare', detail: 'Home consultations and care packages with doctors and nurses.', to: '/healthcare', icon: 'pi pi-heart' },
@@ -80,15 +80,15 @@ const heroSlides = computed(() => [
   {
     key: 'phones',
     eyebrow: 'Phones & accessories',
-    caption: products.value[0]?.name || t('Premium devices'),
+    caption: products.value[0] ? content(products.value[0], 'name') || products.value[0].name : t('Premium devices'),
     image: products.value[0]?.primary_image_url || '',
     visualKind: 'phone',
-    to: '/phones',
+    to: '/tech',
   },
   {
     key: 'cars',
     eyebrow: 'Cars with driver',
-    caption: cars.value[0]?.name || t('Chauffeured fleet'),
+    caption: cars.value[0] ? content(cars.value[0], 'name') || cars.value[0].name : t('Chauffeured fleet'),
     image: cars.value[0]?.primary_image_url || '',
     visualKind: 'car',
     to: '/cars',
@@ -136,15 +136,17 @@ function goToSlide(index) {
 
 function submitSearch() {
   const q = searchTerm.value.trim();
-  router.push({ name: 'phones', query: q ? { q } : {} });
+  router.push({ name: 'tech', query: q ? { q } : {} });
 }
 
 function productCategoryName(id) {
-  return productCategories.value.find((category) => category.id === id)?.name || 'Catalog';
+  const category = productCategories.value.find((item) => item.id === id);
+  return category ? content(category, 'name') || category.name : 'Catalog';
 }
 
 function carCategoryName(id) {
-  return carCategories.value.find((category) => category.id === id)?.name || 'Car';
+  const category = carCategories.value.find((item) => item.id === id);
+  return category ? content(category, 'name') || category.name : 'Car';
 }
 
 function productPriceRange(product) {
@@ -172,7 +174,9 @@ async function loadFeaturedProducts() {
   loadingProducts.value = true;
   productError.value = '';
   try {
-    const [categoryList, productList] = await Promise.all([listCategories(), listProducts({ limit: 3 })]);
+    // Featured store products are the Tech department only — coffee has its own
+    // section/slide, so it must not leak into "Phones & accessories".
+    const [categoryList, productList] = await Promise.all([listCategories(), listProducts({ department: 'tech', limit: 3 })]);
     productCategories.value = categoryList;
     products.value = productList.items || [];
     productMeta.value = productList.meta || { total: products.value.length };
@@ -311,7 +315,7 @@ onBeforeUnmount(stopCarousel);
           <p class="kicker">{{ t('01 — Store') }}</p>
           <h2>{{ t('Featured phones and accessories') }}</h2>
         </div>
-        <Button as="router-link" to="/phones" :label="t('All products')" icon="pi pi-arrow-up-right" outlined />
+        <Button as="router-link" to="/tech" :label="t('All products')" icon="pi pi-arrow-up-right" outlined />
       </div>
 
       <div v-if="loadingProducts" class="state">

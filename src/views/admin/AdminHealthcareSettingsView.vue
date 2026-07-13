@@ -2,8 +2,10 @@
 import { onMounted, reactive, ref } from 'vue';
 import { useToast } from 'primevue/usetoast';
 
+import LocalizedFieldControl from '@/components/admin/LocalizedFieldControl.vue';
 import { api } from '@/api/client';
 import { useAdminI18n } from '@/i18n/admin';
+import { cleanTranslations, cloneTranslations, ensureTranslationBucket } from '@/utils/localized';
 
 const toast = useToast();
 const { t } = useAdminI18n();
@@ -16,7 +18,31 @@ const form = reactive({
   emergency_phone: '',
   emergency_hours: '',
   emergency_note: '',
+  translations: {},
 });
+
+const emergencyHoursField = {
+  key: 'emergency_hours',
+  label: 'Availability hours',
+  type: 'text',
+  placeholder: '24/7',
+};
+const emergencyNoteField = {
+  key: 'emergency_note',
+  label: 'Guidance note',
+  type: 'textarea',
+  placeholder: 'Short guidance shown next to the number.',
+};
+
+function resetTranslations(raw) {
+  form.translations = cloneTranslations(raw);
+  ensureTranslationBucket(form.translations, 'emergency_hours');
+  ensureTranslationBucket(form.translations, 'emergency_note');
+}
+
+function setTranslation({ field, locale, value }) {
+  ensureTranslationBucket(form.translations, field)[locale] = value;
+}
 
 async function load() {
   loading.value = true;
@@ -26,6 +52,7 @@ async function load() {
     form.emergency_phone = settings.emergency_phone || '';
     form.emergency_hours = settings.emergency_hours || '';
     form.emergency_note = settings.emergency_note || '';
+    resetTranslations(settings.translations);
     updatedAt.value = settings.updated_at || null;
   } catch (err) {
     toast.add({ severity: 'error', summary: t('Could not load'), detail: t(err?.message || 'Request failed'), life: 4000 });
@@ -41,6 +68,7 @@ async function save() {
       emergency_phone: form.emergency_phone.trim() || null,
       emergency_hours: form.emergency_hours.trim() || null,
       emergency_note: form.emergency_note.trim() || null,
+      translations: cleanTranslations(form.translations, ['emergency_hours', 'emergency_note']),
     });
     const settings = data?.emergency || {};
     updatedAt.value = settings.updated_at || null;
@@ -72,11 +100,21 @@ onMounted(load);
       </label>
       <label>
         <span>{{ t('Availability hours') }}</span>
-        <InputText v-model="form.emergency_hours" placeholder="24/7" :disabled="loading" />
+        <LocalizedFieldControl
+          v-model="form.emergency_hours"
+          :field="emergencyHoursField"
+          :translations="form.translations"
+          @update:translation="setTranslation"
+        />
       </label>
       <label class="full">
         <span>{{ t('Guidance note') }}</span>
-        <Textarea v-model="form.emergency_note" rows="3" autoResize :disabled="loading" :placeholder="t('Short guidance shown next to the number.')" />
+        <LocalizedFieldControl
+          v-model="form.emergency_note"
+          :field="emergencyNoteField"
+          :translations="form.translations"
+          @update:translation="setTranslation"
+        />
       </label>
 
       <div class="settings-actions">

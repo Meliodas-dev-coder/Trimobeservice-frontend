@@ -6,7 +6,7 @@ import { listArtists } from '@/api/public';
 import { usePublicI18n } from '@/i18n/public';
 import { formatMGA } from '@/utils/format';
 
-const { t } = usePublicI18n();
+const { content, t } = usePublicI18n();
 
 const artists = ref([]);
 const loading = ref(false);
@@ -43,6 +43,10 @@ function feeLabel(artist) {
     return t('Fee on request');
   }
   return `${t('From')} ${formatMGA(Number(artist.from_fee || 0))}`;
+}
+
+function artistTagline(artist) {
+  return content(artist, 'tagline') || artist.tagline || '';
 }
 
 function setGenre(genre) {
@@ -121,7 +125,7 @@ onMounted(load);
           <div class="artist-card__body">
             <div>
               <h3>{{ artist.stage_name }}</h3>
-              <p v-if="artist.tagline">{{ artist.tagline }}</p>
+              <p v-if="artistTagline(artist)">{{ artistTagline(artist) }}</p>
               <div v-if="splitTags(artist.genres).length" class="artist-card__tags">
                 <span v-for="genre in splitTags(artist.genres).slice(0, 3)" :key="genre">{{ genre }}</span>
               </div>
