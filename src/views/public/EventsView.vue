@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import { listEventServiceCategories, listEventServices } from '@/api/public';
-import eventPlanningShowcase from '@/assets/events/event-planning-showcase.png';
+import eventPlanningShowcase from '@/assets/redesign/service-event.webp';
 import { usePublicI18n } from '@/i18n/public';
 import { formatMGA } from '@/utils/format';
 
@@ -184,22 +184,22 @@ onMounted(load);
 
 <style scoped>
 .events-page {
-  padding: 48px 0 72px;
+  padding: 64px 0 92px;
 }
 
 .events-hero {
   display: grid;
   align-items: center;
-  gap: 30px;
-  grid-template-columns: minmax(0, 0.86fr) minmax(360px, 1fr);
-  margin-bottom: 26px;
+  gap: clamp(32px, 6vw, 76px);
+  grid-template-columns: minmax(0, 0.78fr) minmax(420px, 1.22fr);
+  margin-bottom: 48px;
 }
 
 .events-hero h1 {
   max-width: 820px;
   margin: 0;
   color: var(--tm-heading);
-  font-size: clamp(2.5rem, 7vw, 5.6rem);
+  font-size: clamp(3rem, 7vw, 6.2rem);
   line-height: 0.92;
 }
 
@@ -218,11 +218,11 @@ onMounted(load);
 
 .events-hero__media {
   position: relative;
-  min-height: 390px;
+  min-height: 520px;
   margin: 0;
   overflow: hidden;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: 32px;
   background: var(--tm-charcoal);
   box-shadow: var(--tm-shadow);
 }
@@ -240,15 +240,15 @@ onMounted(load);
 .events-hero__media img {
   width: 100%;
   height: 100%;
-  min-height: 390px;
+  min-height: 520px;
   object-fit: cover;
 }
 
 .events-hero__stat {
   display: grid;
   position: absolute;
-  right: 16px;
-  bottom: 16px;
+  right: 20px;
+  bottom: 20px;
   z-index: 1;
   min-width: 172px;
   gap: 4px;
@@ -267,7 +267,7 @@ onMounted(load);
 }
 
 .event-category {
-  padding: 28px 0;
+  padding: 42px 0;
 }
 
 .section-title {
@@ -283,7 +283,7 @@ onMounted(load);
 
 .events-grid {
   display: grid;
-  gap: 18px;
+  gap: 20px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -292,14 +292,14 @@ onMounted(load);
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: var(--tm-radius);
   background: var(--tm-surface);
   box-shadow: var(--tm-shadow);
 }
 
 .event-card__image {
   margin: 0;
-  min-height: 196px;
+  aspect-ratio: 16 / 10;
   overflow: hidden;
   background: var(--tm-stone);
 }
@@ -307,28 +307,29 @@ onMounted(load);
 .event-card__image img {
   width: 100%;
   height: 100%;
-  min-height: 196px;
+  min-height: 100%;
   object-fit: cover;
 }
 
 .event-card__body {
   display: grid;
-  gap: 18px;
-  padding: 18px;
+  gap: 22px;
+  padding: 24px;
 }
 
 .event-card p {
   margin: 0 0 6px;
   color: var(--tm-gold);
-  font-size: 0.78rem;
-  font-weight: 850;
+  font-size: 0.74rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .event-card h3 {
   margin: 0;
   color: var(--tm-heading);
-  font-size: 1.15rem;
+  font-size: 1.28rem;
   line-height: 1.2;
 }
 
@@ -344,6 +345,8 @@ onMounted(load);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--tm-border);
 }
 
 .event-card__footer strong {
@@ -358,7 +361,7 @@ onMounted(load);
   gap: 10px;
   padding: 34px;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: var(--tm-radius);
   background: var(--tm-surface);
   color: var(--tm-muted);
   font-weight: 850;
@@ -387,7 +390,7 @@ onMounted(load);
 @media (max-width: 680px) {
   .events-hero__media,
   .events-hero__media img {
-    min-height: 280px;
+    min-height: 380px;
   }
 
   .events-grid {

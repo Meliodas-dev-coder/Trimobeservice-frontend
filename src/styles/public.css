@@ -1,0 +1,218 @@
+.public-ui {
+  --tm-charcoal: #101416;
+  --tm-charcoal-2: #192022;
+  --tm-ivory: #f7f2e7;
+  --tm-paper: #fffdf8;
+  --tm-stone: #eee5d6;
+  --tm-stone-2: #d9cebd;
+  --tm-ink: #182022;
+  --tm-muted: #6d6a61;
+  --tm-gold: #c9922c;
+  --tm-gold-soft: #f6ead2;
+  --tm-emerald: #0c9b80;
+  --tm-emerald-dark: #087a66;
+  --tm-coral: #ce6b55;
+  --tm-blue: #315c70;
+  --tm-shadow: 0 22px 60px rgba(37, 31, 20, 0.08);
+  --tm-shadow-hover: 0 28px 72px rgba(37, 31, 20, 0.14);
+  --tm-body-bg:
+    radial-gradient(circle at 82% 8%, rgba(201, 146, 44, 0.1), transparent 26%),
+    linear-gradient(180deg, #fffdf8 0%, #f7f2e7 72%, #f3ebdd 100%);
+  --tm-page-bg: #f7f2e7;
+  --tm-surface: #fffdf8;
+  --tm-surface-soft: rgba(255, 253, 248, 0.86);
+  --tm-surface-muted: rgba(248, 243, 233, 0.86);
+  --tm-border: rgba(76, 60, 32, 0.12);
+  --tm-border-strong: rgba(76, 60, 32, 0.22);
+  --tm-heading: #11191b;
+  --tm-text: #202729;
+  --tm-nav-text: #3f4646;
+  --tm-header-bg: rgba(255, 253, 248, 0.9);
+  --tm-footer-bg: #101416;
+  --tm-radius: 24px;
+  --tm-radius-sm: 14px;
+  --tm-max: 1320px;
+  min-height: 100vh;
+  background: var(--tm-body-bg);
+}
+
+:root.trimobe-dark .public-ui {
+  --tm-ivory: #101416;
+  --tm-paper: #171d1f;
+  --tm-stone: #22292a;
+  --tm-stone-2: #343c3d;
+  --tm-ink: #fff7ea;
+  --tm-muted: #b7b2a8;
+  --tm-gold: #e0ad4c;
+  --tm-gold-soft: #3b301e;
+  --tm-emerald: #2ab296;
+  --tm-emerald-dark: #19957d;
+  --tm-coral: #ea8069;
+  --tm-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+  --tm-shadow-hover: 0 30px 78px rgba(0, 0, 0, 0.42);
+  --tm-body-bg:
+    radial-gradient(circle at 82% 8%, rgba(224, 173, 76, 0.09), transparent 28%),
+    linear-gradient(180deg, #101416 0%, #121819 100%);
+  --tm-page-bg: #101416;
+  --tm-surface: #171d1f;
+  --tm-surface-soft: rgba(23, 29, 31, 0.9);
+  --tm-surface-muted: rgba(26, 33, 35, 0.84);
+  --tm-border: rgba(255, 255, 255, 0.1);
+  --tm-border-strong: rgba(255, 255, 255, 0.19);
+  --tm-heading: #fff8ed;
+  --tm-text: #f1ece3;
+  --tm-nav-text: #d8d2c8;
+  --tm-header-bg: rgba(16, 20, 22, 0.9);
+}
+
+.public-ui main {
+  overflow: hidden;
+}
+
+.public-ui .app-container {
+  width: min(100% - 48px, var(--tm-max));
+}
+
+.public-ui .eyebrow {
+  margin-bottom: 12px;
+  color: var(--tm-gold);
+  font-size: 0.74rem;
+  font-weight: 950;
+  letter-spacing: 0.16em;
+}
+
+.public-ui .section-title {
+  font-size: clamp(2rem, 4.2vw, 3.9rem);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.public-ui .section-copy {
+  color: var(--tm-muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.public-ui .soft-panel {
+  border-color: var(--tm-border);
+  border-radius: var(--tm-radius);
+  background: var(--tm-surface-soft);
+  box-shadow: var(--tm-shadow);
+}
+
+.public-ui .p-button {
+  min-height: 46px;
+  padding-inline: 1.1rem;
+  border-radius: var(--tm-radius-sm);
+  font-weight: 850;
+}
+
+.public-ui .p-button.p-button-outlined {
+  background: transparent;
+}
+
+.public-ui :is(.p-inputtext, .p-datepicker-input, .p-select, .p-textarea, .p-inputnumber-input) {
+  min-height: 48px;
+  border-radius: var(--tm-radius-sm);
+}
+
+.public-ui :is(.catalog-page, .cars-page, .events-page, .care-page, .artists-page, .artist-page, .orders-page, .cart-page, .account, .product-page, .car-page, .confirm-page, .event-plan-page, .care-request-page, .notfound-page) {
+  position: relative;
+}
+
+.public-ui :is(.catalog-page, .cars-page, .events-page, .care-page, .artists-page, .orders-page, .cart-page, .account, .product-page, .car-page, .confirm-page, .event-plan-page, .care-request-page)::before {
+  position: absolute;
+  z-index: 0;
+  top: -100px;
+  right: -120px;
+  width: 520px;
+  height: 520px;
+  border: 1px solid rgba(201, 146, 44, 0.12);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(201, 146, 44, 0.08), transparent 66%);
+  content: "";
+  pointer-events: none;
+}
+
+.public-ui :is(.catalog-page, .cars-page, .events-page, .care-page, .artists-page, .orders-page, .cart-page, .account, .product-page, .car-page, .confirm-page, .event-plan-page, .care-request-page) > .app-container {
+  position: relative;
+  z-index: 1;
+}
+
+.public-ui :is(.catalog-hero, .cars-hero, .events-hero, .care-hero, .artists-hero, .orders-hero, .cart-hero, .account-head, .plan-hero, .request-hero) h1 {
+  letter-spacing: -0.055em;
+}
+
+.public-ui :is(.catalog-toolbar, .cars-toolbar, .event-card, .care-card, .artist-card, .history-card, .auth-card, .card, .plan-panel, .request-panel, .booking-panel, .buy-panel, .checkout-panel, .confirm-card, .placeholder-panel, .orders-auth, .cart-auth, .cart-lines, .cart-summary, .cart-total, .cart-state, .orders-state, .history-state, .confirm-state, .events-state, .care-state, .catalog-state, .cars-state) {
+  border-radius: var(--tm-radius) !important;
+}
+
+.public-ui :is(.catalog-toolbar, .cars-toolbar) {
+  padding: 14px;
+  border-color: var(--tm-border);
+  background: var(--tm-surface-soft);
+  box-shadow: var(--tm-shadow);
+}
+
+.public-ui :is(.catalog-hero__stat, .cars-hero__stat, .artists-hero__stat, .plan-hero__summary, .request-hero__summary, .cart-total) {
+  overflow: hidden;
+  border-color: rgba(201, 146, 44, 0.22);
+  background:
+    radial-gradient(circle at 82% 12%, rgba(201, 146, 44, 0.16), transparent 42%),
+    var(--tm-surface);
+}
+
+.public-ui :is(.product-media__hero, .car-media__hero) {
+  overflow: hidden;
+  border-radius: 32px !important;
+  box-shadow: var(--tm-shadow);
+}
+
+.public-ui :is(.booking-panel, .buy-panel, .checkout-panel, .plan-panel, .request-panel, .confirm-card, .auth-card, .card) {
+  border-color: var(--tm-border);
+  background: var(--tm-surface);
+  box-shadow: var(--tm-shadow);
+}
+
+.public-ui :is(.history-card, .confirm-card, .auth-card, .card) {
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.public-ui .history-card:hover {
+  border-color: rgba(12, 155, 128, 0.3);
+  box-shadow: var(--tm-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.public-ui :is(.event-card, .care-card, .artist-card, .product-card, .car-card) {
+  border-color: var(--tm-border);
+  box-shadow: var(--tm-shadow);
+}
+
+.public-ui :is(.event-card, .care-card, .artist-card, .product-card, .car-card):hover {
+  box-shadow: var(--tm-shadow-hover);
+}
+
+.public-ui :is(.event-card__image, .events-hero__media, .coffee-hero__image, .coffee-story__image, .artist-card__media, .artist-media__hero) {
+  border-radius: var(--tm-radius) !important;
+}
+
+.public-ui :focus-visible {
+  outline: 3px solid rgba(12, 155, 128, 0.35);
+  outline-offset: 3px;
+}
+
+@media (max-width: 740px) {
+  .public-ui .app-container {
+    width: min(100% - 24px, var(--tm-max));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-ui *,
+  .public-ui *::before,
+  .public-ui *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

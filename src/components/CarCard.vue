@@ -57,7 +57,7 @@ const availability = computed(() => t(props.car.availability || (props.car.statu
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: var(--tm-radius);
   background: var(--tm-surface);
   box-shadow: var(--tm-shadow);
   color: inherit;
@@ -68,13 +68,13 @@ const availability = computed(() => t(props.car.availability || (props.car.statu
 }
 
 a.car-card:hover {
-  border-color: rgba(8, 124, 104, 0.32);
-  box-shadow: 0 24px 58px rgba(17, 19, 21, 0.15);
-  transform: translateY(-2px);
+  border-color: rgba(12, 155, 128, 0.34);
+  box-shadow: var(--tm-shadow-hover, 0 24px 58px rgba(17, 19, 21, 0.15));
+  transform: translateY(-5px);
 }
 
 .car-card__image {
-  min-height: 174px;
+  aspect-ratio: 16 / 9;
   margin: 0;
   overflow: hidden;
   background: var(--tm-stone);
@@ -83,14 +83,14 @@ a.car-card:hover {
 .car-card__image img {
   width: 100%;
   height: 100%;
-  min-height: 174px;
+  min-height: 100%;
   object-fit: cover;
 }
 
 .car-card__body {
   display: grid;
-  gap: 18px;
-  padding: 18px;
+  gap: 22px;
+  padding: 22px;
 }
 
 .car-card__heading,
@@ -104,19 +104,26 @@ a.car-card:hover {
 .car-card p {
   margin: 0 0 6px;
   color: var(--tm-gold);
-  font-size: 0.78rem;
-  font-weight: 850;
+  font-size: 0.74rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .car-card h3 {
   margin: 0;
   color: var(--tm-heading);
-  font-size: 1.12rem;
+  font-size: 1.28rem;
+  line-height: 1.15;
 }
 
 .car-card__footer span {
   color: var(--tm-muted);
+}
+
+.car-card__footer {
+  padding-top: 18px;
+  border-top: 1px solid var(--tm-border);
 }
 
 .availability {

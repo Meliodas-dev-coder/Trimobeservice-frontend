@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import { getHealthcareEmergency, listHealthcareCategories, listHealthcareServices } from '@/api/public';
+import homeCareVisit from '@/assets/redesign/service-healthcare.webp';
 import { usePublicI18n } from '@/i18n/public';
 import { formatMGA } from '@/utils/format';
 
@@ -129,14 +130,17 @@ onMounted(load);
           </div>
         </div>
 
-        <aside v-if="emergency && emergency.emergency_phone" class="care-emergency">
-          <p class="care-emergency__label"><i class="pi pi-phone" /> {{ t('Emergency') }}</p>
-          <a class="care-emergency__phone" :href="`tel:${emergency.emergency_phone.replace(/\s+/g, '')}`">
-            {{ emergency.emergency_phone }}
-          </a>
-          <span v-if="emergencyHours" class="care-emergency__hours">{{ emergencyHours }}</span>
-          <p v-if="emergencyNote" class="care-emergency__note">{{ emergencyNote }}</p>
-        </aside>
+        <div class="care-hero__visual">
+          <img :src="homeCareVisit" alt="Doctor visiting a patient at home" />
+          <aside v-if="emergency && emergency.emergency_phone" class="care-emergency">
+            <p class="care-emergency__label"><i class="pi pi-phone" /> {{ t('Emergency') }}</p>
+            <a class="care-emergency__phone" :href="`tel:${emergency.emergency_phone.replace(/\s+/g, '')}`">
+              {{ emergency.emergency_phone }}
+            </a>
+            <span v-if="emergencyHours" class="care-emergency__hours">{{ emergencyHours }}</span>
+            <p v-if="emergencyNote" class="care-emergency__note">{{ emergencyNote }}</p>
+          </aside>
+        </div>
       </header>
 
       <div v-if="error" class="care-state care-state--error">
@@ -153,11 +157,11 @@ onMounted(load);
         <p class="care-count">{{ serviceCount }} {{ t('services and packages available') }}</p>
         <section v-for="section in sections" :key="section.category.id" class="care-category">
           <div class="section-header">
-            <p class="eyebrow">{{ categoryName(section.category) }}</p>
-            <h2 class="section-title">
+            <!-- <p class="eyebrow">{{ categoryName(section.category) }}</p> -->
+            <h3 class="section-title">
               <i :class="section.category.icon || 'pi pi-heart'" />
               {{ categoryName(section.category) }}
-            </h2>
+            </h3>
             <p v-if="categoryDescription(section.category)" class="section-copy">{{ categoryDescription(section.category) }}</p>
           </div>
 
@@ -210,23 +214,23 @@ onMounted(load);
 
 .care-hero {
   display: grid;
-  align-items: stretch;
-  gap: 30px;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.55fr);
-  margin-bottom: 26px;
+  align-items: center;
+  gap: clamp(32px, 6vw, 76px);
+  grid-template-columns: minmax(0, 0.82fr) minmax(420px, 1.18fr);
+  margin-bottom: 42px;
 }
 
 .care-hero h1 {
   max-width: 700px;
   margin: 0;
   color: var(--tm-heading);
-  font-size: clamp(2.4rem, 6vw, 4.6rem);
-  line-height: 0.96;
+  font-size: clamp(3rem, 6vw, 5.5rem);
+  line-height: 0.92;
 }
 
 .care-hero p:not(.eyebrow) {
   max-width: 640px;
-  color: var(--tm-muted);
+  /* color: var(--tm-muted); */
   line-height: 1.65;
 }
 
@@ -237,16 +241,37 @@ onMounted(load);
   margin-top: 22px;
 }
 
+.care-hero__visual {
+  position: relative;
+  min-height: 520px;
+  overflow: hidden;
+  border-radius: 32px;
+  background: var(--tm-stone);
+  box-shadow: var(--tm-shadow);
+}
+
+.care-hero__visual > img {
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+  object-fit: cover;
+}
+
 /* Emergency call-out — deliberately loud (coral) and always above the fold. */
 .care-emergency {
   display: grid;
+  position: absolute;
+  right: 22px;
+  bottom: 22px;
+  left: 22px;
   align-content: center;
   gap: 6px;
   padding: 22px;
-  border: 1px solid var(--tm-coral, #d9534f);
-  border-radius: 8px;
-  background: rgba(217, 83, 79, 0.1);
-  box-shadow: var(--tm-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 20px;
+  background: rgba(16, 20, 22, 0.88);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(14px);
 }
 
 .care-emergency__label {
@@ -254,7 +279,7 @@ onMounted(load);
   align-items: center;
   gap: 8px;
   margin: 0;
-  color: var(--tm-coral, #d9534f);
+  color: #ff9d89;
   font-size: 0.8rem;
   font-weight: 950;
   letter-spacing: 0.08em;
@@ -262,20 +287,20 @@ onMounted(load);
 }
 
 .care-emergency__phone {
-  color: var(--tm-heading);
+  color: #fff;
   font-size: clamp(1.6rem, 4vw, 2.2rem);
   font-weight: 950;
   letter-spacing: 0.01em;
 }
 
 .care-emergency__hours {
-  color: var(--tm-emerald);
+  color: #58d7bd;
   font-weight: 850;
 }
 
 .care-emergency__note {
   margin: 6px 0 0;
-  color: var(--tm-muted);
+  color: rgb(255, 255, 255);
   font-size: 0.9rem;
   line-height: 1.55;
 }
@@ -287,13 +312,20 @@ onMounted(load);
 }
 
 .care-category {
-  padding: 22px 0;
+  padding: 38px 0;
 }
 
 .section-title {
-  display: flex;
+  display: flex !important;
   align-items: center;
+  justify-content: center;
   gap: 10px;
+}
+
+.section-header {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
 }
 
 .section-title i {
@@ -317,15 +349,15 @@ onMounted(load);
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: var(--tm-radius);
   background: var(--tm-surface);
   box-shadow: var(--tm-shadow);
 }
 
 .care-card__body {
   display: grid;
-  gap: 18px;
-  padding: 18px;
+  gap: 22px;
+  padding: 24px;
 }
 
 .care-card__kind {
@@ -373,6 +405,8 @@ onMounted(load);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--tm-border);
 }
 
 .care-card__footer strong {
@@ -387,7 +421,7 @@ onMounted(load);
   gap: 10px;
   padding: 34px;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: var(--tm-radius);
   background: var(--tm-surface);
   color: var(--tm-muted);
   font-weight: 850;
@@ -411,6 +445,11 @@ onMounted(load);
   .care-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .care-hero__visual,
+  .care-hero__visual > img {
+    min-height: 460px;
+  }
 }
 
 @media (max-width: 680px) {
@@ -426,6 +465,22 @@ onMounted(load);
   .care-card__footer {
     align-items: start;
     flex-direction: column;
+  }
+
+  .care-hero__visual,
+  .care-hero__visual > img {
+    min-height: 420px;
+  }
+
+  .care-emergency {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    padding: 18px;
+  }
+
+  .care-emergency__phone {
+    font-size: 1.45rem;
   }
 }
 </style>

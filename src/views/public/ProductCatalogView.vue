@@ -29,8 +29,36 @@ const page = ref(1);
 const limit = 12;
 const phoneTemplateKey = 'phone';
 
+const shopDepartments = [
+  {
+    key: 'tech',
+    number: '01',
+    label: 'Tech',
+    description: 'Phones, laptops, audio, and everyday accessories.',
+    icon: 'pi pi-desktop',
+    to: '/tech',
+  },
+  {
+    key: 'fashion',
+    number: '02',
+    label: 'Fashion',
+    description: 'Clothing and footwear with live size and color variants.',
+    icon: 'pi pi-shopping-bag',
+    to: '/fashion',
+  },
+  {
+    key: 'coffee',
+    number: '03',
+    label: 'Kafe Misiona',
+    description: 'Coffee for home, office, meetings, and thoughtful gifts.',
+    icon: 'pi pi-gift',
+    to: '/coffee',
+  },
+];
+
 const mode = computed(() => route.meta.catalogMode || 'products');
 const department = computed(() => route.meta.department || '');
+const showDepartmentNavigator = computed(() => ['shop', 'department'].includes(mode.value));
 
 const pageConfig = computed(() => {
   if (mode.value === 'department') {
@@ -308,6 +336,45 @@ onMounted(async () => {
         </div>
       </header>
 
+      <section v-if="showDepartmentNavigator" class="catalog-departments" aria-labelledby="shop-departments-title">
+        <div class="catalog-departments__heading">
+          <div>
+            <p class="eyebrow">{{ t('Shop by department') }}</p>
+            <h2 id="shop-departments-title">{{ t('Choose where you want to shop.') }}</h2>
+          </div>
+          <p>{{ t('Go straight to a focused collection, or keep scrolling to browse everything.') }}</p>
+        </div>
+
+        <nav class="catalog-department-grid" :aria-label="t('Shop by department')">
+          <RouterLink
+            v-for="item in shopDepartments"
+            :key="item.key"
+            :to="item.to"
+            class="catalog-department-card"
+            :class="[
+              `catalog-department-card--${item.key}`,
+              { 'is-active': department === item.key },
+            ]"
+            :aria-current="department === item.key ? 'page' : undefined"
+          >
+            <span class="catalog-department-card__top">
+              <span class="catalog-department-card__icon" aria-hidden="true">
+                <i :class="item.icon" />
+              </span>
+              <span class="catalog-department-card__number">{{ item.number }}</span>
+            </span>
+            <span class="catalog-department-card__copy">
+              <strong>{{ t(item.label) }}</strong>
+              <small>{{ t(item.description) }}</small>
+            </span>
+            <span class="catalog-department-card__action">
+              {{ t('Explore collection') }}
+              <i class="pi pi-arrow-up-right" aria-hidden="true" />
+            </span>
+          </RouterLink>
+        </nav>
+      </section>
+
       <form class="catalog-toolbar soft-panel" @submit.prevent="submitSearch">
         <IconField>
           <InputIcon class="pi pi-search" />
@@ -382,7 +449,7 @@ onMounted(async () => {
 
 <style scoped>
 .catalog-page {
-  padding: 48px 0 64px;
+  padding: 64px 0 92px;
 }
 
 .catalog-hero {
@@ -390,14 +457,14 @@ onMounted(async () => {
   align-items: end;
   justify-content: space-between;
   gap: 28px;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
 }
 
 .catalog-hero h1 {
   margin: 0;
   color: var(--tm-heading);
-  font-size: clamp(2.4rem, 6vw, 5rem);
-  line-height: 0.95;
+  font-size: clamp(3rem, 6vw, 5.8rem);
+  line-height: 0.92;
 }
 
 .catalog-hero p:not(.eyebrow) {
@@ -410,9 +477,9 @@ onMounted(async () => {
 
 .catalog-hero__stat {
   display: grid;
-  min-width: 180px;
+  min-width: 196px;
   gap: 4px;
-  padding: 18px;
+  padding: 22px;
 }
 
 .catalog-hero__stat span {
@@ -428,12 +495,166 @@ onMounted(async () => {
   text-transform: uppercase;
 }
 
+.catalog-departments {
+  margin-bottom: 28px;
+}
+
+.catalog-departments__heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 16px;
+}
+
+.catalog-departments__heading h2 {
+  margin: 3px 0 0;
+  color: var(--tm-heading);
+  font-size: clamp(1.65rem, 3vw, 2.35rem);
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.catalog-departments__heading > p {
+  max-width: 520px;
+  margin: 0;
+  color: var(--tm-muted);
+  line-height: 1.55;
+}
+
+.catalog-department-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.catalog-department-card {
+  --department-accent: var(--tm-emerald);
+  --department-wash: rgba(12, 155, 128, 0.11);
+  position: relative;
+  display: flex;
+  min-height: 190px;
+  overflow: hidden;
+  flex-direction: column;
+  padding: 20px;
+  border: 1px solid var(--tm-border);
+  border-radius: var(--tm-radius);
+  background:
+    radial-gradient(circle at 94% 4%, var(--department-wash), transparent 42%),
+    var(--tm-surface-soft);
+  box-shadow: 0 14px 38px rgba(37, 31, 20, 0.06);
+  color: var(--tm-text);
+  text-decoration: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.catalog-department-card::after {
+  position: absolute;
+  right: -34px;
+  bottom: -54px;
+  width: 122px;
+  height: 122px;
+  border: 1px solid var(--department-accent);
+  border-radius: 50%;
+  content: '';
+  opacity: 0.17;
+}
+
+.catalog-department-card--fashion {
+  --department-accent: var(--tm-coral);
+  --department-wash: rgba(206, 107, 85, 0.12);
+}
+
+.catalog-department-card--coffee {
+  --department-accent: var(--tm-gold);
+  --department-wash: rgba(201, 146, 44, 0.15);
+}
+
+.catalog-department-card:hover,
+.catalog-department-card:focus-visible {
+  border-color: var(--department-accent);
+  box-shadow: var(--tm-shadow-hover);
+  outline: none;
+  transform: translateY(-4px);
+}
+
+.catalog-department-card.is-active {
+  border-color: var(--department-accent);
+  box-shadow: inset 0 0 0 1px var(--department-accent), 0 14px 38px var(--department-wash);
+}
+
+.catalog-department-card__top,
+.catalog-department-card__action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.catalog-department-card__icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: var(--department-accent);
+  box-shadow: 0 10px 26px var(--department-wash);
+  color: #fff;
+  place-items: center;
+}
+
+.catalog-department-card__number {
+  color: var(--department-accent);
+  font-size: 0.76rem;
+  font-weight: 950;
+  letter-spacing: 0.18em;
+}
+
+.catalog-department-card__copy {
+  display: grid;
+  gap: 6px;
+  margin: 20px 0 18px;
+}
+
+.catalog-department-card__copy strong {
+  color: var(--tm-heading);
+  font-size: 1.3rem;
+  font-weight: 950;
+  letter-spacing: -0.025em;
+}
+
+.catalog-department-card__copy small {
+  max-width: 290px;
+  color: var(--tm-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.catalog-department-card__action {
+  justify-content: flex-start;
+  gap: 8px;
+  margin-top: auto;
+  color: var(--department-accent);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.catalog-department-card__action i {
+  font-size: 0.72rem;
+  transition: transform 180ms ease;
+}
+
+.catalog-department-card:hover .catalog-department-card__action i,
+.catalog-department-card:focus-visible .catalog-department-card__action i {
+  transform: translate(2px, -2px);
+}
+
 .catalog-toolbar {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.35fr) minmax(160px, 0.35fr) auto auto;
   gap: 10px;
-  margin-bottom: 20px;
-  padding: 12px;
+  margin-bottom: 28px;
+  padding: 14px;
 }
 
 .catalog-toolbar :deep(.p-iconfield),
@@ -444,7 +665,7 @@ onMounted(async () => {
 
 .catalog-grid {
   display: grid;
-  gap: 18px;
+  gap: 20px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -455,7 +676,7 @@ onMounted(async () => {
   gap: 10px;
   padding: 36px;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: var(--tm-radius);
   background: var(--tm-surface);
   color: var(--tm-muted);
   font-weight: 850;
@@ -481,6 +702,10 @@ onMounted(async () => {
 }
 
 @media (max-width: 980px) {
+  .catalog-department-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .catalog-toolbar,
   .catalog-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -491,6 +716,20 @@ onMounted(async () => {
   .catalog-hero {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .catalog-departments__heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .catalog-department-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-department-card {
+    min-height: 174px;
   }
 
   .catalog-toolbar,

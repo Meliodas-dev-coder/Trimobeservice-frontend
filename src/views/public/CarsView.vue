@@ -218,7 +218,7 @@ onMounted(async () => {
 
 <style scoped>
 .cars-page {
-  padding: 48px 0 64px;
+  padding: 64px 0 92px;
 }
 
 .cars-hero {
@@ -226,13 +226,13 @@ onMounted(async () => {
   align-items: end;
   justify-content: space-between;
   gap: 28px;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
 }
 
 .cars-hero h1 {
   margin: 0;
   color: var(--tm-heading);
-  font-size: clamp(2.5rem, 7vw, 5.6rem);
+  font-size: clamp(3rem, 7vw, 6.2rem);
   line-height: 0.92;
 }
 
@@ -244,9 +244,9 @@ onMounted(async () => {
 
 .cars-hero__stat {
   display: grid;
-  min-width: 180px;
+  min-width: 196px;
   gap: 4px;
-  padding: 18px;
+  padding: 22px;
 }
 
 .cars-hero__stat span {
@@ -264,8 +264,8 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: minmax(240px, 1fr) minmax(170px, 0.36fr) auto auto;
   gap: 10px;
-  margin-bottom: 20px;
-  padding: 12px;
+  margin-bottom: 28px;
+  padding: 14px;
 }
 
 .cars-toolbar :deep(.p-iconfield),
@@ -276,7 +276,7 @@ onMounted(async () => {
 
 .cars-grid {
   display: grid;
-  gap: 18px;
+  gap: 20px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -287,7 +287,7 @@ onMounted(async () => {
   gap: 10px;
   padding: 34px;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: var(--tm-radius);
   background: var(--tm-surface);
   color: var(--tm-muted);
   font-weight: 850;

@@ -10,6 +10,8 @@ const fr = {
   // Public shell
   Phones: 'Téléphones',
   Accessories: 'Accessoires',
+  Tech: 'Technologie',
+  Fashion: 'Mode',
   Coffee: 'Café',
   'Cars with driver': 'Voitures avec chauffeur',
   Events: 'Événements',
@@ -46,6 +48,49 @@ const fr = {
   'Assisted payment available': 'Paiement assisté disponible',
 
   // Home — editorial redesign
+  'Everything you need, one trusted team.': 'Tout ce dont vous avez besoin, avec une seule équipe de confiance.',
+  'Shop, move, celebrate, and care — across Madagascar.': 'Achetez, déplacez-vous, célébrez et prenez soin de vos proches — partout à Madagascar.',
+  'Explore services': 'Explorer les services',
+  'Explore Trimobe': 'Explorer Trimobe',
+  'One place. Four ways we help.': 'Un seul endroit. Quatre façons de vous aider.',
+  'What do you need today?': 'De quoi avez-vous besoin aujourd’hui ?',
+  'Search services and products': 'Rechercher des services et des produits',
+  'Healthcare at home': 'Soins à domicile',
+  'Devices, audio, and accessories with clear stock and Ariary pricing.':
+    'Appareils, audio et accessoires avec stock clair et prix en Ariary.',
+  'Chauffeured vehicles by the day, reserved around your dates.':
+    'Véhicules avec chauffeur à la journée, réservés selon vos dates.',
+  'Sound, light, catering, decor, and artists in one coordinated request.':
+    'Son, lumière, traiteur, décoration et artistes dans une demande coordonnée.',
+  'Home consultations and care packages with trusted doctors and nurses.':
+    'Consultations à domicile et forfaits de soins avec des médecins et infirmiers de confiance.',
+  'Shop from 50 000 MGA': 'Achetez dès 50 000 MGA',
+  'Emergency line 24/7': 'Ligne d’urgence 24 h/24',
+  Cash: 'Espèces',
+  'Bank transfer': 'Virement bancaire',
+  'Mobile money': 'Mobile money',
+  'Prices in Ariary': 'Prix en Ariary',
+  Mobility: 'Mobilité',
+  'One team plans every detail.': 'Une équipe organise chaque détail.',
+  'Care that comes to you.': 'Des soins qui viennent à vous.',
+  'Consultations and ongoing care packages with trusted doctors and nurses.':
+    'Consultations et forfaits de soins continus avec des médecins et infirmiers de confiance.',
+  'Explore healthcare': 'Découvrir les soins',
+  'More from the shop': 'Plus dans la boutique',
+  'Everyday essentials, thoughtfully selected.': 'Les essentiels du quotidien, soigneusement sélectionnés.',
+  'Phones, laptops, audio, and everyday accessories.': 'Téléphones, ordinateurs, audio et accessoires du quotidien.',
+  'Clothing and footwear with live size and color variants.':
+    'Vêtements et chaussures avec tailles et couleurs disponibles en direct.',
+  'Coffee for home, office, meetings, and thoughtful gifts.':
+    'Café pour la maison, le bureau, les réunions et les cadeaux attentionnés.',
+  'How Trimobe works': 'Comment fonctionne Trimobe',
+  'Simple from first look to final confirmation.': 'Simple, de la première visite à la confirmation finale.',
+  'Explore the shop, fleet, event services, and care packages without creating an account.':
+    'Explorez la boutique, la flotte, les services événementiels et les forfaits de soins sans créer de compte.',
+  'Add products to your cart, choose car dates, or send the team a service request.':
+    'Ajoutez des produits au panier, choisissez vos dates de voiture ou envoyez une demande de service.',
+  'Pay by cash, bank transfer, or mobile money and track confirmation in your account.':
+    'Payez en espèces, par virement bancaire ou mobile money et suivez la confirmation dans votre compte.',
   'Trimobe — Madagascar': 'Trimobe — Madagascar',
   'One platform for phones, cars, events, and coffee.': 'Une plateforme pour téléphones, voitures, événements et café.',
   'Browse premium devices, reserve chauffeured cars, plan a full event with gospel artists, and shop Kafe Misiona — with a team that handles payment personally.':
@@ -124,6 +169,11 @@ const fr = {
   Shop: 'Boutique',
   'Featured phones and accessories': 'Téléphones et accessoires en vedette',
   'All products': 'Tous les produits',
+  'Shop by department': 'Acheter par univers',
+  'Choose where you want to shop.': 'Choisissez votre univers.',
+  'Go straight to a focused collection, or keep scrolling to browse everything.':
+    'Accédez directement à une collection ou continuez pour parcourir tous les produits.',
+  'Explore collection': 'Explorer la collection',
   'Loading featured products...': 'Chargement des produits en vedette...',
   'Our latest product selection is being updated.': 'Notre sélection de produits est en cours de mise à jour.',
   'Kafe Misiona selections': 'Sélections Kafe Misiona',
@@ -504,7 +554,11 @@ const fr = {
   Home: 'Accueil',
   // Account — editorial redesign
   'Welcome back': 'Bon retour',
+  'Welcome back.': 'Bon retour.',
   there: 'vous',
+  'Signed in': 'Connecté',
+  'Account overview': 'Aperçu du compte',
+  'Profile details': 'Informations du profil',
   'Your profile, delivery details, orders, bookings, and event requests — all in one place.':
     'Votre profil, vos adresses, commandes, réservations et demandes d’événements — au même endroit.',
   'Review items and check out.': 'Vérifiez vos articles et payez.',
@@ -512,7 +566,19 @@ const fr = {
   'Send a request with services and artists.': 'Envoyez une demande avec services et artistes.',
   'Manage the storefront and operations.': 'Gérez la boutique et les opérations.',
   'Trimobe account': 'Compte Trimobe',
+  'Trimobe services': 'Services Trimobe',
+  'Everything connected, ready when you are.': 'Tout est connecté, prêt quand vous l’êtes.',
   'Sign in to shop, book, and plan.': 'Connectez-vous pour acheter, réserver et organiser.',
+  'Welcome to Trimobe': 'Bienvenue chez Trimobe',
+  'Join Trimobe': 'Rejoignez Trimobe',
+  'Create your account.': 'Créez votre compte.',
+  'Sign in to continue shopping, booking, and managing your requests.':
+    'Connectez-vous pour continuer vos achats, réservations et demandes.',
+  'It only takes a minute to connect your orders, bookings, and service requests.':
+    'Une minute suffit pour relier vos commandes, réservations et demandes de services.',
+  'One secure account': 'Un compte sécurisé',
+  'Your details stay connected to your orders and requests.':
+    'Vos informations restent associées à vos commandes et demandes.',
   'One account for phones, cars, event requests, and Kafe Misiona — with payment handled personally.':
     'Un seul compte pour téléphones, voitures, demandes d’événements et Kafe Misiona — avec un paiement géré en personne.',
   'Track orders and car bookings in one place.': 'Suivez commandes et réservations au même endroit.',

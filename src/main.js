@@ -30,6 +30,7 @@ import Textarea from 'primevue/textarea';
 import 'primeicons/primeicons.css';
 import '@/styles/base.css';
 import '@/styles/theme.css';
+import '@/styles/public.css';
 
 import App from '@/App.vue';
 import router from '@/router';

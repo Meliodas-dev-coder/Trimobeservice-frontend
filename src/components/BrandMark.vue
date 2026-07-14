@@ -1,9 +1,14 @@
 <script setup>
 import baobabMark from '@/assets/brand/trimobe-baobab-mark.svg';
+
+defineProps({
+  to: { type: [String, Object], default: '/' },
+  ariaLabel: { type: String, default: 'Trimobe home' },
+});
 </script>
 
 <template>
-  <RouterLink class="brand-mark" to="/" aria-label="Trimobe home">
+  <RouterLink class="brand-mark" :to="to" :aria-label="ariaLabel">
     <span class="brand-mark__symbol" aria-hidden="true">
       <img :src="baobabMark" alt="" />
     </span>
@@ -24,12 +29,12 @@ import baobabMark from '@/assets/brand/trimobe-baobab-mark.svg';
 
 .brand-mark__symbol {
   display: grid;
-  width: 46px;
-  height: 46px;
+  width: 50px;
+  height: 50px;
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid rgba(185, 138, 46, 0.42);
-  border-radius: 8px;
+  border-radius: 15px;
   background:
     linear-gradient(135deg, rgba(185, 138, 46, 0.2), transparent 48%),
     var(--tm-charcoal);
@@ -37,8 +42,8 @@ import baobabMark from '@/assets/brand/trimobe-baobab-mark.svg';
 }
 
 .brand-mark__symbol img {
-  width: 35px;
-  height: 35px;
+  width: 37px;
+  height: 37px;
   object-fit: contain;
 }
 
@@ -49,8 +54,8 @@ import baobabMark from '@/assets/brand/trimobe-baobab-mark.svg';
 
 .brand-mark__text strong {
   color: var(--tm-heading);
-  font-size: 1.05rem;
-  letter-spacing: 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
   line-height: 1;
 }
 
@@ -58,8 +63,7 @@ import baobabMark from '@/assets/brand/trimobe-baobab-mark.svg';
   color: var(--tm-muted);
   font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .brand-mark--light .brand-mark__text strong,

@@ -106,6 +106,35 @@ function auditChanges(row) {
   return text.length > 70 ? `${text.slice(0, 67)}…` : text;
 }
 
+// Mirrors the client event planner's indicative-total calculation. Request
+// snapshots keep this comparison stable even when catalog prices change later.
+function eventIndicativeTotal(eventRequest) {
+  const services = Array.isArray(eventRequest?.services) ? eventRequest.services : [];
+  const artists = Array.isArray(eventRequest?.artists) ? eventRequest.artists : [];
+
+  return (
+    services.reduce((sum, service) => sum + Number(service.from_price_snapshot || 0), 0) +
+    artists.reduce((sum, artist) => sum + Number(artist.fee_snapshot || 0), 0)
+  );
+}
+
+function orderPlacedAt(order) {
+  return order?.placed_at || order?.created_at;
+}
+
+function orderDeliveryAddress(order) {
+  return [
+    order?.ship_line1,
+    order?.ship_line2,
+    order?.ship_city,
+    order?.ship_region,
+    order?.ship_postal_code,
+    order?.ship_country,
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
 // The dynamic-attributes control: the dialog renders the selected category's
 // template fields (product specs or variant axes) into an `attributes` object.
 const PRODUCT_ATTRIBUTES_FIELD = {
@@ -1345,16 +1374,30 @@ adminResources.cars.manage = {
 };
 
 adminResources.orders.manage = {
+  summary: {
+    icon: 'pi pi-shopping-bag',
+    eyebrow: 'Order overview',
+    titleKey: 'order_number',
+    subtitleKey: 'customer_name',
+    badges: [
+      { key: 'status', label: 'Status' },
+      { key: 'payment_status', label: 'Payment' },
+    ],
+  },
   fields: [
-    { key: 'id', label: 'Order ID' },
-    { key: 'order_number', label: 'Order number' },
-    { key: 'customer_name', label: 'Customer' },
-    { key: 'user_id', label: 'Customer ID' },
-    { key: 'fulfillment_type', label: 'Fulfillment', type: 'enum' },
-    { key: 'status', label: 'Status', type: 'enum' },
-    { key: 'payment_status', label: 'Payment', type: 'enum' },
-    { key: 'total', label: 'Total', type: 'money' },
-    { key: 'created_at', label: 'Placed', type: 'date' },
+    { key: 'id', label: 'Order ID', section: 'record', sectionLabel: 'Record & customer', sectionIcon: 'pi pi-user' },
+    { key: 'user_id', label: 'Customer ID', section: 'record', emptyLabel: 'Walk-in customer' },
+    { key: 'fulfillment_type', label: 'Fulfillment', type: 'enum', section: 'fulfillment', sectionLabel: 'Fulfillment & timing', sectionIcon: 'pi pi-box' },
+    { key: 'placed_at', label: 'Placed', type: 'date', value: orderPlacedAt, section: 'fulfillment' },
+    { key: 'reserved_until', label: 'Pickup hold until', type: 'date', section: 'fulfillment', showWhen: (order) => order.fulfillment_type === 'pickup' && Boolean(order.reserved_until) },
+    { key: 'paid_at', label: 'Paid at', type: 'date', section: 'fulfillment', showWhen: (order) => Boolean(order.paid_at) },
+    { key: 'subtotal', label: 'Subtotal', type: 'money', section: 'value', sectionLabel: 'Order value', sectionIcon: 'pi pi-wallet' },
+    { key: 'shipping_fee', label: 'Shipping fee', type: 'money', section: 'value' },
+    { key: 'total', label: 'Total', type: 'money', section: 'value', highlight: true, tone: 'emerald' },
+    { key: 'ship_recipient_name', label: 'Recipient name', section: 'delivery', sectionLabel: 'Delivery details', sectionIcon: 'pi pi-map-marker', showWhen: (order) => order.fulfillment_type === 'delivery' },
+    { key: 'ship_phone', label: 'Contact', section: 'delivery', showWhen: (order) => order.fulfillment_type === 'delivery' },
+    { key: 'delivery_address', label: 'Delivery address', value: orderDeliveryAddress, section: 'delivery', wide: true, emptyLabel: 'No delivery address provided.', showWhen: (order) => order.fulfillment_type === 'delivery' },
+    { key: 'note', label: 'Order note', type: 'note', section: 'note', sectionLabel: 'Customer instructions', sectionIcon: 'pi pi-comment', wide: true, emptyLabel: 'No order note provided.' },
   ],
   itemsTable: {
     key: 'items',
@@ -1367,6 +1410,7 @@ adminResources.orders.manage = {
       { field: 'line_total', header: 'Line total', type: 'money' },
     ],
   },
+  actionsDescription: 'Record payment after handover, or update the fulfillment status.',
   actions: [
     {
       key: 'record-payment',
@@ -1419,21 +1463,29 @@ adminResources.orders.manage = {
 };
 
 adminResources.bookings.manage = {
+  summary: {
+    icon: 'pi pi-car',
+    eyebrow: 'Booking overview',
+    titleKey: 'booking_number',
+    subtitleKey: 'customer_name',
+    badges: [
+      { key: 'status', label: 'Status' },
+      { key: 'payment_status', label: 'Payment' },
+    ],
+  },
   fields: [
-    { key: 'id', label: 'Booking ID' },
-    { key: 'booking_number', label: 'Booking number' },
-    { key: 'customer_name', label: 'Customer' },
-    { key: 'user_id', label: 'Customer ID' },
-    { key: 'car_name', label: 'Car' },
-    { key: 'status', label: 'Status', type: 'enum' },
-    { key: 'payment_status', label: 'Payment', type: 'enum' },
-    { key: 'start_at', label: 'Start', type: 'date' },
-    { key: 'end_at', label: 'End', type: 'date' },
-    { key: 'total_price', label: 'Total', type: 'money' },
-    { key: 'pricing_model', label: 'Pricing', type: 'enum' },
-    { key: 'distance_km', label: 'Distance' },
-    { key: 'pickup_location', label: 'Pickup' },
-    { key: 'contact_phone', label: 'Contact' },
+    { key: 'id', label: 'Booking ID', section: 'record', sectionLabel: 'Record & customer', sectionIcon: 'pi pi-user' },
+    { key: 'user_id', label: 'Customer ID', section: 'record' },
+    { key: 'car_name', label: 'Car', section: 'schedule', sectionLabel: 'Schedule & pricing', sectionIcon: 'pi pi-calendar-clock' },
+    { key: 'start_at', label: 'Start', type: 'date', section: 'schedule' },
+    { key: 'end_at', label: 'End', type: 'date', section: 'schedule' },
+    { key: 'pricing_model', label: 'Pricing', type: 'enum', section: 'schedule' },
+    { key: 'total_price', label: 'Total', type: 'money', section: 'schedule' },
+    { key: 'distance_km', label: 'Distance', suffix: 'km', section: 'schedule' },
+    { key: 'pickup_location', label: 'Pickup', section: 'route', sectionLabel: 'Route & contact', sectionIcon: 'pi pi-map-marker', wide: true },
+    { key: 'dropoff_location', label: 'Dropoff', section: 'route', wide: true },
+    { key: 'contact_phone', label: 'Contact', section: 'route' },
+    { key: 'note', label: 'Client note', type: 'note', section: 'note', sectionLabel: 'Client instructions', sectionIcon: 'pi pi-comment', wide: true, emptyLabel: 'No client note provided.' },
   ],
   showDriver: true,
   actions: [
@@ -1498,24 +1550,31 @@ adminResources.bookings.manage = {
 };
 
 adminResources['event-requests'].manage = {
+  summary: {
+    icon: 'pi pi-calendar',
+    eyebrow: 'Event request overview',
+    titleKey: 'request_number',
+    subtitleKey: 'customer_name',
+    badges: [
+      { key: 'status', label: 'Status' },
+      { key: 'payment_status', label: 'Payment' },
+    ],
+  },
   fields: [
-    { key: 'id', label: 'Request ID' },
-    { key: 'request_number', label: 'Request number' },
-    { key: 'customer_name', label: 'Customer' },
-    { key: 'user_id', label: 'Customer ID' },
-    { key: 'event_type', label: 'Event type' },
-    { key: 'status', label: 'Status', type: 'enum' },
-    { key: 'payment_status', label: 'Payment', type: 'enum' },
-    { key: 'event_start', label: 'Event start', type: 'date' },
-    { key: 'event_end', label: 'Event end', type: 'date' },
-    { key: 'location', label: 'Location' },
-    { key: 'guest_count', label: 'Guests' },
-    { key: 'budget', label: 'Budget', type: 'money' },
-    { key: 'quoted_price', label: 'Quote', type: 'money' },
-    { key: 'contact_phone', label: 'Contact' },
-    { key: 'contact_email', label: 'Email' },
-    { key: 'note', label: 'Client note' },
-    { key: 'admin_note', label: 'Internal note' },
+    { key: 'id', label: 'Request ID', section: 'record', sectionLabel: 'Record & customer', sectionIcon: 'pi pi-user' },
+    { key: 'user_id', label: 'Customer ID', section: 'record' },
+    { key: 'event_type', label: 'Event type', section: 'event', sectionLabel: 'Event details', sectionIcon: 'pi pi-calendar-clock' },
+    { key: 'event_start', label: 'Event start', type: 'date', section: 'event' },
+    { key: 'event_end', label: 'Event end', type: 'date', section: 'event', emptyLabel: 'Single-day event' },
+    { key: 'guest_count', label: 'Guests', section: 'event' },
+    { key: 'location', label: 'Location', section: 'event', wide: true },
+    { key: 'budget', label: 'Client budget', type: 'money', section: 'budget', sectionLabel: 'Budget comparison', sectionIcon: 'pi pi-wallet', highlight: true, tone: 'gold' },
+    { key: 'indicative_total', label: 'Indicative total', type: 'money', value: eventIndicativeTotal, section: 'budget', highlight: true, tone: 'emerald' },
+    { key: 'quoted_price', label: 'Final quote', type: 'money', section: 'budget', emptyLabel: 'Not quoted yet', highlight: true, tone: 'violet' },
+    { key: 'contact_phone', label: 'Contact', section: 'contact', sectionLabel: 'Contact details', sectionIcon: 'pi pi-phone' },
+    { key: 'contact_email', label: 'Email', section: 'contact', wide: true },
+    { key: 'note', label: 'Client note', type: 'note', section: 'client-note', sectionLabel: 'Client instructions', sectionIcon: 'pi pi-comment', wide: true, emptyLabel: 'No client note provided.' },
+    { key: 'admin_note', label: 'Internal note', type: 'note', section: 'admin-note', sectionLabel: 'Internal follow-up', sectionIcon: 'pi pi-file-edit', wide: true, emptyLabel: 'No internal note yet.' },
   ],
   itemsTable: {
     key: 'services',
@@ -1691,35 +1750,45 @@ adminResources.customers.manage = {
 };
 
 adminResources['healthcare-requests'].manage = {
+  summary: {
+    icon: 'pi pi-heart',
+    eyebrow: 'Care request overview',
+    titleKey: 'request_number',
+    subtitleKey: 'customer_name',
+    badges: [
+      { key: 'status', label: 'Status' },
+      { key: 'payment_status', label: 'Payment' },
+    ],
+  },
   fields: [
-    { key: 'id', label: 'Request ID' },
-    { key: 'request_number', label: 'Request number' },
-    { key: 'customer_name', label: 'Customer' },
-    { key: 'user_id', label: 'Customer ID' },
-    { key: 'request_type', label: 'Type', type: 'enum' },
-    { key: 'service_name', label: 'Service' },
-    { key: 'category_name', label: 'Category' },
-    { key: 'status', label: 'Status', type: 'enum' },
-    { key: 'payment_status', label: 'Payment', type: 'enum' },
-    { key: 'patient_name', label: 'Patient' },
-    { key: 'patient_age', label: 'Age' },
-    { key: 'patient_gender', label: 'Gender', type: 'enum' },
-    { key: 'preferred_at', label: 'Preferred time', type: 'date' },
-    { key: 'start_at', label: 'Coverage start', type: 'date' },
-    { key: 'end_at', label: 'Coverage end', type: 'date' },
-    { key: 'address', label: 'Address' },
-    { key: 'symptoms', label: 'Reason / symptoms' },
-    { key: 'price_snapshot', label: 'Indicative', type: 'money' },
-    { key: 'quoted_price', label: 'Quote', type: 'money' },
-    { key: 'contact_phone', label: 'Contact' },
-    { key: 'contact_email', label: 'Email' },
-    { key: 'admin_note', label: 'Internal note' },
+    { key: 'id', label: 'Request ID', section: 'record', sectionLabel: 'Record & customer', sectionIcon: 'pi pi-user' },
+    { key: 'user_id', label: 'Customer ID', section: 'record', emptyLabel: 'Walk-in customer' },
+    { key: 'request_type', label: 'Type', type: 'enum', section: 'service', sectionLabel: 'Care service', sectionIcon: 'pi pi-heart' },
+    { key: 'service_name', label: 'Service', section: 'service', wide: true },
+    { key: 'category_name', label: 'Category', section: 'service' },
+    { key: 'patient_name', label: 'Patient', section: 'patient', sectionLabel: 'Patient details', sectionIcon: 'pi pi-user-plus' },
+    { key: 'patient_age', label: 'Age', section: 'patient', emptyLabel: 'Not provided' },
+    { key: 'patient_gender', label: 'Gender', type: 'enum', section: 'patient', emptyLabel: 'Not provided' },
+    { key: 'preferred_at', label: 'Preferred time', type: 'date', section: 'visit', sectionLabel: 'Visit details', sectionIcon: 'pi pi-calendar-clock', showWhen: (req) => req.request_type === 'consultation' },
+    { key: 'start_at', label: 'Coverage start', type: 'date', section: 'visit', sectionLabel: 'Coverage period', sectionIcon: 'pi pi-calendar-clock', showWhen: (req) => req.request_type === 'package' },
+    { key: 'end_at', label: 'Coverage end', type: 'date', section: 'visit', showWhen: (req) => req.request_type === 'package' },
+    { key: 'address', label: 'Care address', section: 'visit', wide: true },
+    { key: 'symptoms', label: 'Reason / symptoms', type: 'note', section: 'reason', sectionLabel: 'Care request details', sectionIcon: 'pi pi-file-edit', wide: true, emptyLabel: 'No symptoms or reason provided.' },
+    { key: 'price_snapshot', label: 'Indicative price', type: 'money', section: 'pricing', sectionLabel: 'Pricing', sectionIcon: 'pi pi-wallet', highlight: true, tone: 'gold', showWhen: (req) => req.request_type === 'consultation' },
+    { key: 'price_snapshot', label: 'Package price', type: 'money', section: 'pricing', sectionLabel: 'Pricing', sectionIcon: 'pi pi-wallet', highlight: true, tone: 'gold', showWhen: (req) => req.request_type === 'package' },
+    { key: 'quoted_price', label: 'Final quote', type: 'money', section: 'pricing', highlight: true, tone: 'emerald', emptyLabel: 'Not quoted yet' },
+    { key: 'paid_at', label: 'Paid at', type: 'date', section: 'pricing', showWhen: (req) => Boolean(req.paid_at) },
+    { key: 'contact_phone', label: 'Contact', section: 'contact', sectionLabel: 'Contact details', sectionIcon: 'pi pi-phone' },
+    { key: 'contact_email', label: 'Email', section: 'contact', wide: true, emptyLabel: 'No email provided' },
+    { key: 'note', label: 'Client note', type: 'note', section: 'client-note', sectionLabel: 'Client instructions', sectionIcon: 'pi pi-comment', wide: true, emptyLabel: 'No client note provided.' },
+    { key: 'admin_note', label: 'Internal note', type: 'note', section: 'admin-note', sectionLabel: 'Internal follow-up', sectionIcon: 'pi pi-file-edit', wide: true, emptyLabel: 'No internal note yet.' },
   ],
   itemsTable: {
     key: 'staff',
     title: 'Package staff needed',
+    showWhen: (req) => req.request_type === 'package',
     columns: [
-      { field: 'practitioner_type', header: 'Role' },
+      { field: 'practitioner_type', header: 'Role', type: 'enum' },
       { field: 'quantity', header: 'Qty' },
     ],
   },
@@ -1734,7 +1803,7 @@ adminResources['healthcare-requests'].manage = {
       removePath: (row) => `/admin/healthcare/assignments/${row.id}`,
       columns: [
         { field: 'practitioner_name', header: 'Practitioner' },
-        { field: 'practitioner_type', header: 'Role' },
+        { field: 'practitioner_type', header: 'Role', type: 'enum' },
         { field: 'note', header: 'Note' },
       ],
       formFields: [
@@ -1753,6 +1822,7 @@ adminResources['healthcare-requests'].manage = {
       ],
     },
   ],
+  actionsDescription: 'Set the quote, assign care staff, record payment, or update status.',
   actions: [
     {
       key: 'quote',
