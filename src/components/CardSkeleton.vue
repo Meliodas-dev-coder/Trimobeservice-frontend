@@ -1,6 +1,6 @@
 <template>
   <article class="card-skeleton" aria-hidden="true">
-    <Skeleton height="210px" borderRadius="8px" />
+    <Skeleton height="210px" borderRadius="20px" />
     <div class="card-skeleton__body">
       <Skeleton width="38%" height="0.8rem" />
       <Skeleton width="85%" height="1.25rem" />
@@ -18,7 +18,7 @@
   gap: 12px;
   padding: 14px;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: var(--tm-radius);
   background: var(--tm-surface);
 }
 

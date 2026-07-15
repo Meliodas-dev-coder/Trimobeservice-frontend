@@ -1,6 +1,6 @@
 import kafeMisionaPremiumRed from '@/assets/coffee/kafe-misiona-premium-red.jpeg';
 import kafeMisionaRange from '@/assets/coffee/kafe-misiona-range.jpeg';
-import eventPlanningShowcase from '@/assets/events/event-planning-showcase.png';
+import eventPlanningShowcase from '@/assets/redesign/service-event.webp';
 
 export const services = [
   {

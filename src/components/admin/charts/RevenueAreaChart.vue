@@ -5,7 +5,7 @@ import { useAdminI18n } from '@/i18n/admin';
 import { formatMGA } from '@/utils/format';
 
 const props = defineProps({
-  // [{ date: 'YYYY-MM-DD', orders: '0.00', bookings: '0.00' }, ...]
+  // [{ date, orders, bookings, events, healthcare }, ...]
   series: { type: Array, default: () => [] },
 });
 
@@ -26,7 +26,9 @@ const points = computed(() =>
   props.series.map((row) => {
     const orders = Number(row.orders || 0);
     const bookings = Number(row.bookings || 0);
-    return { date: row.date, orders, bookings, total: orders + bookings };
+    const events = Number(row.events || 0);
+    const healthcare = Number(row.healthcare || 0);
+    return { date: row.date, orders, bookings, events, healthcare, total: orders + bookings + events + healthcare };
   }),
 );
 
@@ -63,7 +65,21 @@ const bookingsArea = computed(() =>
     (i) => points.value[i].orders,
   ),
 );
-const seamLine = computed(() => linePath(points.value.map((p) => p.orders)));
+const eventsArea = computed(() =>
+  areaPath(
+    points.value.map((p) => p.orders + p.bookings + p.events),
+    (i) => points.value[i].orders + points.value[i].bookings,
+  ),
+);
+const healthcareArea = computed(() =>
+  areaPath(
+    points.value.map((p) => p.total),
+    (i) => points.value[i].orders + points.value[i].bookings + points.value[i].events,
+  ),
+);
+const ordersLine = computed(() => linePath(points.value.map((p) => p.orders)));
+const bookingsLine = computed(() => linePath(points.value.map((p) => p.orders + p.bookings)));
+const eventsLine = computed(() => linePath(points.value.map((p) => p.orders + p.bookings + p.events)));
 const topLine = computed(() => linePath(points.value.map((p) => p.total)));
 
 function areaPath(topValues, bottomValueAt) {
@@ -169,14 +185,20 @@ function fullDate(iso) {
       <template v-if="hasData">
         <path :d="ordersArea" class="area-chart__fill" :style="{ fill: 'var(--tm-chart-1)' }" />
         <path :d="bookingsArea" class="area-chart__fill" :style="{ fill: 'var(--tm-chart-2)' }" />
-        <path :d="seamLine" class="area-chart__seam" fill="none" />
-        <path :d="topLine" class="area-chart__line" fill="none" :style="{ stroke: 'var(--tm-chart-2)' }" />
+        <path :d="eventsArea" class="area-chart__fill" :style="{ fill: '#8065b8' }" />
+        <path :d="healthcareArea" class="area-chart__fill" :style="{ fill: '#c05a7d' }" />
+        <path :d="ordersLine" class="area-chart__seam" fill="none" />
+        <path :d="bookingsLine" class="area-chart__seam" fill="none" />
+        <path :d="eventsLine" class="area-chart__seam" fill="none" />
+        <path :d="topLine" class="area-chart__line" fill="none" :style="{ stroke: '#c05a7d' }" />
 
         <!-- hover crosshair -->
         <g v-if="active" class="area-chart__cursor">
           <line :x1="xAt(activeIndex)" :x2="xAt(activeIndex)" :y1="plotTop" :y2="plotBottom" />
-          <circle :cx="xAt(activeIndex)" :cy="yAt(active.total)" r="4.5" :style="{ fill: 'var(--tm-chart-2)' }" />
           <circle :cx="xAt(activeIndex)" :cy="yAt(active.orders)" r="4.5" :style="{ fill: 'var(--tm-chart-1)' }" />
+          <circle :cx="xAt(activeIndex)" :cy="yAt(active.orders + active.bookings)" r="4.5" :style="{ fill: 'var(--tm-chart-2)' }" />
+          <circle :cx="xAt(activeIndex)" :cy="yAt(active.orders + active.bookings + active.events)" r="4.5" :style="{ fill: '#8065b8' }" />
+          <circle :cx="xAt(activeIndex)" :cy="yAt(active.total)" r="4.5" :style="{ fill: '#c05a7d' }" />
         </g>
       </template>
 
@@ -194,6 +216,8 @@ function fullDate(iso) {
       <p class="area-chart__tooltip-date">{{ fullDate(active.date) }}</p>
       <p><span class="dot" :style="{ background: 'var(--tm-chart-1)' }" /> {{ t('Orders') }}<strong>{{ formatMGA(active.orders) }}</strong></p>
       <p><span class="dot" :style="{ background: 'var(--tm-chart-2)' }" /> {{ t('Bookings') }}<strong>{{ formatMGA(active.bookings) }}</strong></p>
+      <p><span class="dot" :style="{ background: '#8065b8' }" /> {{ t('Events') }}<strong>{{ formatMGA(active.events) }}</strong></p>
+      <p><span class="dot" :style="{ background: '#c05a7d' }" /> {{ t('Healthcare') }}<strong>{{ formatMGA(active.healthcare) }}</strong></p>
       <p class="area-chart__tooltip-total">{{ t('Total') }}<strong>{{ formatMGA(active.total) }}</strong></p>
     </div>
   </div>

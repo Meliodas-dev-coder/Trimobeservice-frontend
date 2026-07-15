@@ -7,6 +7,7 @@ import { useConfirm } from 'primevue/useconfirm';
 import AdminResourceDialog from '@/components/admin/AdminResourceDialog.vue';
 import CarUsageCalendar from '@/components/admin/CarUsageCalendar.vue';
 import LocalizedFieldControl from '@/components/admin/LocalizedFieldControl.vue';
+import MobilityWorkspaceNav from '@/components/admin/MobilityWorkspaceNav.vue';
 import { api } from '@/api/client';
 import { loadFieldOptions, serializeForm } from '@/api/resources';
 import { adminResources } from '@/data/adminResources';
@@ -46,6 +47,26 @@ const carFields = computed(() =>
   (carsResource.value.formFields || []).filter((field) => !field.createOnly && field.persist !== false),
 );
 const localizedCarFields = computed(() => carFields.value.filter((field) => field.localized));
+const visibleCarFields = computed(() => carFields.value.filter((field) => fieldVisible(field)));
+const isCargoVehicle = computed(() => Boolean(car.value?.is_cargo_transport));
+const publicPrice = computed(() => (
+  isCargoVehicle.value
+    ? `${t('From')} ${formatMGA(Number(car.value?.cargo_minimum_rate || 0))}`
+    : `${formatMGA(Number(car.value?.daily_rate || 0))} ${t('/ day')}`
+));
+const outsideRegionPrice = computed(() => (
+  `${formatMGA(Number(car.value?.outside_antananarivo_daily_rate || 0))} ${t('/ day outside Antananarivo')}`
+));
+const canSave = computed(() => visibleCarFields.value.every((field) => {
+  if (!isRequired(field)) {
+    return true;
+  }
+  const value = draft[field.key];
+  if (value === null || value === undefined || value === '') {
+    return false;
+  }
+  return field.min === undefined || Number(value) >= Number(field.min);
+}));
 
 const imageFields = computed(() => {
   const images = carsResource.value.manage?.nested?.find((item) => item.key === 'images');
@@ -53,10 +74,10 @@ const imageFields = computed(() => {
 });
 
 const metrics = computed(() => [
-  { label: t('Revenue paid'), value: formatMGA(Number(stats.value.revenue_total || 0)) },
-  { label: t('Bookings'), value: String(stats.value.total_bookings || 0) },
-  { label: t('Future bookings'), value: String(stats.value.future_bookings || 0) },
-  { label: t('Paid bookings'), value: String(stats.value.paid_bookings || 0) },
+  { label: t('Revenue paid'), value: formatMGA(Number(stats.value.revenue_total || 0)), icon: 'pi pi-wallet', tone: 'gold' },
+  { label: t('Bookings'), value: String(stats.value.total_bookings || 0), icon: 'pi pi-calendar-clock', tone: 'blue' },
+  { label: t('Future bookings'), value: String(stats.value.future_bookings || 0), icon: 'pi pi-forward', tone: 'emerald' },
+  { label: t('Paid bookings'), value: String(stats.value.paid_bookings || 0), icon: 'pi pi-check-circle', tone: 'emerald' },
 ]);
 
 const primaryImage = computed(() => car.value?.primary_image_url || car.value?.images?.[0]?.url || '');
@@ -66,6 +87,18 @@ function optionsFor(field) {
     return [{ label: t('Not available'), value: 'not_available' }, ...(optionsMap[field.key] || field.options || [])];
   }
   return optionsMap[field.key] || field.options || [];
+}
+
+function optionFor(key) {
+  return (optionsMap[key] || []).find((option) => option.value === draft[key]) || null;
+}
+
+function fieldVisible(field) {
+  return !field.showWhen || field.showWhen(draft, { optionFor });
+}
+
+function isRequired(field) {
+  return Boolean(field.required || (field.requiredWhen && field.requiredWhen(draft, { optionFor })));
 }
 
 function fieldDefault(field) {
@@ -195,6 +228,26 @@ function confirmImageRemove(image) {
   });
 }
 
+function confirmBookingRemove(booking) {
+  confirm.require({
+    header: t('Delete booking'),
+    message: t('Permanently delete this unpaid booking? This cannot be undone.'),
+    icon: 'pi pi-exclamation-triangle',
+    acceptClass: 'p-button-danger',
+    acceptLabel: t('Delete'),
+    rejectLabel: t('Cancel'),
+    accept: async () => {
+      try {
+        await api.del(`/admin/bookings/${booking.id}`);
+        toast.add({ severity: 'success', summary: t('Booking deleted'), life: 2500 });
+        await loadOverview();
+      } catch (err) {
+        toast.add({ severity: 'error', summary: t('Delete failed'), detail: t(err?.message || 'Request failed'), life: 4000 });
+      }
+    },
+  });
+}
+
 function formatDate(value) {
   return formatDateTime(value, localeCode.value);
 }
@@ -205,6 +258,10 @@ function prettify(value) {
 
 function goBack() {
   router.push({ name: 'admin-cars' });
+}
+
+function duplicateCar() {
+  router.push({ name: 'admin-cars', query: { duplicate: carId.value } });
 }
 
 onMounted(() => {
@@ -219,9 +276,18 @@ watch(carId, () => {
 
 <template>
   <section class="car-detail">
+    <MobilityWorkspaceNav />
+
     <div class="car-detail__top">
-      <Button icon="pi pi-arrow-left" :label="t('Cars')" severity="secondary" outlined @click="goBack" />
-      <Button icon="pi pi-refresh" :label="t('Refresh')" severity="secondary" outlined :loading="loading" @click="loadOverview" />
+      <div class="car-detail__context">
+        <span><i class="pi pi-car" /></span>
+        <div><small>{{ t('Fleet workspace') }}</small><strong>{{ car?.name || t('Car detail') }}</strong></div>
+      </div>
+      <div class="car-detail__actions">
+        <Button icon="pi pi-copy" :label="t('Duplicate car')" severity="secondary" outlined @click="duplicateCar" />
+        <Button icon="pi pi-arrow-left" :label="t('Back to cars')" severity="secondary" outlined @click="goBack" />
+        <Button icon="pi pi-refresh" :label="t('Refresh')" severity="secondary" outlined :loading="loading" @click="loadOverview" />
+      </div>
     </div>
 
     <div v-if="loading && !car" class="car-detail__loading">{{ t('Loading car...') }}</div>
@@ -241,37 +307,39 @@ watch(carId, () => {
           <div class="car-hero__meta">
             <span>{{ car.registration_plate || t('No plate') }}</span>
             <span>{{ car.category?.name || t('No category') }}</span>
-            <span>{{ formatMGA(Number(car.daily_rate || 0)) }} {{ t('/ day') }}</span>
+            <span>{{ publicPrice }}</span>
+            <span v-if="!isCargoVehicle">{{ outsideRegionPrice }}</span>
           </div>
         </div>
       </section>
 
       <div class="car-metrics">
-        <article v-for="metric in metrics" :key="metric.label">
-          <span>{{ metric.label }}</span>
-          <strong>{{ metric.value }}</strong>
+        <article v-for="metric in metrics" :key="metric.label" :class="`is-${metric.tone}`">
+          <span class="car-metrics__icon"><i :class="metric.icon" /></span>
+          <div><span>{{ metric.label }}</span><strong>{{ metric.value }}</strong></div>
         </article>
       </div>
 
       <section class="car-panel car-edit">
         <div class="car-panel__head">
-          <div>
+          <span class="car-panel__head-icon"><i class="pi pi-sliders-h" /></span>
+          <div class="car-panel__head-copy">
             <h3>{{ t('Car details') }}</h3>
             <p>{{ t('Registration, category, rate, status, and vehicle specs.') }}</p>
           </div>
-          <Button :label="t('Save changes')" icon="pi pi-check" :loading="saving" @click="saveCar" />
+          <Button :label="t('Save changes')" icon="pi pi-check" :loading="saving" :disabled="!canSave" @click="saveCar" />
         </div>
 
         <div class="car-form">
-          <label
-            v-for="field in carFields"
-            :key="field.key"
-            class="car-form__field"
-            :class="{ 'car-form__field--wide': field.localized || field.type === 'textarea' }"
-          >
+          <template v-for="field in visibleCarFields" :key="field.key">
+            <div v-if="field.sectionLabel" class="car-form__section">
+              <span><i :class="field.sectionIcon || 'pi pi-pencil'" /></span>
+              <div><strong>{{ field.sectionLabel }}</strong><small v-if="field.sectionDescription">{{ field.sectionDescription }}</small></div>
+            </div>
+            <label class="car-form__field" :class="{ 'car-form__field--wide': field.localized || field.type === 'textarea' }">
             <span>
               {{ field.label }}
-              <small v-if="field.required">*</small>
+              <small v-if="isRequired(field)">*</small>
             </span>
 
             <LocalizedFieldControl
@@ -293,7 +361,7 @@ watch(carId, () => {
             <InputNumber
               v-else-if="field.type === 'money'"
               v-model="draft[field.key]"
-              :min="0"
+              :min="field.min ?? 0"
               :useGrouping="true"
               suffix=" MGA"
               fluid
@@ -303,6 +371,10 @@ watch(carId, () => {
               v-else-if="field.type === 'number'"
               v-model="draft[field.key]"
               :useGrouping="false"
+              :min="field.min"
+              :minFractionDigits="field.minFractionDigits || 0"
+              :maxFractionDigits="field.maxFractionDigits ?? field.minFractionDigits ?? 0"
+              :suffix="field.suffix"
               fluid
             />
 
@@ -313,20 +385,23 @@ watch(carId, () => {
               optionLabel="label"
               optionValue="value"
               :placeholder="field.placeholder || t('Choose {field}', { field: field.label.toLowerCase() })"
-              :showClear="!field.required"
+              :showClear="!isRequired(field)"
               fluid
             />
 
             <InputText v-else v-model="draft[field.key]" :placeholder="field.placeholder" />
 
+            <small v-if="field.help" class="car-form__help">{{ field.help }}</small>
             <small v-if="formErrors[field.key]" class="car-form__error">{{ t(formErrors[field.key]) }}</small>
-          </label>
+            </label>
+          </template>
         </div>
       </section>
 
       <section class="car-panel car-images">
         <div class="car-panel__head">
-          <div>
+          <span class="car-panel__head-icon"><i class="pi pi-images" /></span>
+          <div class="car-panel__head-copy">
             <h3>{{ t('Images') }}</h3>
             <p>{{ t((car.images?.length || 0) === 1 ? '{count} image' : '{count} images', { count: car.images?.length || 0 }) }}</p>
           </div>
@@ -351,7 +426,8 @@ watch(carId, () => {
 
       <section class="car-panel">
         <div class="car-panel__head">
-          <div>
+          <span class="car-panel__head-icon"><i class="pi pi-calendar-clock" /></span>
+          <div class="car-panel__head-copy">
             <h3>{{ t('Bookings') }}</h3>
             <p>{{ t('{count} loaded for this car', { count: bookings.length }) }}</p>
           </div>
@@ -383,6 +459,20 @@ watch(carId, () => {
               <span class="cell-money">{{ formatMGA(Number(data.total_price || 0)) }}</span>
             </template>
           </Column>
+          <Column :header="t('Actions')" :exportable="false" style="width: 5rem">
+            <template #body="{ data }">
+              <Button
+                icon="pi pi-trash"
+                severity="danger"
+                text
+                rounded
+                :disabled="data.payment_status !== 'unpaid'"
+                :aria-label="t('Delete booking')"
+                :title="data.payment_status === 'unpaid' ? t('Delete booking') : t('Bookings with payment history cannot be deleted.')"
+                @click="confirmBookingRemove(data)"
+              />
+            </template>
+          </Column>
           <template #empty>
             <div class="empty-state">{{ t('No bookings yet.') }}</div>
           </template>
@@ -409,8 +499,47 @@ watch(carId, () => {
 
 .car-detail__top {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--tm-border);
+  border-radius: 16px;
+  background: var(--tm-surface);
+}
+
+.car-detail__context,
+.car-detail__actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.car-detail__context > span {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: var(--tm-charcoal);
+  color: var(--tm-gold);
+  place-items: center;
+}
+
+.car-detail__context > div {
+  display: grid;
+  gap: 2px;
+}
+
+.car-detail__context small {
+  color: var(--tm-muted);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.car-detail__context strong {
+  color: var(--tm-heading);
 }
 
 .car-detail__loading,
@@ -427,14 +556,16 @@ watch(carId, () => {
   align-items: stretch;
   overflow: hidden;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
-  background: var(--tm-surface);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 96% 0%, rgba(49, 92, 112, 0.48), transparent 42%),
+    linear-gradient(135deg, var(--tm-charcoal), #17282a);
   box-shadow: var(--tm-shadow);
 }
 
 .car-hero__image {
   min-height: 230px;
-  background: var(--tm-surface-soft);
+  background: rgba(255, 255, 255, 0.055);
 }
 
 .car-hero__image img {
@@ -479,7 +610,7 @@ watch(carId, () => {
 }
 
 .car-hero__title h2 {
-  color: var(--tm-heading);
+  color: #fff8ed;
   font-size: clamp(2rem, 4vw, 3rem);
   line-height: 1;
 }
@@ -494,10 +625,10 @@ watch(carId, () => {
   padding: 7px 10px;
   border: 1px solid var(--tm-border);
   border-radius: 999px;
-  color: var(--tm-muted);
+  color: rgba(255, 255, 255, 0.68);
   font-size: 0.85rem;
   font-weight: 800;
-  background: var(--tm-surface-soft);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .car-metrics {
@@ -509,23 +640,50 @@ watch(carId, () => {
 .car-metrics article,
 .car-panel {
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: 18px;
   background: var(--tm-surface);
   box-shadow: var(--tm-shadow);
 }
 
 .car-metrics article {
-  display: grid;
-  gap: 6px;
+  --metric-accent: var(--tm-gold);
+  display: flex;
+  align-items: center;
+  gap: 12px;
   min-height: 92px;
-  align-content: center;
   padding: 16px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--metric-accent) 11%, transparent), transparent 48%),
+    var(--tm-surface);
+}
+
+.car-metrics article.is-blue { --metric-accent: var(--tm-blue); }
+.car-metrics article.is-emerald { --metric-accent: var(--tm-emerald); }
+
+.car-metrics article > div {
+  display: grid;
+  gap: 5px;
+}
+
+.car-metrics__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  background: var(--metric-accent);
+  color: #fff;
+  place-items: center;
 }
 
 .car-metrics span,
 .car-panel__head p,
 .image-item span {
   color: var(--tm-muted);
+}
+
+.car-metrics .car-metrics__icon {
+  color: #fff;
 }
 
 .car-metrics span,
@@ -551,6 +709,22 @@ watch(carId, () => {
   gap: 14px;
   padding: 16px;
   border-bottom: 1px solid var(--tm-border);
+}
+
+.car-panel__head-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: var(--tm-charcoal);
+  color: var(--tm-gold);
+  place-items: center;
+}
+
+.car-panel__head-copy {
+  flex: 1;
+  min-width: 0;
 }
 
 .car-panel__head h3,
@@ -586,6 +760,50 @@ watch(carId, () => {
   grid-column: 1 / -1;
 }
 
+.car-form__section {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px solid var(--tm-border);
+}
+
+.car-form__section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.car-form__section > span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 11px;
+  background: var(--tm-surface-soft);
+  color: var(--tm-emerald);
+  place-items: center;
+}
+
+.car-form__section > div {
+  display: grid;
+  gap: 2px;
+}
+
+.car-form__section strong {
+  color: var(--tm-heading);
+  font-size: 0.9rem;
+}
+
+.car-form__section small,
+.car-form__help {
+  color: var(--tm-muted) !important;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
 .car-form__field span {
   color: var(--tm-muted);
 }
@@ -618,7 +836,7 @@ watch(carId, () => {
   min-width: 0;
   padding: 10px;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: 14px;
   background: var(--tm-surface-soft);
 }
 
@@ -679,6 +897,11 @@ watch(carId, () => {
 @media (max-width: 680px) {
   .car-detail__top,
   .car-panel__head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .car-detail__actions {
     align-items: stretch;
     flex-direction: column;
   }

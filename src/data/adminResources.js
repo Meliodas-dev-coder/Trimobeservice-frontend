@@ -106,6 +106,35 @@ function auditChanges(row) {
   return text.length > 70 ? `${text.slice(0, 67)}…` : text;
 }
 
+// Mirrors the client event planner's indicative-total calculation. Request
+// snapshots keep this comparison stable even when catalog prices change later.
+function eventIndicativeTotal(eventRequest) {
+  const services = Array.isArray(eventRequest?.services) ? eventRequest.services : [];
+  const artists = Array.isArray(eventRequest?.artists) ? eventRequest.artists : [];
+
+  return (
+    services.reduce((sum, service) => sum + Number(service.from_price_snapshot || 0), 0) +
+    artists.reduce((sum, artist) => sum + Number(artist.fee_snapshot || 0), 0)
+  );
+}
+
+function orderPlacedAt(order) {
+  return order?.placed_at || order?.created_at;
+}
+
+function orderDeliveryAddress(order) {
+  return [
+    order?.ship_line1,
+    order?.ship_line2,
+    order?.ship_city,
+    order?.ship_region,
+    order?.ship_postal_code,
+    order?.ship_country,
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
 // The dynamic-attributes control: the dialog renders the selected category's
 // template fields (product specs or variant axes) into an `attributes` object.
 const PRODUCT_ATTRIBUTES_FIELD = {
@@ -124,6 +153,8 @@ const VARIANT_ATTRIBUTES_FIELD = {
 };
 
 const isCargoCategory = (draft) => Boolean(draft.is_cargo_transport);
+const isStandardCategory = (draft) => !draft.is_cargo_transport;
+const isStandardCar = (_draft, ctx) => !ctx.optionFor('category_id')?.item?.is_cargo_transport;
 const isCargoBooking = (_draft, ctx) => Boolean(ctx.optionFor('car_id')?.item?.is_cargo_transport);
 const isStandardBooking = (_draft, ctx) => !ctx.optionFor('car_id')?.item?.is_cargo_transport;
 const isOrderTarget = (target) => target?.type === 'order';
@@ -221,8 +252,24 @@ export const adminResources = {
       { field: 'template_key', header: 'Type', format: (row) => titleize(row.template_key) },
       { ...AVAILABILITY_COLUMN },
     ],
+    cardView: {
+      layout: 'grid',
+      imageField: 'image_url',
+      imageFit: 'cover',
+      placeholderIcon: 'pi pi-tags',
+      titleField: 'name',
+      subtitleField: 'slug',
+      badgeField: 'is_active',
+      badgeType: 'boolean',
+      badgeTrueLabel: 'Available',
+      badgeFalseLabel: 'Unavailable',
+      details: [
+        { field: 'template_key', label: 'Product type', format: (row) => titleize(row.template_key) },
+        { field: 'created_at', label: 'Added', type: 'date' },
+      ],
+    },
     formFields: [
-      { key: 'name', label: 'Name', type: 'text', placeholder: 'Smartphones', required: true, localized: true },
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'Smartphones', required: true, localized: true, sectionLabel: 'Category identity', sectionDescription: 'Name the group and choose how its products are structured.', sectionIcon: 'pi pi-tags' },
       {
         key: 'template_key',
         label: 'Product type',
@@ -248,9 +295,9 @@ export const adminResources = {
         placeholder: 'None',
         scopeByDepartment: true,
       },
-      { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Optional summary', localized: true },
+      { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Optional summary', localized: true, sectionLabel: 'Customer-facing content', sectionDescription: 'Explain the category and add a recognizable catalog image.', sectionIcon: 'pi pi-align-left' },
       { key: 'image_url', label: 'Image', type: 'image' },
-      { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
+      { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true, sectionLabel: 'Publishing', sectionDescription: 'Choose whether customers can browse this category.', sectionIcon: 'pi pi-eye' },
     ],
   },
 
@@ -277,11 +324,27 @@ export const adminResources = {
       { field: 'department', header: 'Department', format: (row) => titleize(row.department) },
       { ...AVAILABILITY_COLUMN },
     ],
+    cardView: {
+      layout: 'grid',
+      imageField: 'logo_url',
+      imageFit: 'contain',
+      placeholderIcon: 'pi pi-bookmark',
+      titleField: 'name',
+      subtitleField: 'slug',
+      badgeField: 'is_active',
+      badgeType: 'boolean',
+      badgeTrueLabel: 'Available',
+      badgeFalseLabel: 'Unavailable',
+      details: [
+        { field: 'department', label: 'Department', type: 'enum' },
+        { field: 'created_at', label: 'Added', type: 'date' },
+      ],
+    },
     formFields: [
-      { key: 'name', label: 'Name', type: 'text', placeholder: 'Astra', required: true, localized: true },
-      { key: 'department', label: 'Department', type: 'select', options: DEPARTMENT_OPTIONS },
-      { key: 'logo_url', label: 'Logo', type: 'image' },
-      { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
+      { key: 'name', label: 'Name', type: 'text', placeholder: 'Astra', required: true, localized: true, sectionLabel: 'Brand identity', sectionDescription: 'Set the manufacturer name and its catalog department.', sectionIcon: 'pi pi-bookmark' },
+      { key: 'department', label: 'Department', type: 'select', options: DEPARTMENT_OPTIONS, hideWhenScoped: true },
+      { key: 'logo_url', label: 'Logo', type: 'image', sectionLabel: 'Brand mark', sectionDescription: 'Upload a clean logo that remains readable on light and dark surfaces.', sectionIcon: 'pi pi-image' },
+      { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true, sectionLabel: 'Publishing', sectionDescription: 'Choose whether this brand appears in customer filters.', sectionIcon: 'pi pi-eye' },
     ],
   },
 
@@ -304,6 +367,28 @@ export const adminResources = {
     detailRoute: (row) => ({ name: 'admin-product-detail', params: { id: row.id } }),
     createRoute: () => ({ name: 'admin-product-new' }),
     capabilities: { create: true, edit: true, remove: true },
+    filters: [
+      {
+        key: 'category_id',
+        label: 'Category',
+        options: [],
+        optionsEndpoint: '/admin/categories',
+        collectionKey: 'categories',
+        optionLabel: 'name',
+        optionValue: 'id',
+        scopeByDepartment: true,
+      },
+      {
+        key: 'brand_id',
+        label: 'Brand',
+        options: [],
+        optionsEndpoint: '/admin/brands',
+        collectionKey: 'brands',
+        optionLabel: 'name',
+        optionValue: 'id',
+        scopeByDepartment: true,
+      },
+    ],
     // Variants + images live under /admin/products/{id}/... — surfaced in Step 4.
     defaultRow: { is_active: true },
     columns: [
@@ -316,7 +401,10 @@ export const adminResources = {
     ],
     // Card view (like cars): product image, availability badge, price + variants.
     cardView: {
+      layout: 'grid',
       imageField: 'primary_image_url',
+      imageFit: 'contain',
+      placeholderIcon: 'pi pi-mobile',
       titleField: 'name',
       subtitleField: 'slug',
       badgeField: 'is_active',
@@ -379,7 +467,7 @@ export const adminResources = {
     singular: 'car',
     plural: 'Cars',
     eyebrow: 'Mobility',
-    description: 'Fleet cars. Daily rate seeds from the category default when left blank.',
+    description: 'Manage daily-priced cars and distance-priced cargo transport from one fleet.',
     actionLabel: 'Add car',
     rowKey: 'id',
     api: {
@@ -391,27 +479,74 @@ export const adminResources = {
     },
     detailRoute: (row) => ({ name: 'admin-car-detail', params: { id: row.id } }),
     capabilities: { create: true, edit: true, remove: true },
+    duplicate: {
+      actionLabel: 'Duplicate',
+      title: 'Duplicate car',
+      help: 'Vehicle details, pricing, translations, description, and the primary image are copied. The registration plate is cleared because it must be unique.',
+      clearFields: ['registration_plate'],
+      defaults: { status: 'available' },
+    },
+    filters: [
+      {
+        key: 'category_id',
+        label: 'Category',
+        options: [],
+        optionsEndpoint: '/admin/car-categories',
+        collectionKey: 'car_categories',
+        optionLabel: 'name',
+        optionValue: 'id',
+      },
+      { key: 'status', label: 'Status', options: ['available', 'not_available', 'maintenance', 'inactive'] },
+    ],
     columns: [
       { field: 'name', header: 'Car' },
       { field: 'registration_plate', header: 'Plate' },
       { field: 'seats', header: 'Seats', type: 'number' },
-      { field: 'daily_rate', header: 'Daily rate', type: 'money' },
+      {
+        field: 'daily_rate',
+        header: 'Public price',
+        format: (row) => row.is_cargo_transport
+          ? `From ${formatMGA(Number(row.cargo_minimum_rate || 0))}`
+          : `${formatMGA(Number(row.daily_rate || 0))} / day`,
+      },
+      {
+        field: 'outside_antananarivo_daily_rate',
+        header: 'Outside Tana rate',
+        format: (row) => row.is_cargo_transport ? '-' : `${formatMGA(Number(row.outside_antananarivo_daily_rate || 0))} / day`,
+      },
       { field: 'status', header: 'Status', type: 'status' },
     ],
     cardView: {
+      layout: 'grid',
       imageField: 'primary_image_url',
+      imageFit: 'cover',
+      placeholderIcon: 'pi pi-car',
       titleField: 'name',
       subtitleField: 'registration_plate',
       badgeField: 'status',
       details: [
-        { field: 'daily_rate', label: 'Daily rate', type: 'money' },
+        {
+          field: 'daily_rate',
+          label: 'Public price',
+          format: (row) => row.is_cargo_transport
+            ? `From ${formatMGA(Number(row.cargo_minimum_rate || 0))}`
+            : `${formatMGA(Number(row.daily_rate || 0))} / day`,
+        },
+        {
+          field: 'outside_antananarivo_daily_rate',
+          label: 'Outside Antananarivo rate',
+          format: (row) => row.is_cargo_transport ? '-' : `${formatMGA(Number(row.outside_antananarivo_daily_rate || 0))} / day`,
+        },
         { field: 'seats', label: 'Seats', type: 'number' },
         { field: 'make', label: 'Make' },
         { field: 'model', label: 'Model' },
       ],
     },
     formFields: [
-      { key: 'name', label: 'Display name', type: 'text', placeholder: 'Mercedes S-Class 2023', required: true, localized: true },
+      {
+        key: 'name', label: 'Display name', type: 'text', placeholder: 'Mercedes S-Class 2023', required: true, localized: true,
+        sectionLabel: 'Vehicle identity', sectionDescription: 'Name the car and place it in the right fleet category.', sectionIcon: 'pi pi-car',
+      },
       {
         key: 'category_id',
         label: 'Category',
@@ -423,7 +558,10 @@ export const adminResources = {
         optionValue: 'id',
         required: true,
       },
-      { key: 'make', label: 'Make', type: 'text', placeholder: 'Mercedes' },
+      {
+        key: 'make', label: 'Make', type: 'text', placeholder: 'Mercedes',
+        sectionLabel: 'Vehicle specifications', sectionDescription: 'The practical details dispatchers and customers use to identify the car.', sectionIcon: 'pi pi-cog',
+      },
       { key: 'model', label: 'Model', type: 'text', placeholder: 'S-Class' },
       { key: 'year', label: 'Year', type: 'number' },
       { key: 'registration_plate', label: 'Registration plate', type: 'text', placeholder: 'TAA 0000' },
@@ -440,7 +578,20 @@ export const adminResources = {
         placeholder: 'Unspecified',
       },
       { key: 'fuel_type', label: 'Fuel type', type: 'text', placeholder: 'Diesel' },
-      { key: 'daily_rate', label: 'Daily rate (blank = category default)', type: 'money' },
+      {
+        key: 'daily_rate', label: 'Daily rate (blank = category default)', type: 'money',
+        sectionLabel: 'Pricing and availability', sectionDescription: 'Set the public rental rate and operational state.', sectionIcon: 'pi pi-wallet',
+        help: 'Leave the rate blank to use the category default.',
+        showWhen: isStandardCar,
+      },
+      {
+        key: 'outside_antananarivo_daily_rate',
+        label: 'Outside-region daily rate (blank = category default)',
+        type: 'money',
+        min: 1,
+        showWhen: isStandardCar,
+        help: 'Leave blank to inherit the category outside-Antananarivo default.',
+      },
       {
         key: 'primary_image_url',
         label: 'Car image',
@@ -482,7 +633,7 @@ export const adminResources = {
     singular: 'car category',
     plural: 'Car categories',
     eyebrow: 'Mobility',
-    description: 'Luxury, bus, cargo, SUV… each with a baseline daily rate that prefills new cars.',
+    description: 'Organize the fleet by service type, with a daily default or a cargo starting price.',
     actionLabel: 'Add car category',
     rowKey: 'id',
     api: {
@@ -496,15 +647,73 @@ export const adminResources = {
     defaultRow: { is_active: true, default_daily_rate: '0.00' },
     columns: [
       { field: 'name', header: 'Category' },
-      { field: 'default_daily_rate', header: 'Default rate', type: 'money' },
+      {
+        field: 'default_daily_rate',
+        header: 'Public price',
+        format: (row) => row.is_cargo_transport
+          ? `From ${formatMGA(Number(row.cargo_minimum_rate || 0))}`
+          : `${formatMGA(Number(row.default_daily_rate || 0))} / day`,
+      },
+      {
+        field: 'default_outside_antananarivo_daily_rate',
+        header: 'Outside Tana default',
+        format: (row) => row.is_cargo_transport
+          ? '-'
+          : `${formatMGA(Number(row.default_outside_antananarivo_daily_rate || 0))} / day`,
+      },
       { field: 'is_cargo_transport', header: 'Cargo', type: 'boolean', trueLabel: 'Yes', falseLabel: 'No' },
       { field: 'cargo_minimum_rate', header: 'Minimum', type: 'money' },
       { field: 'cargo_per_km_rate', header: 'Per km', type: 'money' },
       { field: 'is_active', header: 'Active', type: 'boolean' },
     ],
+    cardView: {
+      layout: 'grid',
+      placeholderIcon: 'pi pi-sitemap',
+      titleField: 'name',
+      subtitleField: 'description',
+      badgeField: 'is_active',
+      badgeType: 'boolean',
+      badgeTrueLabel: 'Active',
+      badgeFalseLabel: 'Inactive',
+      details: [
+        {
+          field: 'default_daily_rate',
+          label: 'Public price',
+          format: (row) => row.is_cargo_transport
+            ? `From ${formatMGA(Number(row.cargo_minimum_rate || 0))}`
+            : `${formatMGA(Number(row.default_daily_rate || 0))} / day`,
+        },
+        {
+          field: 'default_outside_antananarivo_daily_rate',
+          label: 'Outside Tana default',
+          format: (row) => row.is_cargo_transport
+            ? '-'
+            : `${formatMGA(Number(row.default_outside_antananarivo_daily_rate || 0))} / day`,
+        },
+        { field: 'is_cargo_transport', label: 'Cargo transport', type: 'boolean', trueLabel: 'Yes', falseLabel: 'No' },
+        { field: 'cargo_minimum_rate', label: 'Cargo starting price', type: 'money' },
+        { field: 'cargo_per_km_rate', label: 'Per kilometer', type: 'money' },
+      ],
+    },
     formFields: [
-      { key: 'name', label: 'Name', type: 'text', placeholder: 'Luxury', required: true, localized: true },
-      { key: 'default_daily_rate', label: 'Default daily rate', type: 'money' },
+      {
+        key: 'name', label: 'Name', type: 'text', placeholder: 'Luxury', required: true, localized: true,
+        sectionLabel: 'Category identity', sectionDescription: 'Describe how customers should recognize this fleet category.', sectionIcon: 'pi pi-sitemap',
+      },
+      {
+        key: 'default_daily_rate', label: 'Default daily rate', type: 'money',
+        sectionLabel: 'Pricing model', sectionDescription: 'Choose daily pricing or set a cargo starting price.', sectionIcon: 'pi pi-wallet',
+        showWhen: isStandardCategory,
+      },
+      {
+        key: 'default_outside_antananarivo_daily_rate',
+        label: 'Default daily rate outside Antananarivo',
+        type: 'money',
+        min: 1,
+        requiredWhen: isStandardCategory,
+        showWhen: isStandardCategory,
+        help: 'Used when a standard car does not define its own outside-region rate.',
+      },
       {
         key: 'is_cargo_transport',
         label: 'Cargo transport only',
@@ -516,17 +725,27 @@ export const adminResources = {
         key: 'cargo_per_km_rate',
         label: 'Per kilometer rate',
         type: 'money',
+        defaultValue: 10000,
         requiredWhen: isCargoCategory,
         showWhen: isCargoCategory,
+        disabled: true,
+        sectionLabel: 'Cargo distance pricing',
+        sectionDescription: 'The first 10 km are covered by the minimum, then each additional kilometre costs 10,000 MGA.',
+        sectionIcon: 'pi pi-map',
       },
       {
         key: 'cargo_minimum_rate',
-        label: 'Minimal rate',
+        label: 'Cargo starting price',
         type: 'money',
+        defaultValue: 120000,
         requiredWhen: isCargoCategory,
         showWhen: isCargoCategory,
+        disabled: true,
       },
-      { key: 'description', label: 'Description', type: 'textarea', localized: true },
+      {
+        key: 'description', label: 'Description', type: 'textarea', localized: true,
+        sectionLabel: 'Customer visibility', sectionDescription: 'Control the customer-facing description and availability.', sectionIcon: 'pi pi-eye',
+      },
       { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
     ],
   },
@@ -548,14 +767,32 @@ export const adminResources = {
     },
     capabilities: { create: true, edit: true, remove: true },
     defaultRow: { status: 'available' },
+    filters: [
+      { key: 'status', label: 'Status', options: ['available', 'assigned', 'inactive'] },
+    ],
     columns: [
       { field: 'full_name', header: 'Driver' },
       { field: 'phone', header: 'Phone' },
       { field: 'license_number', header: 'License' },
       { field: 'status', header: 'Status', type: 'status' },
     ],
+    cardView: {
+      layout: 'grid',
+      placeholderIcon: 'pi pi-id-card',
+      titleField: 'full_name',
+      subtitleField: 'phone',
+      badgeField: 'status',
+      details: [
+        { field: 'license_number', label: 'License' },
+        { field: 'phone', label: 'Phone' },
+        { field: 'notes', label: 'Operations note' },
+      ],
+    },
     formFields: [
-      { key: 'full_name', label: 'Full name', type: 'text', placeholder: 'Rado Andrian', required: true },
+      {
+        key: 'full_name', label: 'Full name', type: 'text', placeholder: 'Rado Andrian', required: true,
+        sectionLabel: 'Driver identity', sectionDescription: 'Contact and license information used by dispatch.', sectionIcon: 'pi pi-id-card',
+      },
       { key: 'phone', label: 'Phone', type: 'text', placeholder: '+261 …', required: true },
       { key: 'license_number', label: 'License number', type: 'text', placeholder: 'MG-A-00000', required: true },
       {
@@ -568,6 +805,9 @@ export const adminResources = {
           { label: 'Assigned', value: 'assigned' },
           { label: 'Inactive', value: 'inactive' },
         ],
+        sectionLabel: 'Dispatch status',
+        sectionDescription: 'Availability can also change automatically when the driver is assigned to an active trip.',
+        sectionIcon: 'pi pi-directions',
       },
       { key: 'notes', label: 'Notes', type: 'textarea' },
     ],
@@ -596,6 +836,21 @@ export const adminResources = {
       { field: 'service_count', header: 'Services', type: 'number' },
       { field: 'is_active', header: 'Active', type: 'boolean' },
     ],
+    cardView: {
+      layout: 'grid',
+      imageField: 'image_url',
+      placeholderIcon: 'pi pi-sitemap',
+      titleField: 'name',
+      subtitleField: 'description',
+      badgeField: 'is_active',
+      badgeType: 'boolean',
+      badgeTrueLabel: 'Active',
+      badgeFalseLabel: 'Inactive',
+      details: [
+        { field: 'service_count', label: 'Services' },
+        { field: 'slug', label: 'Slug' },
+      ],
+    },
     formFields: [
       { key: 'name', label: 'Name', type: 'text', placeholder: 'Sound & PA', required: true, localized: true },
       { key: 'icon', label: 'Icon (PrimeIcons class)', type: 'text', placeholder: 'pi pi-volume-up' },
@@ -623,6 +878,17 @@ export const adminResources = {
     },
     capabilities: { create: true, edit: true, remove: true },
     defaultRow: { is_active: true },
+    filters: [
+      {
+        key: 'category_id',
+        label: 'Category',
+        options: [],
+        optionsEndpoint: '/admin/event-service-categories',
+        collectionKey: 'event_service_categories',
+        optionLabel: 'name',
+        optionValue: 'id',
+      },
+    ],
     columns: [
       { field: 'name', header: 'Service' },
       { field: 'category_name', header: 'Category' },
@@ -631,7 +897,9 @@ export const adminResources = {
       { field: 'is_active', header: 'Availability', type: 'boolean', trueLabel: 'Available', falseLabel: 'Unavailable' },
     ],
     cardView: {
+      layout: 'grid',
       imageField: 'image_url',
+      placeholderIcon: 'pi pi-star',
       titleField: 'name',
       subtitleField: 'category_name',
       badgeField: 'is_active',
@@ -691,7 +959,9 @@ export const adminResources = {
       { field: 'is_active', header: 'Active', type: 'boolean' },
     ],
     cardView: {
+      layout: 'grid',
       imageField: 'photo_url',
+      placeholderIcon: 'pi pi-microphone',
       titleField: 'stage_name',
       subtitleField: 'genres',
       badgeField: 'is_active',
@@ -788,10 +1058,21 @@ export const adminResources = {
       collectionKey: 'bookings',
       itemKey: 'booking',
     },
-    capabilities: { create: true, edit: false, remove: false },
+    capabilities: { create: true, edit: false, remove: true },
+    removeWhen: (booking) => booking.payment_status === 'unpaid',
+    removeDisabledHelp: 'Bookings with payment history cannot be deleted.',
     filters: [
       { key: 'status', label: 'Status', options: ['requested', 'confirmed', 'driver_assigned', 'active', 'completed', 'cancelled'] },
       { key: 'payment_status', label: 'Payment', options: ['unpaid', 'paid', 'refunded'] },
+      {
+        key: 'car_id',
+        label: 'Car',
+        options: [],
+        optionsEndpoint: '/admin/cars',
+        collectionKey: 'cars',
+        optionLabel: 'name',
+        optionValue: 'id',
+      },
     ],
     actions: [
       { key: 'assign-driver', label: 'Assign driver', method: 'POST', path: (id) => `/admin/bookings/${id}/assign-driver` },
@@ -809,8 +1090,24 @@ export const adminResources = {
       { field: 'end_at', header: 'End', type: 'date' },
       { field: 'total_price', header: 'Total', type: 'money' },
     ],
+    cardView: {
+      layout: 'grid',
+      placeholderIcon: 'pi pi-calendar-clock',
+      titleField: 'booking_number',
+      subtitleField: 'customer_name',
+      badgeField: 'status',
+      details: [
+        { field: 'car_name', label: 'Car' },
+        { field: 'start_at', label: 'Starts', type: 'date' },
+        { field: 'payment_status', label: 'Payment', type: 'status' },
+        { field: 'total_price', label: 'Total', type: 'money' },
+      ],
+    },
     formFields: [
-      { key: 'customer_name', label: 'Customer name', type: 'text', placeholder: 'Phone caller name', required: true },
+      {
+        key: 'customer_name', label: 'Customer name', type: 'text', placeholder: 'Phone caller name', required: true,
+        sectionLabel: 'Customer', sectionDescription: 'Identify who is booking and optionally connect their account.', sectionIcon: 'pi pi-user',
+      },
       {
         key: 'user_id',
         label: 'Customer account',
@@ -832,6 +1129,9 @@ export const adminResources = {
         optionLabel: 'name',
         optionValue: 'id',
         required: true,
+        sectionLabel: 'Vehicle and driver',
+        sectionDescription: 'Choose the vehicle first; the driver can be assigned now or later.',
+        sectionIcon: 'pi pi-car',
       },
       {
         key: 'driver_id',
@@ -850,6 +1150,9 @@ export const adminResources = {
         type: 'datetime',
         requiredWhen: isStandardBooking,
         showWhen: isStandardBooking,
+        sectionLabel: 'Trip schedule',
+        sectionDescription: 'Set the rental window or cargo transport date.',
+        sectionIcon: 'pi pi-calendar-clock',
       },
       {
         key: 'end_at',
@@ -866,8 +1169,25 @@ export const adminResources = {
         showWhen: isCargoBooking,
         minDate: todayStart,
         toBody: cargoServiceWindow,
+        sectionLabel: 'Trip schedule',
+        sectionDescription: 'Set the rental window or cargo transport date.',
+        sectionIcon: 'pi pi-calendar-clock',
       },
-      { key: 'pickup_location', label: 'From / pickup location', type: 'place', required: true, manualFallback: false },
+      {
+        key: 'pickup_location', label: 'From / pickup location', type: 'place', required: true, manualFallback: false,
+        sectionLabel: 'Route and contact', sectionDescription: 'Confirm where the trip starts, where it ends, and how to reach the customer.', sectionIcon: 'pi pi-map-marker',
+      },
+      {
+        key: 'outside_antananarivo',
+        label: 'Leaves Antananarivo region?',
+        type: 'select',
+        options: [
+          { label: 'No — local rate', value: false },
+          { label: 'Yes — outside-region rate', value: true },
+        ],
+        requiredWhen: isStandardBooking,
+        showWhen: isStandardBooking,
+      },
       {
         key: 'dropoff_location',
         label: 'To / dropoff location',
@@ -915,6 +1235,7 @@ export const adminResources = {
     filters: [
       { key: 'status', label: 'Status', options: ['requested', 'reviewing', 'quoted', 'confirmed', 'in_progress', 'completed', 'cancelled'] },
       { key: 'payment_status', label: 'Payment', options: ['unpaid', 'paid', 'refunded'] },
+      { key: 'event_type', label: 'Event type', options: ['wedding', 'corporate', 'birthday', 'concert', 'conference', 'other'] },
     ],
     columns: [
       { field: 'id', header: 'ID', type: 'number' },
@@ -927,6 +1248,20 @@ export const adminResources = {
       { field: 'quoted_price', header: 'Quote', type: 'money' },
       { field: 'created_at', header: 'Requested', type: 'date' },
     ],
+    cardView: {
+      layout: 'grid',
+      placeholderIcon: 'pi pi-calendar-plus',
+      titleField: 'request_number',
+      subtitleField: 'customer_name',
+      badgeField: 'status',
+      details: [
+        { field: 'event_type', label: 'Event type', type: 'enum' },
+        { field: 'event_start', label: 'Event date', type: 'date' },
+        { field: 'budget', label: 'Client budget', format: (row) => row.budget ? formatMGA(Number(row.budget)) : '—' },
+        { field: 'quoted_price', label: 'Final quote', format: (row) => row.quoted_price ? formatMGA(Number(row.quoted_price)) : '—' },
+        { field: 'payment_status', label: 'Payment', type: 'status' },
+      ],
+    },
     formFields: [],
   },
 
@@ -1071,7 +1406,7 @@ export const adminResources = {
     singular: 'practitioner',
     plural: 'Practitioners',
     eyebrow: 'Healthcare',
-    description: 'Doctor and nurse roster, assigned to home consultations and care packages. Unique phone.',
+    description: 'Keep doctors and nurses identifiable, contactable, and ready for home-care assignments.',
     actionLabel: 'Add practitioner',
     rowKey: 'id',
     api: {
@@ -1094,13 +1429,18 @@ export const adminResources = {
       { field: 'status', header: 'Status', type: 'status' },
     ],
     cardView: {
+      layout: 'grid',
       imageField: 'photo_url',
+      imageFit: 'cover',
+      placeholderIcon: 'pi pi-user-plus',
       titleField: 'full_name',
       subtitleField: 'specialty',
       badgeField: 'status',
       details: [
-        { field: 'type', label: 'Type' },
+        { field: 'type', label: 'Role', type: 'enum' },
         { field: 'phone', label: 'Phone' },
+        { field: 'email', label: 'Email' },
+        { field: 'license_number', label: 'License number' },
       ],
     },
     formFields: [
@@ -1114,13 +1454,20 @@ export const adminResources = {
           { label: 'Doctor', value: 'doctor' },
           { label: 'Nurse', value: 'nurse' },
         ],
+        sectionLabel: 'Clinical identity', sectionDescription: 'Set the practitioner role and the name staff will use for assignments.', sectionIcon: 'pi pi-user-plus',
       },
       { key: 'full_name', label: 'Full name', type: 'text', required: true, placeholder: 'Dr. Hery Rakoto' },
       { key: 'specialty', label: 'Specialty', type: 'text', placeholder: 'General medicine, Pediatrics', localized: true },
-      { key: 'phone', label: 'Phone', type: 'text', required: true, placeholder: '+261 …' },
+      {
+        key: 'phone', label: 'Phone', type: 'text', required: true, placeholder: '+261 …',
+        sectionLabel: 'Contact & credentials', sectionDescription: 'Keep direct contact and professional identification easy to verify.', sectionIcon: 'pi pi-address-book',
+      },
       { key: 'email', label: 'Email', type: 'text', placeholder: 'name@example.com' },
       { key: 'license_number', label: 'License number', type: 'text' },
-      { key: 'photo_url', label: 'Photo', type: 'image' },
+      {
+        key: 'photo_url', label: 'Photo', type: 'image',
+        sectionLabel: 'Profile visibility', sectionDescription: 'Add a recognizable photo and a short customer-facing biography.', sectionIcon: 'pi pi-image',
+      },
       { key: 'bio', label: 'Bio', type: 'textarea', localized: true },
       {
         key: 'status',
@@ -1131,6 +1478,7 @@ export const adminResources = {
           { label: 'Active', value: 'active' },
           { label: 'Inactive', value: 'inactive' },
         ],
+        sectionLabel: 'Assignment readiness', sectionDescription: 'Only active practitioners should be offered for new assignments.', sectionIcon: 'pi pi-check-circle',
       },
     ],
   },
@@ -1140,7 +1488,7 @@ export const adminResources = {
     singular: 'care category',
     plural: 'Care categories',
     eyebrow: 'Healthcare',
-    description: 'Groups of healthcare services (home consultation, nursing care, care packages).',
+    description: 'Organize consultations and care packages into clear groups patients can understand.',
     actionLabel: 'Add category',
     rowKey: 'id',
     api: {
@@ -1158,12 +1506,37 @@ export const adminResources = {
       { field: 'service_count', header: 'Services', type: 'number' },
       { field: 'is_active', header: 'Active', type: 'boolean' },
     ],
+    cardView: {
+      layout: 'grid',
+      imageField: 'image_url',
+      imageFit: 'cover',
+      placeholderIcon: 'pi pi-heart',
+      titleField: 'name',
+      subtitleField: 'description',
+      badgeField: 'is_active',
+      badgeType: 'boolean',
+      badgeTrueLabel: 'Available',
+      badgeFalseLabel: 'Unavailable',
+      details: [
+        { field: 'service_count', label: 'Linked services', type: 'number' },
+        { field: 'slug', label: 'Slug' },
+      ],
+    },
     formFields: [
-      { key: 'name', label: 'Name', type: 'text', placeholder: 'Home Consultation', required: true, localized: true },
+      {
+        key: 'name', label: 'Name', type: 'text', placeholder: 'Home Consultation', required: true, localized: true,
+        sectionLabel: 'Category identity', sectionDescription: 'Use a clear care group patients can recognize quickly.', sectionIcon: 'pi pi-sitemap',
+      },
       { key: 'icon', label: 'Icon (PrimeIcons class)', type: 'text', placeholder: 'pi pi-home' },
-      { key: 'description', label: 'Description', type: 'textarea', localized: true },
+      {
+        key: 'description', label: 'Description', type: 'textarea', localized: true,
+        sectionLabel: 'Customer presentation', sectionDescription: 'Explain the category and add a visual for the healthcare page.', sectionIcon: 'pi pi-image',
+      },
       { key: 'image_url', label: 'Image', type: 'image' },
-      { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
+      {
+        key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0,
+        sectionLabel: 'Visibility', sectionDescription: 'Control customer-facing order and availability.', sectionIcon: 'pi pi-eye',
+      },
       { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true },
     ],
   },
@@ -1173,7 +1546,7 @@ export const adminResources = {
     singular: 'care service',
     plural: 'Care services',
     eyebrow: 'Healthcare',
-    description: 'Consultations (quote-priced) and packages (fixed price + a doctor/nurse makeup).',
+    description: 'Define consultation guidance and fixed care packages with transparent pricing and staffing.',
     actionLabel: 'Add service',
     rowKey: 'id',
     api: {
@@ -1197,17 +1570,25 @@ export const adminResources = {
       { field: 'is_active', header: 'Availability', type: 'boolean', trueLabel: 'Available', falseLabel: 'Unavailable' },
     ],
     cardView: {
+      layout: 'grid',
       imageField: 'image_url',
+      imageFit: 'cover',
+      placeholderIcon: 'pi pi-heart-fill',
       titleField: 'name',
       subtitleField: 'category_name',
       badgeField: 'service_type',
       details: [
         { field: 'price', label: 'Price', format: healthcarePriceLabel },
         { field: 'staff', label: 'Staff', format: healthcareStaffLabel },
+        { field: 'duration_days', label: 'Coverage days', type: 'number' },
+        { field: 'is_active', label: 'Availability', type: 'boolean', trueLabel: 'Available', falseLabel: 'Unavailable' },
       ],
     },
     formFields: [
-      { key: 'name', label: 'Name', type: 'text', placeholder: 'General home consultation', required: true, localized: true },
+      {
+        key: 'name', label: 'Name', type: 'text', placeholder: 'General home consultation', required: true, localized: true,
+        sectionLabel: 'Service identity', sectionDescription: 'Name the offer and place it in the correct care category.', sectionIcon: 'pi pi-heart',
+      },
       {
         key: 'category_id',
         label: 'Category',
@@ -1229,6 +1610,7 @@ export const adminResources = {
           { label: 'Consultation (quote-priced)', value: 'consultation' },
           { label: 'Package (fixed price)', value: 'package' },
         ],
+        sectionLabel: 'Pricing model', sectionDescription: 'Consultations show an indicative starting point; packages carry a fixed price.', sectionIcon: 'pi pi-wallet',
       },
       { key: 'from_price', label: 'From price (indicative)', type: 'money', showWhen: isHealthcareConsultation },
       { key: 'price', label: 'Package price', type: 'money', requiredWhen: isHealthcarePackage, showWhen: isHealthcarePackage },
@@ -1241,6 +1623,7 @@ export const adminResources = {
         showWhen: isHealthcarePackage,
         persist: false,
         toBody: packageStaffBody,
+        sectionLabel: 'Package care team', sectionDescription: 'Define the doctor and nurse capacity included in this package.', sectionIcon: 'pi pi-users',
       },
       {
         key: 'staff_nurses',
@@ -1251,9 +1634,15 @@ export const adminResources = {
         persist: false,
       },
       { key: 'price_unit', label: 'Price unit', type: 'text', placeholder: 'per visit, per month', localized: true },
-      { key: 'description', label: 'Description', type: 'textarea', localized: true },
+      {
+        key: 'description', label: 'Description', type: 'textarea', localized: true,
+        sectionLabel: 'Patient presentation', sectionDescription: 'Explain what is included and add the visual shown on the public page.', sectionIcon: 'pi pi-image',
+      },
       { key: 'image_url', label: 'Image', type: 'image' },
-      { key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0 },
+      {
+        key: 'sort_order', label: 'Sort order', type: 'number', defaultValue: 0,
+        sectionLabel: 'Publishing', sectionDescription: 'Control the display order and whether patients can request this service.', sectionIcon: 'pi pi-eye',
+      },
       { key: 'is_active', label: 'Availability', type: 'select', options: AVAILABILITY_OPTIONS, defaultValue: true },
     ],
   },
@@ -1290,6 +1679,21 @@ export const adminResources = {
       { field: 'quoted_price', header: 'Quote', type: 'money' },
       { field: 'created_at', header: 'Requested', type: 'date' },
     ],
+    cardView: {
+      layout: 'grid',
+      placeholderIcon: 'pi pi-heart',
+      titleField: 'patient_name',
+      subtitleField: 'request_number',
+      badgeField: 'status',
+      details: [
+        { field: 'service_name', label: 'Service' },
+        { field: 'customer_name', label: 'Customer' },
+        { field: 'request_type', label: 'Type', type: 'enum' },
+        { field: 'assignment_count', label: 'Assigned practitioners', type: 'number' },
+        { field: 'quoted_price', label: 'Quote', type: 'money' },
+        { field: 'payment_status', label: 'Payment', type: 'status' },
+      ],
+    },
     formFields: [],
   },
 };
@@ -1320,6 +1724,7 @@ adminResources.cars.manage = {
     { key: 'name', label: 'Name' },
     { key: 'registration_plate', label: 'Plate' },
     { key: 'daily_rate', label: 'Daily rate', type: 'money' },
+    { key: 'outside_antananarivo_daily_rate', label: 'Outside Antananarivo rate', type: 'money' },
     { key: 'status', label: 'Status', type: 'enum' },
   ],
   nested: [
@@ -1345,16 +1750,30 @@ adminResources.cars.manage = {
 };
 
 adminResources.orders.manage = {
+  summary: {
+    icon: 'pi pi-shopping-bag',
+    eyebrow: 'Order overview',
+    titleKey: 'order_number',
+    subtitleKey: 'customer_name',
+    badges: [
+      { key: 'status', label: 'Status' },
+      { key: 'payment_status', label: 'Payment' },
+    ],
+  },
   fields: [
-    { key: 'id', label: 'Order ID' },
-    { key: 'order_number', label: 'Order number' },
-    { key: 'customer_name', label: 'Customer' },
-    { key: 'user_id', label: 'Customer ID' },
-    { key: 'fulfillment_type', label: 'Fulfillment', type: 'enum' },
-    { key: 'status', label: 'Status', type: 'enum' },
-    { key: 'payment_status', label: 'Payment', type: 'enum' },
-    { key: 'total', label: 'Total', type: 'money' },
-    { key: 'created_at', label: 'Placed', type: 'date' },
+    { key: 'id', label: 'Order ID', section: 'record', sectionLabel: 'Record & customer', sectionIcon: 'pi pi-user' },
+    { key: 'user_id', label: 'Customer ID', section: 'record', emptyLabel: 'Walk-in customer' },
+    { key: 'fulfillment_type', label: 'Fulfillment', type: 'enum', section: 'fulfillment', sectionLabel: 'Fulfillment & timing', sectionIcon: 'pi pi-box' },
+    { key: 'placed_at', label: 'Placed', type: 'date', value: orderPlacedAt, section: 'fulfillment' },
+    { key: 'reserved_until', label: 'Pickup hold until', type: 'date', section: 'fulfillment', showWhen: (order) => order.fulfillment_type === 'pickup' && Boolean(order.reserved_until) },
+    { key: 'paid_at', label: 'Paid at', type: 'date', section: 'fulfillment', showWhen: (order) => Boolean(order.paid_at) },
+    { key: 'subtotal', label: 'Subtotal', type: 'money', section: 'value', sectionLabel: 'Order value', sectionIcon: 'pi pi-wallet' },
+    { key: 'shipping_fee', label: 'Shipping fee', type: 'money', section: 'value' },
+    { key: 'total', label: 'Total', type: 'money', section: 'value', highlight: true, tone: 'emerald' },
+    { key: 'ship_recipient_name', label: 'Recipient name', section: 'delivery', sectionLabel: 'Delivery details', sectionIcon: 'pi pi-map-marker', showWhen: (order) => order.fulfillment_type === 'delivery' },
+    { key: 'ship_phone', label: 'Contact', section: 'delivery', showWhen: (order) => order.fulfillment_type === 'delivery' },
+    { key: 'delivery_address', label: 'Delivery address', value: orderDeliveryAddress, section: 'delivery', wide: true, emptyLabel: 'No delivery address provided.', showWhen: (order) => order.fulfillment_type === 'delivery' },
+    { key: 'note', label: 'Order note', type: 'note', section: 'note', sectionLabel: 'Customer instructions', sectionIcon: 'pi pi-comment', wide: true, emptyLabel: 'No order note provided.' },
   ],
   itemsTable: {
     key: 'items',
@@ -1367,6 +1786,7 @@ adminResources.orders.manage = {
       { field: 'line_total', header: 'Line total', type: 'money' },
     ],
   },
+  actionsDescription: 'Record payment after handover, or update the fulfillment status.',
   actions: [
     {
       key: 'record-payment',
@@ -1419,21 +1839,31 @@ adminResources.orders.manage = {
 };
 
 adminResources.bookings.manage = {
+  summary: {
+    icon: 'pi pi-car',
+    eyebrow: 'Booking overview',
+    titleKey: 'booking_number',
+    subtitleKey: 'customer_name',
+    badges: [
+      { key: 'status', label: 'Status' },
+      { key: 'payment_status', label: 'Payment' },
+    ],
+  },
   fields: [
-    { key: 'id', label: 'Booking ID' },
-    { key: 'booking_number', label: 'Booking number' },
-    { key: 'customer_name', label: 'Customer' },
-    { key: 'user_id', label: 'Customer ID' },
-    { key: 'car_name', label: 'Car' },
-    { key: 'status', label: 'Status', type: 'enum' },
-    { key: 'payment_status', label: 'Payment', type: 'enum' },
-    { key: 'start_at', label: 'Start', type: 'date' },
-    { key: 'end_at', label: 'End', type: 'date' },
-    { key: 'total_price', label: 'Total', type: 'money' },
-    { key: 'pricing_model', label: 'Pricing', type: 'enum' },
-    { key: 'distance_km', label: 'Distance' },
-    { key: 'pickup_location', label: 'Pickup' },
-    { key: 'contact_phone', label: 'Contact' },
+    { key: 'id', label: 'Booking ID', section: 'record', sectionLabel: 'Record & customer', sectionIcon: 'pi pi-user' },
+    { key: 'user_id', label: 'Customer ID', section: 'record' },
+    { key: 'car_name', label: 'Car', section: 'schedule', sectionLabel: 'Schedule & pricing', sectionIcon: 'pi pi-calendar-clock' },
+    { key: 'start_at', label: 'Start', type: 'date', section: 'schedule' },
+    { key: 'end_at', label: 'End', type: 'date', section: 'schedule' },
+    { key: 'pricing_model', label: 'Pricing', type: 'enum', section: 'schedule' },
+    { key: 'outside_antananarivo', label: 'Outside Antananarivo', type: 'boolean', section: 'schedule' },
+    { key: 'daily_rate_snapshot', label: 'Applied daily rate', type: 'money', section: 'schedule' },
+    { key: 'total_price', label: 'Total', type: 'money', section: 'schedule' },
+    { key: 'distance_km', label: 'Distance', suffix: 'km', section: 'schedule' },
+    { key: 'pickup_location', label: 'Pickup', section: 'route', sectionLabel: 'Route & contact', sectionIcon: 'pi pi-map-marker', wide: true },
+    { key: 'dropoff_location', label: 'Dropoff', section: 'route', wide: true },
+    { key: 'contact_phone', label: 'Contact', section: 'route' },
+    { key: 'note', label: 'Client note', type: 'note', section: 'note', sectionLabel: 'Client instructions', sectionIcon: 'pi pi-comment', wide: true, emptyLabel: 'No client note provided.' },
   ],
   showDriver: true,
   actions: [
@@ -1494,28 +1924,49 @@ adminResources.bookings.manage = {
       path: (id) => `/admin/bookings/${id}/status`,
       next: (b) => ({ confirmed: ['active', 'cancelled'], driver_assigned: ['active', 'cancelled'], active: ['completed'] }[b.status] || []),
     },
+    {
+      key: 'delete-booking',
+      label: 'Delete booking',
+      type: 'confirm',
+      method: 'DELETE',
+      path: (id) => `/admin/bookings/${id}`,
+      icon: 'pi pi-trash',
+      severity: 'danger',
+      successSummary: 'Booking deleted',
+      closeAfter: true,
+      enabled: (b) => b.payment_status === 'unpaid',
+      disabledHelp: 'Bookings with payment history cannot be deleted.',
+      confirmMessage: 'Permanently delete this unpaid booking? This cannot be undone.',
+    },
   ],
 };
 
 adminResources['event-requests'].manage = {
+  summary: {
+    icon: 'pi pi-calendar',
+    eyebrow: 'Event request overview',
+    titleKey: 'request_number',
+    subtitleKey: 'customer_name',
+    badges: [
+      { key: 'status', label: 'Status' },
+      { key: 'payment_status', label: 'Payment' },
+    ],
+  },
   fields: [
-    { key: 'id', label: 'Request ID' },
-    { key: 'request_number', label: 'Request number' },
-    { key: 'customer_name', label: 'Customer' },
-    { key: 'user_id', label: 'Customer ID' },
-    { key: 'event_type', label: 'Event type' },
-    { key: 'status', label: 'Status', type: 'enum' },
-    { key: 'payment_status', label: 'Payment', type: 'enum' },
-    { key: 'event_start', label: 'Event start', type: 'date' },
-    { key: 'event_end', label: 'Event end', type: 'date' },
-    { key: 'location', label: 'Location' },
-    { key: 'guest_count', label: 'Guests' },
-    { key: 'budget', label: 'Budget', type: 'money' },
-    { key: 'quoted_price', label: 'Quote', type: 'money' },
-    { key: 'contact_phone', label: 'Contact' },
-    { key: 'contact_email', label: 'Email' },
-    { key: 'note', label: 'Client note' },
-    { key: 'admin_note', label: 'Internal note' },
+    { key: 'id', label: 'Request ID', section: 'record', sectionLabel: 'Record & customer', sectionIcon: 'pi pi-user' },
+    { key: 'user_id', label: 'Customer ID', section: 'record' },
+    { key: 'event_type', label: 'Event type', section: 'event', sectionLabel: 'Event details', sectionIcon: 'pi pi-calendar-clock' },
+    { key: 'event_start', label: 'Event start', type: 'date', section: 'event' },
+    { key: 'event_end', label: 'Event end', type: 'date', section: 'event', emptyLabel: 'Single-day event' },
+    { key: 'guest_count', label: 'Guests', section: 'event' },
+    { key: 'location', label: 'Location', section: 'event', wide: true },
+    { key: 'budget', label: 'Client budget', type: 'money', section: 'budget', sectionLabel: 'Budget comparison', sectionIcon: 'pi pi-wallet', highlight: true, tone: 'gold' },
+    { key: 'indicative_total', label: 'Indicative total', type: 'money', value: eventIndicativeTotal, section: 'budget', highlight: true, tone: 'emerald' },
+    { key: 'quoted_price', label: 'Final quote', type: 'money', section: 'budget', emptyLabel: 'Not quoted yet', highlight: true, tone: 'violet' },
+    { key: 'contact_phone', label: 'Contact', section: 'contact', sectionLabel: 'Contact details', sectionIcon: 'pi pi-phone' },
+    { key: 'contact_email', label: 'Email', section: 'contact', wide: true },
+    { key: 'note', label: 'Client note', type: 'note', section: 'client-note', sectionLabel: 'Client instructions', sectionIcon: 'pi pi-comment', wide: true, emptyLabel: 'No client note provided.' },
+    { key: 'admin_note', label: 'Internal note', type: 'note', section: 'admin-note', sectionLabel: 'Internal follow-up', sectionIcon: 'pi pi-file-edit', wide: true, emptyLabel: 'No internal note yet.' },
   ],
   itemsTable: {
     key: 'services',
@@ -1691,35 +2142,45 @@ adminResources.customers.manage = {
 };
 
 adminResources['healthcare-requests'].manage = {
+  summary: {
+    icon: 'pi pi-heart',
+    eyebrow: 'Care request overview',
+    titleKey: 'request_number',
+    subtitleKey: 'customer_name',
+    badges: [
+      { key: 'status', label: 'Status' },
+      { key: 'payment_status', label: 'Payment' },
+    ],
+  },
   fields: [
-    { key: 'id', label: 'Request ID' },
-    { key: 'request_number', label: 'Request number' },
-    { key: 'customer_name', label: 'Customer' },
-    { key: 'user_id', label: 'Customer ID' },
-    { key: 'request_type', label: 'Type', type: 'enum' },
-    { key: 'service_name', label: 'Service' },
-    { key: 'category_name', label: 'Category' },
-    { key: 'status', label: 'Status', type: 'enum' },
-    { key: 'payment_status', label: 'Payment', type: 'enum' },
-    { key: 'patient_name', label: 'Patient' },
-    { key: 'patient_age', label: 'Age' },
-    { key: 'patient_gender', label: 'Gender', type: 'enum' },
-    { key: 'preferred_at', label: 'Preferred time', type: 'date' },
-    { key: 'start_at', label: 'Coverage start', type: 'date' },
-    { key: 'end_at', label: 'Coverage end', type: 'date' },
-    { key: 'address', label: 'Address' },
-    { key: 'symptoms', label: 'Reason / symptoms' },
-    { key: 'price_snapshot', label: 'Indicative', type: 'money' },
-    { key: 'quoted_price', label: 'Quote', type: 'money' },
-    { key: 'contact_phone', label: 'Contact' },
-    { key: 'contact_email', label: 'Email' },
-    { key: 'admin_note', label: 'Internal note' },
+    { key: 'id', label: 'Request ID', section: 'record', sectionLabel: 'Record & customer', sectionIcon: 'pi pi-user' },
+    { key: 'user_id', label: 'Customer ID', section: 'record', emptyLabel: 'Walk-in customer' },
+    { key: 'request_type', label: 'Type', type: 'enum', section: 'service', sectionLabel: 'Care service', sectionIcon: 'pi pi-heart' },
+    { key: 'service_name', label: 'Service', section: 'service', wide: true },
+    { key: 'category_name', label: 'Category', section: 'service' },
+    { key: 'patient_name', label: 'Patient', section: 'patient', sectionLabel: 'Patient details', sectionIcon: 'pi pi-user-plus' },
+    { key: 'patient_age', label: 'Age', section: 'patient', emptyLabel: 'Not provided' },
+    { key: 'patient_gender', label: 'Gender', type: 'enum', section: 'patient', emptyLabel: 'Not provided' },
+    { key: 'preferred_at', label: 'Preferred time', type: 'date', section: 'visit', sectionLabel: 'Visit details', sectionIcon: 'pi pi-calendar-clock', showWhen: (req) => req.request_type === 'consultation' },
+    { key: 'start_at', label: 'Coverage start', type: 'date', section: 'visit', sectionLabel: 'Coverage period', sectionIcon: 'pi pi-calendar-clock', showWhen: (req) => req.request_type === 'package' },
+    { key: 'end_at', label: 'Coverage end', type: 'date', section: 'visit', showWhen: (req) => req.request_type === 'package' },
+    { key: 'address', label: 'Care address', section: 'visit', wide: true },
+    { key: 'symptoms', label: 'Reason / symptoms', type: 'note', section: 'reason', sectionLabel: 'Care request details', sectionIcon: 'pi pi-file-edit', wide: true, emptyLabel: 'No symptoms or reason provided.' },
+    { key: 'price_snapshot', label: 'Indicative price', type: 'money', section: 'pricing', sectionLabel: 'Pricing', sectionIcon: 'pi pi-wallet', highlight: true, tone: 'gold', showWhen: (req) => req.request_type === 'consultation' },
+    { key: 'price_snapshot', label: 'Package price', type: 'money', section: 'pricing', sectionLabel: 'Pricing', sectionIcon: 'pi pi-wallet', highlight: true, tone: 'gold', showWhen: (req) => req.request_type === 'package' },
+    { key: 'quoted_price', label: 'Final quote', type: 'money', section: 'pricing', highlight: true, tone: 'emerald', emptyLabel: 'Not quoted yet' },
+    { key: 'paid_at', label: 'Paid at', type: 'date', section: 'pricing', showWhen: (req) => Boolean(req.paid_at) },
+    { key: 'contact_phone', label: 'Contact', section: 'contact', sectionLabel: 'Contact details', sectionIcon: 'pi pi-phone' },
+    { key: 'contact_email', label: 'Email', section: 'contact', wide: true, emptyLabel: 'No email provided' },
+    { key: 'note', label: 'Client note', type: 'note', section: 'client-note', sectionLabel: 'Client instructions', sectionIcon: 'pi pi-comment', wide: true, emptyLabel: 'No client note provided.' },
+    { key: 'admin_note', label: 'Internal note', type: 'note', section: 'admin-note', sectionLabel: 'Internal follow-up', sectionIcon: 'pi pi-file-edit', wide: true, emptyLabel: 'No internal note yet.' },
   ],
   itemsTable: {
     key: 'staff',
     title: 'Package staff needed',
+    showWhen: (req) => req.request_type === 'package',
     columns: [
-      { field: 'practitioner_type', header: 'Role' },
+      { field: 'practitioner_type', header: 'Role', type: 'enum' },
       { field: 'quantity', header: 'Qty' },
     ],
   },
@@ -1734,7 +2195,7 @@ adminResources['healthcare-requests'].manage = {
       removePath: (row) => `/admin/healthcare/assignments/${row.id}`,
       columns: [
         { field: 'practitioner_name', header: 'Practitioner' },
-        { field: 'practitioner_type', header: 'Role' },
+        { field: 'practitioner_type', header: 'Role', type: 'enum' },
         { field: 'note', header: 'Note' },
       ],
       formFields: [
@@ -1753,6 +2214,7 @@ adminResources['healthcare-requests'].manage = {
       ],
     },
   ],
+  actionsDescription: 'Set the quote, assign care staff, record payment, or update status.',
   actions: [
     {
       key: 'quote',

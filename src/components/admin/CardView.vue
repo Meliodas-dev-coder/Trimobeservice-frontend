@@ -17,25 +17,33 @@ const props = defineProps({
   rowsPerPage: { type: Number, default: 20 },
   rowsPerPageOptions: { type: Array, default: () => [10, 20, 50] },
   hasManage: { type: Boolean, default: false },
+  canDuplicate: { type: Boolean, default: false },
   canEdit: { type: Boolean, default: false },
   canRemove: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['manage', 'edit', 'remove', 'page']);
+const emit = defineEmits(['manage', 'duplicate', 'edit', 'remove', 'page']);
 const { enumLabel, language, localeCode, t } = useAdminI18n();
 
 const spec = computed(() => props.resource.cardView || {});
+const layout = computed(() => spec.value.layout || 'list');
 const imageField = computed(() => spec.value.imageField || 'primary_image_url');
+const imageFit = computed(() => spec.value.imageFit || 'cover');
+const placeholderIcon = computed(() => spec.value.placeholderIcon || 'pi pi-image');
 const titleField = computed(() => spec.value.titleField || 'name');
 const subtitleField = computed(() => spec.value.subtitleField || 'slug');
 const badgeField = computed(() => spec.value.badgeField || 'status');
 const badgeType = computed(() => spec.value.badgeType || 'enum');
 const details = computed(() => spec.value.details || props.resource.columns || []);
 const total = computed(() => props.totalRecords || props.rows.length);
-const showActions = computed(() => props.hasManage || props.canEdit || props.canRemove);
+const showActions = computed(() => props.hasManage || props.canDuplicate || props.canEdit || props.canRemove);
 
 function rowID(row) {
   return row[props.rowKey];
+}
+
+function canRemoveRow(row) {
+  return props.canRemove && (!props.resource.removeWhen || props.resource.removeWhen(row));
 }
 
 function rawValue(row, field) {
@@ -112,7 +120,7 @@ function displayValue(row, field) {
 </script>
 
 <template>
-  <div class="card-view">
+  <div class="card-view" :class="`card-view--${layout}`">
     <div v-if="loading" class="card-view__empty">
       <i class="pi pi-spin pi-spinner" />
       <span>{{ t('Loading...') }}</span>
@@ -126,9 +134,15 @@ function displayValue(row, field) {
     <div v-else class="card-view__list">
       <article v-for="row in rows" :key="rowID(row)" class="card-view__item">
         <figure class="card-view__media">
-          <img v-if="imageSrc(row)" :src="imageSrc(row)" :alt="imageAlt(row)" loading="lazy" />
+          <img
+            v-if="imageSrc(row)"
+            :src="imageSrc(row)"
+            :alt="imageAlt(row)"
+            :class="{ 'is-contain': imageFit === 'contain' }"
+            loading="lazy"
+          />
           <span v-else class="card-view__placeholder">
-            <i class="pi pi-image" />
+            <i :class="placeholderIcon" />
           </span>
         </figure>
 
@@ -162,6 +176,15 @@ function displayValue(row, field) {
               @click="emit('manage', row)"
             />
             <Button
+              v-if="canDuplicate"
+              :label="t(resource.duplicate?.actionLabel || 'Duplicate')"
+              icon="pi pi-copy"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="emit('duplicate', row)"
+            />
+            <Button
               v-if="canEdit"
               :label="t('Edit')"
               icon="pi pi-pencil"
@@ -177,6 +200,8 @@ function displayValue(row, field) {
               severity="danger"
               outlined
               size="small"
+              :disabled="!canRemoveRow(row)"
+              :title="canRemoveRow(row) ? t('Delete') : t(resource.removeDisabledHelp || 'This record cannot be deleted.')"
               @click="emit('remove', row)"
             />
           </div>
@@ -214,6 +239,35 @@ function displayValue(row, field) {
   background: var(--tm-surface);
 }
 
+.card-view--grid .card-view__list {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  padding: 16px;
+}
+
+.card-view--grid .card-view__item {
+  min-width: 0;
+  overflow: hidden;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--tm-border);
+  border-radius: 17px;
+  background: var(--tm-surface);
+  box-shadow: 0 10px 28px rgba(37, 31, 20, 0.05);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.card-view--grid .card-view__item:last-child {
+  border-bottom: 1px solid var(--tm-border);
+}
+
+.card-view--grid .card-view__item:hover {
+  border-color: rgba(12, 155, 128, 0.38);
+  box-shadow: var(--tm-shadow-hover);
+  transform: translateY(-3px);
+}
+
 .card-view__item:last-child {
   border-bottom: 0;
 }
@@ -241,6 +295,23 @@ function displayValue(row, field) {
   object-fit: cover;
 }
 
+.card-view__media img.is-contain {
+  padding: 12px;
+  object-fit: contain;
+}
+
+.card-view--grid .card-view__media {
+  width: 100%;
+  height: 190px;
+  flex-basis: auto;
+  border: 0;
+  border-bottom: 1px solid var(--tm-border);
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 85% 0%, rgba(201, 146, 44, 0.1), transparent 44%),
+    var(--tm-surface-soft);
+}
+
 .card-view__placeholder {
   display: grid;
   place-items: center;
@@ -253,6 +324,11 @@ function displayValue(row, field) {
   flex: 1;
   gap: 12px;
   min-width: 0;
+}
+
+.card-view--grid .card-view__content {
+  flex: 1;
+  padding: 16px;
 }
 
 .card-view__head {
@@ -312,6 +388,12 @@ function displayValue(row, field) {
   gap: 8px;
 }
 
+.card-view--grid .card-view__actions {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--tm-border);
+}
+
 .card-view__empty {
   display: grid;
   gap: 8px;
@@ -340,6 +422,11 @@ function displayValue(row, field) {
     flex-basis: auto;
     width: 100%;
     height: 180px;
+  }
+
+  .card-view--grid .card-view__list {
+    grid-template-columns: 1fr;
+    padding: 12px;
   }
 }
 </style>

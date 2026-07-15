@@ -54,8 +54,11 @@ const stockText = computed(() => {
         <span>{{ variant }}</span>
       </div>
       <div class="product-card__footer">
-        <strong class="price">{{ priceText }}</strong>
-        <span>{{ stockText }}</span>
+        <div>
+          <strong class="price">{{ priceText }}</strong>
+          <span>{{ stockText }}</span>
+        </div>
+        <span class="product-card__arrow"><i class="pi pi-arrow-right" /></span>
       </div>
     </div>
   </component>
@@ -67,7 +70,7 @@ const stockText = computed(() => {
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: var(--tm-radius);
   background: var(--tm-surface);
   box-shadow: var(--tm-shadow);
   color: inherit;
@@ -78,14 +81,14 @@ const stockText = computed(() => {
 }
 
 a.product-card:hover {
-  border-color: rgba(8, 124, 104, 0.32);
-  box-shadow: 0 24px 58px rgba(17, 19, 21, 0.15);
-  transform: translateY(-2px);
+  border-color: rgba(12, 155, 128, 0.34);
+  box-shadow: var(--tm-shadow-hover, 0 24px 58px rgba(17, 19, 21, 0.15));
+  transform: translateY(-5px);
 }
 
 .product-card__image {
   position: relative;
-  min-height: 206px;
+  aspect-ratio: 4 / 3;
   margin: 0;
   overflow: hidden;
   background: var(--tm-stone);
@@ -102,33 +105,34 @@ a.product-card:hover {
 .product-card__image img {
   width: 100%;
   height: 100%;
-  min-height: 206px;
+  min-height: 100%;
   object-fit: cover;
 }
 
 .product-card__body {
   display: grid;
-  gap: 18px;
-  padding: 18px;
+  gap: 22px;
+  padding: 22px;
 }
 
 .product-card p {
   margin: 0 0 6px;
   color: var(--tm-gold);
-  font-size: 0.78rem;
-  font-weight: 850;
+  font-size: 0.74rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .product-card h3 {
   margin: 0;
   color: var(--tm-heading);
-  font-size: 1.12rem;
-  line-height: 1.2;
+  font-size: 1.28rem;
+  line-height: 1.15;
 }
 
 .product-card span {
-  display: inline-block;
+  /* display: inline-block; */
   margin-top: 7px;
   color: var(--tm-muted);
   font-size: 0.9rem;
@@ -139,10 +143,25 @@ a.product-card:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--tm-border);
 }
 
-.product-card__footer span {
+.product-card__footer > div > span {
+  display: block;
   margin: 0;
-  white-space: nowrap;
+  font-size: 0.8rem;
+}
+
+.product-card__arrow {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  margin: 0;
+  border: 1px solid var(--tm-border-strong);
+  border-radius: 50%;
+  color: var(--tm-heading) !important;
 }
 </style>

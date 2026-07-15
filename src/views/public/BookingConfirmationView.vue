@@ -37,6 +37,10 @@ const facts = computed(() => {
   if (isCargo.value) {
     rows.push({ label: 'Distance', value: `${Number(b.distance_km || 0)} km` });
   } else {
+    rows.push({
+      label: t('Travel area'),
+      value: b.outside_antananarivo ? t('Outside Antananarivo region') : t('Within Antananarivo region'),
+    });
     rows.push({ label: 'Rate', value: t('{amount} × {days} days', { amount: formatMGA(Number(b.daily_rate_snapshot || 0)), days: b.days }) });
   }
   rows.push({ label: 'Contact', value: b.contact_phone });
@@ -346,4 +350,27 @@ onMounted(load);
     grid-template-columns: 1fr;
   }
 }
+</style>
+
+<style scoped>
+.confirm-page { padding: 28px 0 84px; }
+.confirm-page__inner { gap: 22px; }
+.confirm-hero { position: relative; overflow: hidden; padding: clamp(26px, 5vw, 48px); border-radius: 28px; background: radial-gradient(circle at 88% 0%, rgba(12,155,128,.27), transparent 34%), linear-gradient(135deg, var(--tm-charcoal), #17282a); box-shadow: var(--tm-shadow); }
+.confirm-hero::after { position: absolute; right: -80px; bottom: -170px; width: 330px; height: 330px; border: 1px solid rgba(201,146,44,.24); border-radius: 50%; content: ''; }
+.confirm-hero > * { position: relative; z-index: 1; }
+.confirm-hero__badge { background: var(--tm-emerald); color: #fff; box-shadow: 0 9px 24px rgba(12,155,128,.25); }
+.confirm-hero h1 { max-width: 760px; color: #fff8ed; font-size: clamp(2.5rem, 5.5vw, 5rem); letter-spacing: -.055em; }
+.confirm-hero__number { color: rgba(255,255,255,.62); }
+.confirm-hero__number strong { color: #fff; }
+.confirm-hero__tags :deep(.p-tag) { border: 1px solid rgba(255,255,255,.13); }
+.confirm-grid { gap: 18px; }
+.confirm-card { padding: 22px; border-radius: 20px; box-shadow: 0 14px 38px rgba(20,29,31,.07); }
+.confirm-card h2 { font-size: 1.3rem; letter-spacing: -.025em; }
+.confirm-facts > div { padding: 10px 0; }
+.confirm-totals { border-radius: 14px; }
+.confirm-totals__grand strong { font-size: 1.7rem; }
+.confirm-steps li { padding: 13px 0; }
+.confirm-steps li > i { display: grid; width: 40px; height: 40px; flex: 0 0 auto; border-radius: 12px; background: var(--tm-charcoal); color: var(--tm-gold); place-items: center; }
+.confirm-actions { padding: 15px; border: 1px solid var(--tm-border); border-radius: 16px; background: var(--tm-surface); }
+@media (max-width: 760px) { .confirm-hero { border-radius: 22px; } .confirm-grid { grid-template-columns: 1fr; } .confirm-actions { align-items: stretch; flex-direction: column; } .confirm-actions :deep(.p-button) { width: 100%; } }
 </style>
