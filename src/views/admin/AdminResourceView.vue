@@ -7,6 +7,10 @@ import { useConfirm } from 'primevue/useconfirm';
 import AdminResourceDialog from '@/components/admin/AdminResourceDialog.vue';
 import AdminManageDialog from '@/components/admin/AdminManageDialog.vue';
 import CardView from '@/components/admin/CardView.vue';
+import EventWorkspaceNav from '@/components/admin/EventWorkspaceNav.vue';
+import HealthcareWorkspaceNav from '@/components/admin/HealthcareWorkspaceNav.vue';
+import MobilityWorkspaceNav from '@/components/admin/MobilityWorkspaceNav.vue';
+import TechWorkspaceNav from '@/components/admin/TechWorkspaceNav.vue';
 import { api } from '@/api/client';
 import { adminResources } from '@/data/adminResources';
 import { useAdminI18n } from '@/i18n/admin';
@@ -19,6 +23,7 @@ import {
   getResource,
   isPaginated,
   listResource,
+  loadFieldOptions,
   serializeForm,
   updateResource,
 } from '@/api/resources';
@@ -31,9 +36,32 @@ const { enumLabel, language, localeCode, t, translateConfig } = useAdminI18n();
 
 const resourceKey = computed(() => route.meta.resource || 'products');
 const department = computed(() => route.meta.department || '');
+const isTechDepartment = computed(() => department.value === 'tech');
+const isMobilityResource = computed(() => ['car-categories', 'cars', 'drivers', 'bookings'].includes(resourceKey.value));
+const isEventResource = computed(() => ['event-service-categories', 'event-services', 'artists', 'event-requests'].includes(resourceKey.value));
+const isHealthcareResource = computed(() => ['practitioners', 'healthcare-service-categories', 'healthcare-services', 'healthcare-requests'].includes(resourceKey.value));
 const baseResource = computed(() => adminResources[resourceKey.value] || adminResources.products);
 const resource = computed(() => translateConfig(baseResource.value));
 const serverPaginated = computed(() => isPaginated(resource.value));
+const preferredView = computed(() => route.meta.defaultView || resource.value.defaultView || 'table');
+const pageDescription = computed(() => t(route.meta.description || resource.value.description));
+const resourceIcon = computed(() => ({
+  categories: 'pi pi-tags',
+  brands: 'pi pi-bookmark',
+  products: 'pi pi-mobile',
+  'car-categories': 'pi pi-sitemap',
+  cars: 'pi pi-car',
+  drivers: 'pi pi-id-card',
+  bookings: 'pi pi-calendar-clock',
+  'event-service-categories': 'pi pi-sitemap',
+  'event-services': 'pi pi-star',
+  artists: 'pi pi-microphone',
+  'event-requests': 'pi pi-calendar-plus',
+  practitioners: 'pi pi-user-plus',
+  'healthcare-service-categories': 'pi pi-sitemap',
+  'healthcare-services': 'pi pi-heart-fill',
+  'healthcare-requests': 'pi pi-calendar-plus',
+})[resourceKey.value] || 'pi pi-box');
 
 // Merge the section's department into create defaults (e.g. new brands land in
 // the current department; new items in the right section).
@@ -56,12 +84,17 @@ const canCreate = computed(
 );
 const canEdit = computed(() => resource.value.capabilities?.edit !== false);
 const canRemove = computed(() => resource.value.capabilities?.remove !== false);
+const canDuplicate = computed(() => canCreate.value && Boolean(resource.value.duplicate));
 const hasDetailRoute = computed(() => Boolean(resource.value.detailRoute));
 const canEditRow = computed(() => canEdit.value && !hasDetailRoute.value);
 const hasManage = computed(() => Boolean(resource.value.manage || resource.value.detailRoute));
-const hasRowActions = computed(() => canEditRow.value || canRemove.value || hasManage.value);
+const hasRowActions = computed(() => canEditRow.value || canRemove.value || canDuplicate.value || hasManage.value);
 const hasCardView = computed(() => Boolean(resource.value.cardView));
 const hasExpansion = computed(() => Boolean(resource.value.expansion));
+
+function canRemoveRow(row) {
+  return canRemove.value && (!resource.value.removeWhen || resource.value.removeWhen(row));
+}
 
 const rows = ref([]);
 const total = ref(0);
@@ -71,10 +104,12 @@ const limit = ref(20);
 const search = ref('');
 const viewMode = ref('table');
 const filters = reactive({});
+const filterOptionsMap = reactive({});
 
 const dialogOpen = ref(false);
 const dialogMode = ref('create');
 const editing = ref(null);
+const duplicating = ref(false);
 const saving = ref(false);
 const formErrors = ref({});
 
@@ -117,7 +152,148 @@ const cardRows = computed(() => {
 });
 const cardTotal = computed(() => (serverPaginated.value ? total.value : tableRows.value.length));
 
+const hasActiveQuery = computed(() =>
+  Boolean(search.value.trim()) || Object.values(filters).some((value) => value !== '' && value !== null && value !== undefined),
+);
+
 const metrics = computed(() => {
+  if (isTechDepartment.value) {
+    const visibleRows = serverPaginated.value ? rows.value : tableRows.value;
+    const available = visibleRows.filter((row) => row.is_active).length;
+    if (resourceKey.value === 'categories') {
+      return [
+        { label: t('Total categories'), value: tableRows.value.length, icon: 'pi pi-tags', tone: 'gold', note: t('Catalog structure') },
+        { label: t('Available'), value: available, icon: 'pi pi-check-circle', tone: 'emerald', note: t('Ready for customers') },
+        { label: t('Product types'), value: new Set(visibleRows.map((row) => row.template_key).filter(Boolean)).size, icon: 'pi pi-sitemap', tone: 'blue', note: t('Specification templates') },
+      ];
+    }
+    if (resourceKey.value === 'brands') {
+      return [
+        { label: t('Total brands'), value: tableRows.value.length, icon: 'pi pi-bookmark', tone: 'gold', note: t('Tech manufacturers') },
+        { label: t('Available'), value: available, icon: 'pi pi-check-circle', tone: 'emerald', note: t('Visible in filters') },
+        { label: t('Logos ready'), value: visibleRows.filter((row) => row.logo_url).length, icon: 'pi pi-image', tone: 'blue', note: t('Visual identity added') },
+      ];
+    }
+    const ready = rows.value.filter((row) => row.is_active && row.primary_image_url && Number(row.variant_count || 0) > 0).length;
+    const needsSetup = rows.value.filter((row) => !row.primary_image_url || Number(row.variant_count || 0) === 0).length;
+    return [
+      { label: t('Total products'), value: total.value, icon: 'pi pi-mobile', tone: 'gold', note: t('Matching this search') },
+      { label: t('Ready to sell'), value: ready, icon: 'pi pi-check-circle', tone: 'emerald', note: t('On this page') },
+      { label: t('Needs setup'), value: needsSetup, icon: 'pi pi-exclamation-circle', tone: needsSetup ? 'coral' : 'blue', note: t('Missing image or variants') },
+    ];
+  }
+  if (isMobilityResource.value) {
+    const visibleRows = serverPaginated.value ? rows.value : tableRows.value;
+    if (resourceKey.value === 'car-categories') {
+      const active = visibleRows.filter((row) => row.is_active).length;
+      const cargo = visibleRows.filter((row) => row.is_cargo_transport).length;
+      return [
+        { label: t('Total categories'), value: tableRows.value.length, icon: 'pi pi-sitemap', tone: 'gold', note: t('Fleet structure') },
+        { label: t('Active categories'), value: active, icon: 'pi pi-check-circle', tone: 'emerald', note: t('Visible to customers') },
+        { label: t('Cargo categories'), value: cargo, icon: 'pi pi-truck', tone: 'blue', note: t('Distance-based pricing') },
+      ];
+    }
+    if (resourceKey.value === 'cars') {
+      const available = visibleRows.filter((row) => row.status === 'available').length;
+      const maintenance = visibleRows.filter((row) => row.status === 'maintenance').length;
+      return [
+        { label: t('Total cars'), value: total.value, icon: 'pi pi-car', tone: 'gold', note: t('Matching this search') },
+        { label: t('Available now'), value: available, icon: 'pi pi-check-circle', tone: 'emerald', note: t('On this page') },
+        { label: t('In maintenance'), value: maintenance, icon: 'pi pi-wrench', tone: maintenance ? 'coral' : 'blue', note: t('On this page') },
+      ];
+    }
+    if (resourceKey.value === 'drivers') {
+      const available = visibleRows.filter((row) => row.status === 'available').length;
+      const assigned = visibleRows.filter((row) => row.status === 'assigned').length;
+      return [
+        { label: t('Total drivers'), value: tableRows.value.length, icon: 'pi pi-id-card', tone: 'gold', note: t('Driver roster') },
+        { label: t('Ready to assign'), value: available, icon: 'pi pi-user-plus', tone: 'emerald', note: t('Available now') },
+        { label: t('On assignment'), value: assigned, icon: 'pi pi-directions', tone: 'blue', note: t('Currently dispatched') },
+      ];
+    }
+    const needsDriver = visibleRows.filter((row) => ['confirmed', 'active'].includes(row.status) && !row.driver_id).length;
+    const unpaid = visibleRows.filter((row) => row.payment_status === 'unpaid' && row.status !== 'cancelled').length;
+    return [
+      { label: t('Total bookings'), value: total.value, icon: 'pi pi-calendar-clock', tone: 'gold', note: t('Matching these filters') },
+      { label: t('Need a driver'), value: needsDriver, icon: 'pi pi-user-plus', tone: needsDriver ? 'coral' : 'emerald', note: t('On this page') },
+      { label: t('Awaiting payment'), value: unpaid, icon: 'pi pi-wallet', tone: unpaid ? 'blue' : 'emerald', note: t('On this page') },
+    ];
+  }
+  if (isEventResource.value) {
+    const visibleRows = serverPaginated.value ? rows.value : tableRows.value;
+    if (resourceKey.value === 'event-service-categories') {
+      const active = visibleRows.filter((row) => row.is_active).length;
+      const linkedServices = visibleRows.reduce((sum, row) => sum + Number(row.service_count || 0), 0);
+      return [
+        { label: t('Total categories'), value: tableRows.value.length, icon: 'pi pi-sitemap', tone: 'gold', note: t('Event offer structure') },
+        { label: t('Active categories'), value: active, icon: 'pi pi-check-circle', tone: 'emerald', note: t('Visible to customers') },
+        { label: t('Linked services'), value: linkedServices, icon: 'pi pi-star', tone: 'blue', note: t('Across all categories') },
+      ];
+    }
+    if (resourceKey.value === 'event-services') {
+      const available = visibleRows.filter((row) => row.is_active).length;
+      const withImages = visibleRows.filter((row) => row.image_url).length;
+      return [
+        { label: t('Total services'), value: tableRows.value.length, icon: 'pi pi-star', tone: 'gold', note: t('Event catalog') },
+        { label: t('Available'), value: available, icon: 'pi pi-check-circle', tone: 'emerald', note: t('Ready for requests') },
+        { label: t('Images ready'), value: withImages, icon: 'pi pi-image', tone: 'blue', note: t('Visual offers') },
+      ];
+    }
+    if (resourceKey.value === 'artists') {
+      const active = visibleRows.filter((row) => row.is_active).length;
+      const featured = visibleRows.filter((row) => row.is_active && row.is_featured).length;
+      return [
+        { label: t('Total artists'), value: tableRows.value.length, icon: 'pi pi-microphone', tone: 'gold', note: t('Talent roster') },
+        { label: t('Available artists'), value: active, icon: 'pi pi-check-circle', tone: 'emerald', note: t('Visible to customers') },
+        { label: t('Featured artists'), value: featured, icon: 'pi pi-star', tone: 'blue', note: t('Highlighted in the client app') },
+      ];
+    }
+    const toReview = visibleRows.filter((row) => ['requested', 'reviewing'].includes(row.status)).length;
+    const withoutQuote = visibleRows.filter((row) => !['cancelled', 'completed'].includes(row.status) && !Number(row.quoted_price || 0)).length;
+    return [
+      { label: t('Total requests'), value: total.value, icon: 'pi pi-calendar-plus', tone: 'gold', note: t('Matching these filters') },
+      { label: t('To review'), value: toReview, icon: 'pi pi-inbox', tone: toReview ? 'coral' : 'emerald', note: t('On this page') },
+      { label: t('Need a quote'), value: withoutQuote, icon: 'pi pi-tag', tone: withoutQuote ? 'blue' : 'emerald', note: t('On this page') },
+    ];
+  }
+  if (isHealthcareResource.value) {
+    const visibleRows = serverPaginated.value ? rows.value : tableRows.value;
+    if (resourceKey.value === 'healthcare-service-categories') {
+      const active = visibleRows.filter((row) => row.is_active).length;
+      const linkedServices = visibleRows.reduce((sum, row) => sum + Number(row.service_count || 0), 0);
+      return [
+        { label: t('Total care categories'), value: tableRows.value.length, icon: 'pi pi-sitemap', tone: 'gold', note: t('Care structure') },
+        { label: t('Active categories'), value: active, icon: 'pi pi-check-circle', tone: 'emerald', note: t('Visible to patients') },
+        { label: t('Linked care services'), value: linkedServices, icon: 'pi pi-heart', tone: 'rose', note: t('Across all categories') },
+      ];
+    }
+    if (resourceKey.value === 'healthcare-services') {
+      const available = visibleRows.filter((row) => row.is_active).length;
+      const packages = visibleRows.filter((row) => row.service_type === 'package').length;
+      return [
+        { label: t('Total care services'), value: total.value, icon: 'pi pi-heart', tone: 'gold', note: t('Matching this search') },
+        { label: t('Available services'), value: available, icon: 'pi pi-check-circle', tone: 'emerald', note: t('On this page') },
+        { label: t('Care packages'), value: packages, icon: 'pi pi-users', tone: 'rose', note: t('On this page') },
+      ];
+    }
+    if (resourceKey.value === 'practitioners') {
+      const active = visibleRows.filter((row) => row.status === 'active').length;
+      const doctors = visibleRows.filter((row) => row.status === 'active' && row.type === 'doctor').length;
+      const nurses = visibleRows.filter((row) => row.status === 'active' && row.type === 'nurse').length;
+      return [
+        { label: t('Total practitioners'), value: total.value, icon: 'pi pi-user-plus', tone: 'gold', note: t('Clinical roster') },
+        { label: t('Active doctors'), value: doctors, icon: 'pi pi-user', tone: 'rose', note: t('{n} active overall', { n: active }) },
+        { label: t('Active nurses'), value: nurses, icon: 'pi pi-user', tone: 'emerald', note: t('Ready for assignment') },
+      ];
+    }
+    const toReview = visibleRows.filter((row) => ['requested', 'reviewing'].includes(row.status)).length;
+    const needStaff = visibleRows.filter((row) => ['confirmed', 'assigned', 'in_progress'].includes(row.status) && Number(row.assignment_count || 0) === 0).length;
+    return [
+      { label: t('Total care requests'), value: total.value, icon: 'pi pi-calendar-plus', tone: 'gold', note: t('Matching these filters') },
+      { label: t('To review'), value: toReview, icon: 'pi pi-inbox', tone: toReview ? 'rose' : 'emerald', note: t('On this page') },
+      { label: t('Need practitioners'), value: needStaff, icon: 'pi pi-user-plus', tone: needStaff ? 'blue' : 'emerald', note: t('On this page') },
+    ];
+  }
   const list = [{ label: t('Records'), value: serverPaginated.value ? total.value : tableRows.value.length }];
   list.push({ label: t('Needs attention'), value: attentionCount(rows.value) });
   if (moneyColumn.value) {
@@ -185,11 +361,18 @@ watch(search, () => {
   }, 350);
 });
 
-watch([resourceKey, department], () => {
+watch([resourceKey, department], async () => {
   dialogOpen.value = false;
-  viewMode.value = 'table';
+  viewMode.value = preferredView.value;
+  await loadFilterOptions();
   resetAndFetch();
+  await openDuplicateFromQuery();
 }, { immediate: true });
+
+watch(
+  () => route.query.duplicate,
+  () => openDuplicateFromQuery(),
+);
 
 function onPage(event) {
   first.value = event.first;
@@ -209,10 +392,36 @@ function setViewMode(mode) {
 }
 
 function filterOptions(filter) {
-  return filter.options.map((option) => ({ label: enumLabel(option), value: option }));
+  if (filterOptionsMap[filter.key]) {
+    return filterOptionsMap[filter.key];
+  }
+  return (filter.options || []).map((option) =>
+    typeof option === 'object' ? option : { label: enumLabel(option), value: option },
+  );
+}
+
+async function loadFilterOptions() {
+  Object.keys(filterOptionsMap).forEach((key) => delete filterOptionsMap[key]);
+  for (const filter of resource.value.filters || []) {
+    if (!filter.optionsEndpoint) {
+      continue;
+    }
+    try {
+      filterOptionsMap[filter.key] = await loadFieldOptions(
+        filter,
+        filter.scopeByDepartment && department.value ? { department: department.value } : {},
+      );
+    } catch {
+      filterOptionsMap[filter.key] = [];
+    }
+  }
 }
 
 function openCreate() {
+  if (isTechDepartment.value && resourceKey.value === 'products') {
+    router.push({ name: 'admin-tech-product-new' });
+    return;
+  }
   if (resource.value.createRoute) {
     const target = resource.value.createRoute();
     if (department.value) {
@@ -222,6 +431,7 @@ function openCreate() {
     return;
   }
   dialogMode.value = 'create';
+  duplicating.value = false;
   editing.value = null;
   formErrors.value = {};
   dialogOpen.value = true;
@@ -229,12 +439,62 @@ function openCreate() {
 
 function openEdit(row) {
   dialogMode.value = 'edit';
+  duplicating.value = false;
   editing.value = row;
   formErrors.value = {};
   dialogOpen.value = true;
 }
 
+function duplicateInitial(row) {
+  const config = resource.value.duplicate || {};
+  const copy = JSON.parse(JSON.stringify(row || {}));
+  delete copy.id;
+  delete copy.slug;
+  delete copy.created_at;
+  delete copy.updated_at;
+  for (const field of config.clearFields || []) {
+    copy[field] = '';
+  }
+  const defaults = typeof config.defaults === 'function' ? config.defaults(row) : config.defaults;
+  return { ...copy, ...(defaults || {}) };
+}
+
+function openDuplicate(row) {
+  if (!canDuplicate.value || !row) {
+    return;
+  }
+  dialogMode.value = 'create';
+  duplicating.value = true;
+  editing.value = duplicateInitial(row);
+  formErrors.value = {};
+  dialogOpen.value = true;
+}
+
+async function openDuplicateFromQuery() {
+  const duplicateId = route.query.duplicate;
+  if (!duplicateId || !canDuplicate.value) {
+    return;
+  }
+  try {
+    const source = await getResource(resource.value, duplicateId);
+    if (!source) {
+      throw new Error('Car not found');
+    }
+    openDuplicate(source);
+  } catch (err) {
+    toast.add({ severity: 'error', summary: t('Could not duplicate car'), detail: t(err?.message || 'Request failed'), life: 4000 });
+  } finally {
+    const query = { ...route.query };
+    delete query.duplicate;
+    router.replace({ query });
+  }
+}
+
 function openManage(row) {
+  if (isTechDepartment.value && resourceKey.value === 'products') {
+    router.push({ name: 'admin-tech-product-detail', params: { id: row.id } });
+    return;
+  }
   if (resource.value.detailRoute) {
     router.push(resource.value.detailRoute(row));
     return;
@@ -266,6 +526,9 @@ function expansionLoading(row) {
 }
 
 function confirmRemove(row) {
+  if (!canRemoveRow(row)) {
+    return;
+  }
   confirm.require({
     header: t('Confirm delete'),
     message: t('Delete this {resource}? This cannot be undone.', { resource: resource.value.singular }),
@@ -290,6 +553,7 @@ async function handleSubmit(values) {
   formErrors.value = {};
   try {
     const mode = dialogMode.value;
+    const wasDuplicate = duplicating.value;
     const body = serializeForm(dialogFields.value, values);
     let saved = null;
     if (dialogMode.value === 'edit' && editing.value) {
@@ -298,10 +562,18 @@ async function handleSubmit(values) {
     } else {
       saved = await createResource(resource.value, body);
       const hookFailures = await runAfterSaveHooks(saved, values, mode);
-      toast.add({ severity: 'success', summary: t('{resource} created', { resource: capitalize(resource.value.singular) }), life: 2500 });
+      toast.add({
+        severity: 'success',
+        summary: wasDuplicate
+          ? t('{resource} duplicated', { resource: capitalize(resource.value.singular) })
+          : t('{resource} created', { resource: capitalize(resource.value.singular) }),
+        life: 2500,
+      });
       showAfterSaveWarnings(hookFailures);
     }
     dialogOpen.value = false;
+    duplicating.value = false;
+    editing.value = null;
     fetchData();
   } catch (err) {
     if (err?.details) {
@@ -410,19 +682,37 @@ function displayValue(row, column) {
 
 <template>
   <section class="admin-resource">
-    <div class="resource-hero">
-      <div>
-        <p>{{ heroEyebrow }}</p>
-        <h2>{{ resource.plural }}</h2>
-        <span>{{ resource.description }}</span>
+    <TechWorkspaceNav v-if="isTechDepartment" />
+    <MobilityWorkspaceNav v-if="isMobilityResource" />
+    <EventWorkspaceNav v-if="isEventResource" />
+    <HealthcareWorkspaceNav v-if="isHealthcareResource" />
+
+    <div class="resource-hero" :class="{ 'is-tech': isTechDepartment, 'is-mobility': isMobilityResource, 'is-events': isEventResource, 'is-healthcare': isHealthcareResource }">
+      <div class="resource-hero__copy">
+        <span v-if="isTechDepartment || isMobilityResource || isEventResource || isHealthcareResource" class="resource-hero__icon"><i :class="resourceIcon" /></span>
+        <div>
+          <p>{{ heroEyebrow }}</p>
+          <h2>{{ resource.plural }}</h2>
+          <span>{{ pageDescription }}</span>
+        </div>
       </div>
-      <Button v-if="canCreate" :label="resource.actionLabel" icon="pi pi-plus" @click="openCreate" />
+      <div class="resource-hero__actions">
+        <Button v-if="isTechDepartment" as="router-link" to="/tech" :label="t('View storefront')" icon="pi pi-external-link" severity="secondary" outlined />
+        <Button v-if="isMobilityResource" as="router-link" to="/cars" :label="t('View car rentals')" icon="pi pi-external-link" severity="secondary" outlined />
+        <Button v-if="isEventResource" as="router-link" to="/events" :label="t('View events page')" icon="pi pi-external-link" severity="secondary" outlined />
+        <Button v-if="isHealthcareResource" as="router-link" to="/healthcare" :label="t('View healthcare page')" icon="pi pi-external-link" severity="secondary" outlined />
+        <Button v-if="canCreate" :label="resource.actionLabel" icon="pi pi-plus" @click="openCreate" />
+      </div>
     </div>
 
     <div class="resource-metrics">
-      <article v-for="metric in metrics" :key="metric.label">
-        <span>{{ metric.label }}</span>
-        <strong>{{ metric.value }}</strong>
+      <article v-for="metric in metrics" :key="metric.label" :class="metric.tone ? `is-${metric.tone}` : ''">
+        <span v-if="metric.icon" class="resource-metrics__icon"><i :class="metric.icon" /></span>
+        <div>
+          <span>{{ metric.label }}</span>
+          <strong>{{ metric.value }}</strong>
+          <small v-if="metric.note">{{ metric.note }}</small>
+        </div>
       </article>
     </div>
 
@@ -447,6 +737,14 @@ function displayValue(row, column) {
           />
         </div>
         <div class="resource-table__tools">
+          <Button
+            v-if="hasActiveQuery"
+            icon="pi pi-filter-slash"
+            :label="t('Reset')"
+            severity="secondary"
+            text
+            @click="resetAndFetch"
+          />
           <div v-if="hasCardView" class="resource-view-toggle" :aria-label="t('View style')">
             <Button
               icon="pi pi-table"
@@ -502,7 +800,7 @@ function displayValue(row, column) {
           </template>
         </Column>
 
-        <Column v-if="hasRowActions" :header="t('Actions')" :exportable="false" style="width: 8rem">
+        <Column v-if="hasRowActions" :header="t('Actions')" :exportable="false" style="width: 11rem">
           <template #body="{ data }">
             <div class="row-actions">
               <Button
@@ -526,13 +824,24 @@ function displayValue(row, column) {
                 @click="openEdit(data)"
               />
               <Button
+                v-if="canDuplicate"
+                icon="pi pi-copy"
+                severity="secondary"
+                text
+                rounded
+                :aria-label="t(resource.duplicate?.actionLabel || 'Duplicate')"
+                :title="t(resource.duplicate?.actionLabel || 'Duplicate')"
+                @click="openDuplicate(data)"
+              />
+              <Button
                 v-if="canRemove"
                 icon="pi pi-trash"
                 severity="danger"
                 text
                 rounded
                 :aria-label="t('Delete')"
-                :title="t('Delete')"
+                :title="canRemoveRow(data) ? t('Delete') : t(resource.removeDisabledHelp || 'This record cannot be deleted.')"
+                :disabled="!canRemoveRow(data)"
                 @click="confirmRemove(data)"
               />
             </div>
@@ -583,10 +892,12 @@ function displayValue(row, column) {
         :first="first"
         :rowsPerPage="limit"
         :hasManage="hasManage"
+        :canDuplicate="canDuplicate"
         :canEdit="canEditRow"
         :canRemove="canRemove"
         @page="onPage"
         @manage="openManage"
+        @duplicate="openDuplicate"
         @edit="openEdit"
         @remove="confirmRemove"
       />
@@ -594,7 +905,9 @@ function displayValue(row, column) {
 
     <AdminResourceDialog
       v-model:visible="dialogOpen"
-      :title="dialogMode === 'edit' ? t('Edit {resource}', { resource: resource.singular }) : resource.actionLabel || t('Create')"
+      :title="dialogMode === 'edit' ? t('Edit {resource}', { resource: resource.singular }) : duplicating ? resource.duplicate?.title || t('Duplicate {resource}', { resource: resource.singular }) : resource.actionLabel || t('Create')"
+      :notice="duplicating ? resource.duplicate?.help || '' : ''"
+      :submitLabel="duplicating ? t('Create duplicate') : t('Save')"
       :fields="dialogFields"
       :initial="editing"
       :defaults="dialogDefaults"
@@ -622,9 +935,72 @@ function displayValue(row, column) {
 
 .resource-hero {
   display: flex;
-  align-items: end;
+  align-items: center;
   justify-content: space-between;
   gap: 18px;
+}
+
+.resource-hero.is-tech,
+.resource-hero.is-mobility,
+.resource-hero.is-events,
+.resource-hero.is-healthcare {
+  padding: 22px;
+  border: 1px solid var(--tm-border);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(12, 155, 128, 0.12), transparent 42%),
+    var(--tm-surface);
+  box-shadow: 0 12px 34px rgba(37, 31, 20, 0.055);
+}
+
+.resource-hero.is-healthcare .resource-hero__icon {
+  color: #ef9db8;
+}
+
+.resource-hero.is-healthcare .resource-hero__icon {
+  color: #ef9db8;
+}
+
+.resource-hero.is-mobility {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(49, 92, 112, 0.14), transparent 42%),
+    var(--tm-surface);
+}
+
+.resource-hero.is-events {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(206, 107, 85, 0.13), transparent 42%),
+    var(--tm-surface);
+}
+
+.resource-hero.is-healthcare {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(192, 90, 125, 0.14), transparent 42%),
+    var(--tm-surface);
+}
+
+.resource-hero__copy,
+.resource-hero__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.resource-hero__actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.resource-hero__icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  border-radius: 16px;
+  background: var(--tm-charcoal);
+  color: var(--tm-gold);
+  font-size: 1.15rem;
+  place-items: center;
 }
 
 .resource-hero p,
@@ -662,15 +1038,41 @@ function displayValue(row, column) {
 }
 
 .resource-metrics article {
-  display: grid;
-  gap: 6px;
+  --metric-accent: var(--tm-gold);
+  --metric-wash: rgba(201, 146, 44, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 13px;
   min-height: 92px;
-  align-content: center;
   padding: 16px;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
-  background: var(--tm-surface);
-  box-shadow: var(--tm-shadow);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 100% 0%, var(--metric-wash), transparent 48%),
+    var(--tm-surface);
+  box-shadow: 0 10px 28px rgba(37, 31, 20, 0.05);
+}
+
+.resource-metrics article.is-emerald { --metric-accent: var(--tm-emerald); --metric-wash: rgba(12, 155, 128, 0.1); }
+.resource-metrics article.is-blue { --metric-accent: var(--tm-blue); --metric-wash: rgba(49, 92, 112, 0.1); }
+.resource-metrics article.is-coral { --metric-accent: var(--tm-coral); --metric-wash: rgba(206, 107, 85, 0.1); }
+.resource-metrics article.is-rose { --metric-accent: #c05a7d; --metric-wash: rgba(192, 90, 125, 0.11); }
+
+.resource-metrics article > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.resource-metrics__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  background: var(--metric-accent);
+  color: #fff;
+  place-items: center;
 }
 
 .resource-metrics span {
@@ -685,12 +1087,18 @@ function displayValue(row, column) {
   line-height: 1.05;
 }
 
+.resource-metrics small {
+  color: var(--tm-muted);
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
 .resource-table {
   overflow: hidden;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: 18px;
   background: var(--tm-surface);
-  box-shadow: var(--tm-shadow);
+  box-shadow: 0 12px 34px rgba(37, 31, 20, 0.055);
 }
 
 .resource-table__toolbar {
@@ -700,6 +1108,7 @@ function displayValue(row, column) {
   gap: 12px;
   padding: 14px;
   border-bottom: 1px solid var(--tm-border);
+  background: color-mix(in srgb, var(--tm-surface-soft) 74%, transparent);
 }
 
 .resource-table__tools,
@@ -833,6 +1242,15 @@ function displayValue(row, column) {
   .resource-hero .p-button,
   .resource-table__toolbar .p-button {
     width: 100%;
+  }
+
+  .resource-hero__copy {
+    align-items: flex-start;
+  }
+
+  .resource-hero__actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
   }
 
   .resource-table__tools,

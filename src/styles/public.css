@@ -116,11 +116,11 @@
   border-radius: var(--tm-radius-sm);
 }
 
-.public-ui :is(.catalog-page, .cars-page, .events-page, .care-page, .artists-page, .artist-page, .orders-page, .cart-page, .account, .product-page, .car-page, .confirm-page, .event-plan-page, .care-request-page, .notfound-page) {
+.public-ui :is(.catalog-page, .cars-page, .events-page, .care-page, .artists-page, .artist-page, .orders-page, .cart-page, .account, .product-page, .car-page, .confirm-page, .event-plan-page, .planner-page, .care-request-page, .notfound-page) {
   position: relative;
 }
 
-.public-ui :is(.catalog-page, .cars-page, .events-page, .care-page, .artists-page, .orders-page, .cart-page, .account, .product-page, .car-page, .confirm-page, .event-plan-page, .care-request-page)::before {
+.public-ui :is(.catalog-page, .cars-page, .events-page, .care-page, .artists-page, .orders-page, .cart-page, .account, .product-page, .car-page, .confirm-page, .event-plan-page, .planner-page, .care-request-page)::before {
   position: absolute;
   z-index: 0;
   top: -100px;
@@ -134,12 +134,12 @@
   pointer-events: none;
 }
 
-.public-ui :is(.catalog-page, .cars-page, .events-page, .care-page, .artists-page, .orders-page, .cart-page, .account, .product-page, .car-page, .confirm-page, .event-plan-page, .care-request-page) > .app-container {
+.public-ui :is(.catalog-page, .cars-page, .events-page, .care-page, .artists-page, .orders-page, .cart-page, .account, .product-page, .car-page, .confirm-page, .event-plan-page, .planner-page, .care-request-page) > .app-container {
   position: relative;
   z-index: 1;
 }
 
-.public-ui :is(.catalog-hero, .cars-hero, .events-hero, .care-hero, .artists-hero, .orders-hero, .cart-hero, .account-head, .plan-hero, .request-hero) h1 {
+.public-ui :is(.catalog-hero, .cars-hero, .events-hero, .care-hero, .artists-hero, .orders-hero, .cart-hero, .account-head, .plan-hero, .planner-hero, .request-hero) h1 {
   letter-spacing: -0.055em;
 }
 

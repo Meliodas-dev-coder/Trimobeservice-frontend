@@ -28,6 +28,7 @@ const groupedNav = [
     label: 'Tech',
     icon: 'pi pi-mobile',
     items: [
+      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/tech/overview' },
       { label: 'Categories', icon: 'pi pi-tags', to: '/admin/tech/categories' },
       { label: 'Brands', icon: 'pi pi-bookmark', to: '/admin/tech/brands' },
       { label: 'Products', icon: 'pi pi-mobile', to: '/admin/tech/products' },
@@ -56,6 +57,7 @@ const groupedNav = [
     label: 'Mobility',
     icon: 'pi pi-car',
     items: [
+      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/mobility/overview' },
       { label: 'Car categories', icon: 'pi pi-sitemap', to: '/admin/car-categories' },
       { label: 'Cars', icon: 'pi pi-car', to: '/admin/cars' },
       { label: 'Drivers', icon: 'pi pi-id-card', to: '/admin/drivers' },
@@ -67,6 +69,7 @@ const groupedNav = [
     label: 'Events',
     icon: 'pi pi-calendar',
     items: [
+      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/events/overview' },
       { label: 'Service categories', icon: 'pi pi-sitemap', to: '/admin/event-service-categories' },
       { label: 'Event services', icon: 'pi pi-star', to: '/admin/event-services' },
       { label: 'Gospel artists', icon: 'pi pi-microphone', to: '/admin/artists' },
@@ -78,6 +81,7 @@ const groupedNav = [
     label: 'Healthcare',
     icon: 'pi pi-heart',
     items: [
+      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/healthcare/overview' },
       { label: 'Practitioners', icon: 'pi pi-id-card', to: '/admin/practitioners' },
       { label: 'Care categories', icon: 'pi pi-sitemap', to: '/admin/healthcare/categories' },
       { label: 'Care services', icon: 'pi pi-plus-circle', to: '/admin/healthcare/services' },

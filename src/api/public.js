@@ -45,10 +45,10 @@ export async function listCarCategories() {
   return data?.car_categories || [];
 }
 
-export async function listCars({ page = 1, limit = 20, q = '', category_id = '' } = {}) {
+export async function listCars({ page = 1, limit = 20, q = '', category_id = '', start = '', end = '' } = {}) {
   const data = await api.get('/cars', {
     auth: false,
-    params: { page, limit, q, category_id },
+    params: { page, limit, q, category_id, start, end },
   });
   return listEnvelope(data, 'cars', page, limit);
 }

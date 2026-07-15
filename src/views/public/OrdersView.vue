@@ -173,6 +173,10 @@ const detailFacts = computed(() => {
     if (it.pricing_model === 'cargo_distance') {
       rows.push({ label: t('Distance'), value: `${Number(it.distance_km || 0)} km` });
     } else {
+      rows.push({
+        label: t('Travel area'),
+        value: it.outside_antananarivo ? t('Outside Antananarivo region') : t('Within Antananarivo region'),
+      });
       rows.push({ label: t('Days'), value: it.days });
       rows.push({ label: t('Daily rate'), value: formatMGA(Number(it.daily_rate_snapshot || 0)) });
     }

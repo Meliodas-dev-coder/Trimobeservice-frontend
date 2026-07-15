@@ -9,6 +9,10 @@ import AdminEventRequestCreateView from '@/views/admin/AdminEventRequestCreateVi
 import AdminHealthcareSettingsView from '@/views/admin/AdminHealthcareSettingsView.vue';
 import AdminLoginView from '@/views/admin/AdminLoginView.vue';
 import AdminResourceView from '@/views/admin/AdminResourceView.vue';
+import AdminTechOverviewView from '@/views/admin/AdminTechOverviewView.vue';
+import AdminMobilityOverviewView from '@/views/admin/AdminMobilityOverviewView.vue';
+import AdminEventOverviewView from '@/views/admin/AdminEventOverviewView.vue';
+import AdminHealthcareOverviewView from '@/views/admin/AdminHealthcareOverviewView.vue';
 import AccountView from '@/views/public/AccountView.vue';
 import CartView from '@/views/public/CartView.vue';
 import CarDetailView from '@/views/public/CarDetailView.vue';
@@ -276,22 +280,44 @@ const router = createRouter({
 
         // Department-scoped catalog: same generic screens, filtered to tech/fashion.
         {
+          path: 'tech',
+          redirect: { name: 'admin-tech-overview' },
+        },
+        {
+          path: 'tech/overview',
+          name: 'admin-tech-overview',
+          component: AdminTechOverviewView,
+          meta: { title: 'Tech overview', department: 'tech', description: 'Manage the complete Tech catalog.' },
+        },
+        {
           path: 'tech/categories',
           name: 'admin-tech-categories',
           component: AdminResourceView,
-          meta: { title: 'Tech categories', resource: 'categories', department: 'tech', description: 'Phone, laptop & accessory categories.' },
+          meta: { title: 'Tech categories', resource: 'categories', department: 'tech', defaultView: 'card', description: 'Phone, laptop & accessory categories.' },
         },
         {
           path: 'tech/brands',
           name: 'admin-tech-brands',
           component: AdminResourceView,
-          meta: { title: 'Tech brands', resource: 'brands', department: 'tech', description: 'Manufacturers for the tech catalog.' },
+          meta: { title: 'Tech brands', resource: 'brands', department: 'tech', defaultView: 'card', description: 'Manufacturers for the tech catalog.' },
         },
         {
           path: 'tech/products',
           name: 'admin-tech-products',
           component: AdminResourceView,
-          meta: { title: 'Tech products', resource: 'products', department: 'tech', description: 'Phones, laptops, audio, and accessories.' },
+          meta: { title: 'Tech products', resource: 'products', department: 'tech', defaultView: 'card', description: 'Phones, laptops, audio, and accessories.' },
+        },
+        {
+          path: 'tech/products/new',
+          name: 'admin-tech-product-new',
+          component: AdminProductDetailView,
+          meta: { title: 'New Tech product', department: 'tech', description: 'Create a Tech product, then add variants and images.' },
+        },
+        {
+          path: 'tech/products/:id',
+          name: 'admin-tech-product-detail',
+          component: AdminProductDetailView,
+          meta: { title: 'Tech product detail', department: 'tech', description: 'Edit a Tech product, its variants, and images.' },
         },
         {
           path: 'fashion/categories',
@@ -320,10 +346,20 @@ const router = createRouter({
           meta: { title: 'Coffee products', resource: 'products', department: 'coffee', description: 'Kafe Misiona coffee packs — variants, prices, stock, and images.' },
         },
         {
+          path: 'mobility',
+          redirect: { name: 'admin-mobility-overview' },
+        },
+        {
+          path: 'mobility/overview',
+          name: 'admin-mobility-overview',
+          component: AdminMobilityOverviewView,
+          meta: { title: 'Mobility overview', description: 'Manage fleet readiness, drivers, and bookings.' },
+        },
+        {
           path: 'cars',
           name: 'admin-cars',
           component: AdminResourceView,
-          meta: { title: 'Cars', resource: 'cars', description: 'Manage fleet cars, rates, and status.' },
+          meta: { title: 'Cars', resource: 'cars', defaultView: 'card', description: 'Manage fleet cars, daily rates, and real-time availability.' },
         },
         {
           path: 'cars/:id',
@@ -335,13 +371,13 @@ const router = createRouter({
           path: 'car-categories',
           name: 'admin-car-categories',
           component: AdminResourceView,
-          meta: { title: 'Car categories', resource: 'car-categories', description: 'Car categories and their default daily rates.' },
+          meta: { title: 'Car categories', resource: 'car-categories', defaultView: 'card', description: 'Structure the fleet and define default daily or cargo pricing.' },
         },
         {
           path: 'drivers',
           name: 'admin-drivers',
           component: AdminResourceView,
-          meta: { title: 'Drivers', resource: 'drivers', description: 'Manage the driver roster.' },
+          meta: { title: 'Drivers', resource: 'drivers', defaultView: 'card', description: 'Keep contact, license, and live assignment status easy to scan.' },
         },
         {
           path: 'orders',
@@ -359,31 +395,41 @@ const router = createRouter({
           path: 'bookings',
           name: 'admin-bookings',
           component: AdminResourceView,
-          meta: { title: 'Bookings', resource: 'bookings', description: 'Manage bookings, assign drivers, advance status.' },
+          meta: { title: 'Bookings', resource: 'bookings', defaultView: 'card', description: 'Review trips, compare payment state, assign drivers, and advance rentals.' },
+        },
+        {
+          path: 'events',
+          redirect: { name: 'admin-events-overview' },
+        },
+        {
+          path: 'events/overview',
+          name: 'admin-events-overview',
+          component: AdminEventOverviewView,
+          meta: { title: 'Events overview', description: 'Manage the event catalog, talent roster, and client planning pipeline.' },
         },
         {
           path: 'event-service-categories',
           name: 'admin-event-service-categories',
           component: AdminResourceView,
-          meta: { title: 'Service categories', resource: 'event-service-categories', description: 'Event service categories.' },
+          meta: { title: 'Service categories', resource: 'event-service-categories', defaultView: 'card', description: 'Organize sound, lighting, catering, decoration, talent, and other event offers.' },
         },
         {
           path: 'event-services',
           name: 'admin-event-services',
           component: AdminResourceView,
-          meta: { title: 'Event services', resource: 'event-services', description: 'Manage the event services catalog.' },
+          meta: { title: 'Event services', resource: 'event-services', defaultView: 'card', description: 'Keep event offers, indicative prices, imagery, and customer visibility ready.' },
         },
         {
           path: 'artists',
           name: 'admin-artists',
           component: AdminResourceView,
-          meta: { title: 'Gospel artists', resource: 'artists', description: 'Manage the artist roster clients can browse and request.' },
+          meta: { title: 'Gospel artists', resource: 'artists', defaultView: 'card', description: 'Manage the artist roster clients can browse and request.' },
         },
         {
           path: 'event-requests',
           name: 'admin-event-requests',
           component: AdminResourceView,
-          meta: { title: 'Event requests', resource: 'event-requests', description: 'Review requests, set quotes, advance status.' },
+          meta: { title: 'Event requests', resource: 'event-requests', defaultView: 'card', description: 'Review client plans, compare budgets, set quotes, collect payment, and advance each event.' },
         },
         {
           path: 'event-requests/new',
@@ -392,28 +438,38 @@ const router = createRouter({
           meta: { title: 'New event request', description: 'Log a phone/walk-in event request.' },
         },
         {
+          path: 'healthcare',
+          redirect: { name: 'admin-healthcare-overview' },
+        },
+        {
+          path: 'healthcare/overview',
+          name: 'admin-healthcare-overview',
+          component: AdminHealthcareOverviewView,
+          meta: { title: 'Healthcare overview', description: 'Manage care services, clinical staffing, requests, and emergency contact information.' },
+        },
+        {
           path: 'practitioners',
           name: 'admin-practitioners',
           component: AdminResourceView,
-          meta: { title: 'Practitioners', resource: 'practitioners', description: 'Manage the doctor & nurse roster.' },
+          meta: { title: 'Practitioners', resource: 'practitioners', defaultView: 'card', description: 'Keep the doctor and nurse roster ready for home-care assignments.' },
         },
         {
           path: 'healthcare/categories',
           name: 'admin-healthcare-categories',
           component: AdminResourceView,
-          meta: { title: 'Care categories', resource: 'healthcare-service-categories', description: 'Healthcare service categories.' },
+          meta: { title: 'Care categories', resource: 'healthcare-service-categories', defaultView: 'card', description: 'Structure consultations and packages into clear customer-facing care groups.' },
         },
         {
           path: 'healthcare/services',
           name: 'admin-healthcare-services',
           component: AdminResourceView,
-          meta: { title: 'Care services', resource: 'healthcare-services', description: 'Consultations and care packages.' },
+          meta: { title: 'Care services', resource: 'healthcare-services', defaultView: 'card', description: 'Manage consultation pricing, fixed packages, staffing needs, and visibility.' },
         },
         {
           path: 'healthcare/requests',
           name: 'admin-healthcare-requests',
           component: AdminResourceView,
-          meta: { title: 'Care requests', resource: 'healthcare-requests', description: 'Review requests, quote, assign staff, record payment.' },
+          meta: { title: 'Care requests', resource: 'healthcare-requests', defaultView: 'card', description: 'Review patient needs, quote care, assign practitioners, collect payment, and track progress.' },
         },
         {
           path: 'healthcare/settings',

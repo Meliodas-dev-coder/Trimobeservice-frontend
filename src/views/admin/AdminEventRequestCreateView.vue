@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 
 import GooglePlaceInput from '@/components/GooglePlaceInput.vue';
+import EventWorkspaceNav from '@/components/admin/EventWorkspaceNav.vue';
 import { api } from '@/api/client';
 import { useAdminI18n } from '@/i18n/admin';
 import { formatMGA } from '@/utils/format';
@@ -178,16 +179,19 @@ onMounted(async () => {
 
 <template>
   <section class="event-create">
-    <div class="event-create__top">
-      <Button icon="pi pi-arrow-left" :label="t('Event requests')" severity="secondary" outlined @click="goBack" />
-      <Button :label="t('Create request')" icon="pi pi-check" :loading="saving" :disabled="!canSubmit" @click="submit" />
-    </div>
+    <EventWorkspaceNav />
 
-    <div class="event-create__head">
-      <p>{{ t('Events') }}</p>
-      <h1>{{ t('New event request') }}</h1>
-      <span>{{ t('Log a phone or walk-in event request. Set a quote and record payment later.') }}</span>
-    </div>
+    <header class="event-create__head">
+      <div>
+        <p>{{ t('Event planning') }}</p>
+        <h1>{{ t('Create a clear request from the first conversation.') }}</h1>
+        <span>{{ t('Capture the client, schedule, venue, services, and indicative budget now; quote and payment stay in the request workflow.') }}</span>
+      </div>
+      <div class="event-create__top">
+        <Button icon="pi pi-arrow-left" :label="t('Event requests')" severity="secondary" outlined @click="goBack" />
+        <Button :label="t('Create request')" icon="pi pi-check" :loading="saving" :disabled="!canSubmit" @click="submit" />
+      </div>
+    </header>
 
     <div class="event-grid">
       <div class="event-grid__main">
@@ -323,8 +327,41 @@ onMounted(async () => {
 
 .event-create__top {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
+}
+
+.event-create__head {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 24px;
+  overflow: hidden;
+  padding: clamp(24px, 4vw, 36px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 90% 0%, rgba(201, 146, 44, 0.34), transparent 38%),
+    linear-gradient(135deg, var(--tm-charcoal), #2a2220);
+  box-shadow: var(--tm-shadow);
+}
+
+.event-create__head::after {
+  position: absolute;
+  right: -70px;
+  bottom: -150px;
+  width: 280px;
+  height: 280px;
+  border: 1px solid rgba(206, 107, 85, 0.28);
+  border-radius: 50%;
+  content: '';
+}
+
+.event-create__head > div {
+  position: relative;
+  z-index: 1;
 }
 
 .event-create__head p,
@@ -341,16 +378,26 @@ onMounted(async () => {
 }
 
 .event-create__head h1 {
-  margin-top: 5px;
-  color: var(--tm-heading);
-  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  max-width: 760px;
+  margin-top: 7px;
+  color: #fff8ed;
+  font-size: clamp(2rem, 4vw, 3.35rem);
+  letter-spacing: -0.045em;
+  line-height: 1;
 }
 
 .event-create__head span {
   display: block;
   margin-top: 8px;
-  color: var(--tm-muted);
+  max-width: 760px;
+  color: rgba(255, 255, 255, 0.64);
   font-weight: 700;
+  line-height: 1.55;
+}
+
+.event-create__head :deep(.p-button-secondary) {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
 .event-create__hint {
@@ -375,9 +422,10 @@ onMounted(async () => {
 
 .panel {
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: 18px;
   background: var(--tm-surface);
-  box-shadow: var(--tm-shadow);
+  box-shadow: 0 12px 34px rgba(37, 31, 20, 0.055);
+  overflow: hidden;
 }
 
 .panel__head {
@@ -463,7 +511,7 @@ onMounted(async () => {
   margin: 0;
   padding: 14px;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: 14px;
   background: var(--tm-surface-soft);
 }
 
@@ -488,7 +536,7 @@ onMounted(async () => {
   min-height: 52px;
   padding: 10px;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--tm-surface);
   cursor: pointer;
 }
@@ -534,8 +582,13 @@ onMounted(async () => {
 }
 
 @media (max-width: 960px) {
-  .event-grid {
+  .event-grid,
+  .event-create__head {
     grid-template-columns: 1fr;
+  }
+
+  .event-create__top {
+    justify-content: flex-start;
   }
 }
 

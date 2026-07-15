@@ -7,6 +7,7 @@ import { useConfirm } from 'primevue/useconfirm';
 import AdminResourceDialog from '@/components/admin/AdminResourceDialog.vue';
 import DynamicSpecFields from '@/components/admin/DynamicSpecFields.vue';
 import LocalizedFieldControl from '@/components/admin/LocalizedFieldControl.vue';
+import TechWorkspaceNav from '@/components/admin/TechWorkspaceNav.vue';
 import { api } from '@/api/client';
 import { loadFieldOptions, serializeForm, uploadImage } from '@/api/resources';
 import { adminResources } from '@/data/adminResources';
@@ -23,11 +24,12 @@ const { enumLabel, t, translateConfig } = useAdminI18n();
 
 const productsResource = computed(() => translateConfig(adminResources.products));
 
-const isNew = computed(() => route.name === 'admin-product-new');
+const isNew = computed(() => ['admin-product-new', 'admin-tech-product-new'].includes(route.name));
 const productId = computed(() => Number(route.params.id));
 // When created from a Tech/Fashion section, scope the category/brand pickers to
 // that department (passed as ?department=).
-const department = computed(() => route.query.department || '');
+const department = computed(() => route.meta.department || route.query.department || '');
+const isTech = computed(() => department.value === 'tech');
 
 const product = ref(null);
 const loading = ref(false);
@@ -204,7 +206,11 @@ async function save() {
       const data = await api.post('/admin/products', body);
       const created = data?.product;
       toast.add({ severity: 'success', summary: t('Product created'), life: 2500 });
-      router.replace({ name: 'admin-product-detail', params: { id: created.id } });
+      router.replace({
+        name: isTech.value ? 'admin-tech-product-detail' : 'admin-product-detail',
+        params: { id: created.id },
+        query: department.value && !isTech.value ? { department: department.value } : undefined,
+      });
     } else {
       const data = await api.put(`/admin/products/${productId.value}`, body);
       product.value = data?.product || product.value;
@@ -428,7 +434,12 @@ function variantTitle(variant) {
 }
 
 function goBack() {
-  router.push({ name: 'admin-products' });
+  const routeName = {
+    tech: 'admin-tech-products',
+    fashion: 'admin-fashion-products',
+    coffee: 'admin-coffee-products',
+  }[department.value] || 'admin-products';
+  router.push({ name: routeName });
 }
 
 onMounted(() => {
@@ -438,15 +449,26 @@ onMounted(() => {
 });
 
 watch(
-  () => [route.name, route.params.id],
-  () => load(),
+  () => [route.name, route.params.id, department.value],
+  async () => {
+    await loadOptions();
+    load();
+  },
 );
 </script>
 
 <template>
   <section class="product-detail">
+    <TechWorkspaceNav v-if="isTech" />
+
     <div class="product-detail__top">
-      <Button icon="pi pi-arrow-left" :label="t('Products')" severity="secondary" outlined @click="goBack" />
+      <div class="product-detail__back">
+        <Button icon="pi pi-arrow-left" severity="secondary" text rounded :aria-label="t('Back to products')" @click="goBack" />
+        <div>
+          <span>{{ t(isTech ? 'Tech catalog' : 'Catalog') }}</span>
+          <strong>{{ isNew ? t('Create product') : product?.name || t('Product details') }}</strong>
+        </div>
+      </div>
       <Button
         :label="isNew ? t('Create product') : t('Save changes')"
         icon="pi pi-check"
@@ -459,6 +481,20 @@ watch(
     <div v-if="loading && !product" class="product-detail__loading">{{ t('Loading product...') }}</div>
 
     <template v-else>
+      <section v-if="isNew" class="product-create-hero">
+        <span class="product-create-hero__icon"><i class="pi pi-mobile" /></span>
+        <div>
+          <p>{{ t('New catalog item') }}</p>
+          <h2>{{ t('Create a product customers can understand.') }}</h2>
+          <span>{{ t('Start with its identity and specifications. After saving, add sellable variants, stock, prices, and imagery.') }}</span>
+        </div>
+        <div class="product-create-hero__steps">
+          <span class="is-active"><b>1</b>{{ t('Details') }}</span>
+          <span><b>2</b>{{ t('Variants') }}</span>
+          <span><b>3</b>{{ t('Images') }}</span>
+        </div>
+      </section>
+
       <section v-if="!isNew && product" class="product-hero">
         <div class="product-hero__image">
           <img v-if="heroImage" :src="heroImage" :alt="product.name" />
@@ -482,9 +518,12 @@ watch(
       <!-- Basics + specs -->
       <section class="panel">
         <div class="panel__head">
-          <div>
-            <h3>{{ t('Product details') }}</h3>
-            <p>{{ t('Name, category, brand, and category-specific specs.') }}</p>
+          <div class="panel__title">
+            <span><i class="pi pi-file-edit" /></span>
+            <div>
+              <h3>{{ t('Product details') }}</h3>
+              <p>{{ t('Name, category, brand, and category-specific specs.') }}</p>
+            </div>
           </div>
         </div>
 
@@ -538,9 +577,12 @@ watch(
       <!-- Variants -->
       <section v-if="!isNew && product" class="panel">
         <div class="panel__head">
-          <div>
-            <h3>{{ t('Variants') }}</h3>
-            <p>{{ t('Each variant is a sellable SKU with its own price, stock, and image.') }}</p>
+          <div class="panel__title">
+            <span><i class="pi pi-box" /></span>
+            <div>
+              <h3>{{ t('Variants') }}</h3>
+              <p>{{ t('Each variant is a sellable SKU with its own price, stock, and image.') }}</p>
+            </div>
           </div>
           <Button :label="t('Add variant')" icon="pi pi-plus" @click="openVariantCreate" />
         </div>
@@ -582,9 +624,12 @@ watch(
       <!-- Images -->
       <section v-if="!isNew && product" class="panel">
         <div class="panel__head">
-          <div>
-            <h3>{{ t('Images') }}</h3>
-            <p>{{ t('A cover plus gallery shots. No cover set falls back to the first variant image.') }}</p>
+          <div class="panel__title">
+            <span><i class="pi pi-images" /></span>
+            <div>
+              <h3>{{ t('Images') }}</h3>
+              <p>{{ t('A cover plus gallery shots. No cover set falls back to the first variant image.') }}</p>
+            </div>
           </div>
           <div class="panel__head-actions">
             <Button :label="t('Upload cover')" icon="pi pi-star" severity="secondary" outlined :loading="uploading" @click="pickCover" />
@@ -635,8 +680,43 @@ watch(
 
 .product-detail__top {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--tm-border);
+  border-radius: 16px;
+  background: var(--tm-surface);
+  box-shadow: 0 8px 24px rgba(37, 31, 20, 0.045);
+}
+
+.product-detail__back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.product-detail__back > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.product-detail__back span {
+  color: var(--tm-gold);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.product-detail__back strong {
+  overflow: hidden;
+  color: var(--tm-heading);
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .product-detail__loading,
@@ -650,9 +730,90 @@ watch(
   margin: 0;
   padding: 14px 16px;
   border: 1px dashed var(--tm-border);
-  border-radius: 8px;
+  border-radius: 14px;
   color: var(--tm-muted);
   font-weight: 700;
+}
+
+.product-create-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  overflow: hidden;
+  padding: clamp(22px, 3vw, 30px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(12, 155, 128, 0.28), transparent 40%),
+    linear-gradient(135deg, var(--tm-charcoal), #17282a);
+  box-shadow: var(--tm-shadow);
+}
+
+.product-create-hero__icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  background: var(--tm-gold);
+  color: var(--tm-charcoal);
+  font-size: 1.3rem;
+  place-items: center;
+}
+
+.product-create-hero p {
+  margin: 0;
+  color: var(--tm-gold);
+  font-size: 0.7rem;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.product-create-hero h2 {
+  margin: 5px 0 7px;
+  color: #fff8ed;
+  font-size: clamp(1.65rem, 3vw, 2.5rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.product-create-hero > div > span {
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+}
+
+.product-create-hero__steps {
+  display: grid;
+  gap: 8px;
+}
+
+.product-create-hero__steps span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.product-create-hero__steps b {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  place-items: center;
+}
+
+.product-create-hero__steps span.is-active {
+  color: #fff;
+}
+
+.product-create-hero__steps span.is-active b {
+  border-color: var(--tm-gold);
+  background: var(--tm-gold);
+  color: var(--tm-charcoal);
 }
 
 .product-hero {
@@ -661,7 +822,7 @@ watch(
   gap: 20px;
   overflow: hidden;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: 20px;
   background: var(--tm-surface);
   box-shadow: var(--tm-shadow);
 }
@@ -734,9 +895,9 @@ watch(
 .panel {
   overflow: hidden;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: 18px;
   background: var(--tm-surface);
-  box-shadow: var(--tm-shadow);
+  box-shadow: 0 12px 34px rgba(37, 31, 20, 0.055);
 }
 
 .panel__head {
@@ -744,8 +905,26 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 16px;
+  padding: 18px 20px;
   border-bottom: 1px solid var(--tm-border);
+  background: color-mix(in srgb, var(--tm-surface-soft) 64%, transparent);
+}
+
+.panel__title {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.panel__title > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: var(--tm-charcoal);
+  color: var(--tm-gold);
+  place-items: center;
 }
 
 .panel__head-actions {
@@ -770,7 +949,7 @@ watch(
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: 16px;
+  padding: 20px;
 }
 
 .basics-form__field {
@@ -808,7 +987,11 @@ watch(
 }
 
 .specs-block {
-  padding: 4px 16px 18px;
+  margin: 0 20px 20px;
+  padding: 16px;
+  border: 1px solid var(--tm-border);
+  border-radius: 14px;
+  background: var(--tm-surface-soft);
 }
 
 .specs-block__title {
@@ -833,7 +1016,7 @@ watch(
   height: 46px;
   overflow: hidden;
   border: 1px solid var(--tm-border);
-  border-radius: 6px;
+  border-radius: 10px;
   background: var(--tm-surface-soft);
   cursor: pointer;
 }
@@ -862,7 +1045,7 @@ watch(
 .image-grid {
   display: grid;
   gap: 12px;
-  padding: 16px;
+  padding: 20px;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 }
 
@@ -872,7 +1055,7 @@ watch(
   gap: 8px;
   padding: 10px;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: 14px;
   background: var(--tm-surface-soft);
 }
 
@@ -884,7 +1067,7 @@ watch(
   width: 100%;
   height: 130px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 10px;
 }
 
 .image-item :deep(.p-tag) {
@@ -912,8 +1095,13 @@ watch(
 
 @media (max-width: 860px) {
   .product-hero,
-  .basics-form {
+  .basics-form,
+  .product-create-hero {
     grid-template-columns: 1fr;
+  }
+
+  .product-create-hero__steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .product-hero__content {
@@ -931,6 +1119,18 @@ watch(
   .product-detail__top .p-button,
   .panel__head-actions .p-button {
     width: 100%;
+  }
+
+  .product-detail__back .p-button {
+    width: auto;
+  }
+
+  .product-detail__top > .p-button {
+    width: 100%;
+  }
+
+  .product-create-hero__steps {
+    grid-template-columns: 1fr;
   }
 }
 </style>

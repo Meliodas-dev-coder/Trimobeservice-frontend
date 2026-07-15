@@ -17,6 +17,8 @@ const { t } = useAdminI18n();
 const props = defineProps({
   visible: { type: Boolean, required: true },
   title: { type: String, default: 'Save' },
+  notice: { type: String, default: '' },
+  submitLabel: { type: String, default: 'Save' },
   fields: { type: Array, required: true },
   initial: { type: Object, default: null }, // row being edited, or null when creating
   defaults: { type: Object, default: () => ({}) },
@@ -106,6 +108,9 @@ function optionFor(key) {
 }
 
 function fieldVisible(field) {
+  if (field.hideWhenScoped && props.department) {
+    return false;
+  }
   if (!field.showWhen) {
     return true;
   }
@@ -467,12 +472,27 @@ watch(
     :draggable="false"
   >
     <form class="resource-form" @submit.prevent="submitForm">
-      <label
-        v-for="field in standardFields"
-        :key="field.key"
-        class="resource-form__field"
-        :class="{ 'resource-form__field--wide': field.localized || field.type === 'textarea' || field.type === 'image' || field.fullWidth }"
-      >
+      <div v-if="notice" class="resource-form__notice">
+        <span><i class="pi pi-copy" /></span>
+        <div>
+          <strong>{{ t('Creating a copy') }}</strong>
+          <small>{{ notice }}</small>
+        </div>
+      </div>
+
+      <template v-for="field in standardFields" :key="field.key">
+        <div v-if="field.sectionLabel" class="resource-form__section-head">
+          <span><i :class="field.sectionIcon || 'pi pi-pencil'" /></span>
+          <div>
+            <strong>{{ field.sectionLabel }}</strong>
+            <small v-if="field.sectionDescription">{{ field.sectionDescription }}</small>
+          </div>
+        </div>
+
+        <label
+          class="resource-form__field"
+          :class="{ 'resource-form__field--wide': field.localized || field.type === 'textarea' || field.type === 'image' || field.fullWidth }"
+        >
         <span class="resource-form__label">
           {{ field.label }}
           <small v-if="isRequired(field)">*</small>
@@ -497,7 +517,7 @@ watch(
         <InputNumber
           v-else-if="field.type === 'money'"
           v-model="draft[field.key]"
-          :min="0"
+          :min="field.min ?? 0"
           :useGrouping="true"
           suffix=" MGA"
           fluid
@@ -595,18 +615,21 @@ watch(
 
         <InputText v-else v-model="draft[field.key]" :placeholder="field.placeholder" />
 
-        <small
-          v-if="hasCarSchedule && ['start_at', 'cargo_service_date'].includes(field.key)"
-          class="resource-form__hint"
-        >
+          <small v-if="field.help" class="resource-form__hint">{{ field.help }}</small>
+
+          <small
+            v-if="hasCarSchedule && ['start_at', 'cargo_service_date'].includes(field.key)"
+            class="resource-form__hint"
+          >
           <template v-if="carScheduleLoading">{{ t('Loading this car’s booked dates…') }}</template>
           <template v-else-if="!draft.car_id">{{ t('Pick a car to see which dates are already booked.') }}</template>
           <template v-else-if="takenDates.length">{{ t('Dimmed days are already booked and can’t be selected.') }}</template>
           <template v-else>{{ t('No bookings yet — every date is free.') }}</template>
-        </small>
+          </small>
 
-        <small v-if="errors[field.key]" class="resource-form__error">{{ t(errors[field.key]) }}</small>
-      </label>
+          <small v-if="errors[field.key]" class="resource-form__error">{{ t(errors[field.key]) }}</small>
+        </label>
+      </template>
 
       <section v-if="attributeField" class="resource-form__specs">
         <p class="resource-form__specs-title">{{ t('Specifications') }}</p>
@@ -620,7 +643,7 @@ watch(
 
       <div class="resource-form__actions">
         <Button type="button" :label="t('Cancel')" icon="pi pi-times" severity="secondary" outlined @click="closeDialog" />
-        <Button type="submit" :label="t('Save')" icon="pi pi-check" :disabled="!canSave || submitting || loading" :loading="submitting || loading" />
+        <Button type="submit" :label="t(submitLabel)" :icon="notice ? 'pi pi-copy' : 'pi pi-check'" :disabled="!canSave || submitting || loading" :loading="submitting || loading" />
       </div>
     </form>
   </Dialog>
@@ -637,6 +660,87 @@ watch(
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   padding-top: 4px;
+}
+
+.resource-form__notice {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 14px;
+  border: 1px solid rgba(49, 92, 112, 0.2);
+  border-radius: 13px;
+  background: rgba(49, 92, 112, 0.08);
+}
+
+.resource-form__notice > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: var(--tm-charcoal);
+  color: var(--tm-gold);
+  place-items: center;
+}
+
+.resource-form__notice > div {
+  display: grid;
+  gap: 3px;
+}
+
+.resource-form__notice strong {
+  color: var(--tm-heading);
+  font-size: 0.86rem;
+}
+
+.resource-form__notice small {
+  color: var(--tm-muted);
+  font-weight: 720;
+  line-height: 1.45;
+}
+
+.resource-form__section-head {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px solid var(--tm-border);
+}
+
+.resource-form__section-head:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.resource-form__section-head > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 11px;
+  background: rgba(201, 146, 44, 0.11);
+  color: var(--tm-gold);
+  place-items: center;
+}
+
+.resource-form__section-head > div {
+  display: grid;
+  gap: 2px;
+}
+
+.resource-form__section-head strong {
+  color: var(--tm-heading);
+  font-size: 0.94rem;
+}
+
+.resource-form__section-head small {
+  color: var(--tm-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
 .resource-form__field {
@@ -668,6 +772,10 @@ watch(
 .image-field {
   display: grid;
   gap: 10px;
+  padding: 14px;
+  border: 1px dashed var(--tm-border);
+  border-radius: 14px;
+  background: var(--tm-surface-soft);
 }
 
 .checkbox-field {
@@ -686,10 +794,12 @@ watch(
 
 .image-field__preview img {
   display: block;
-  max-width: 200px;
-  max-height: 150px;
+  width: min(100%, 280px);
+  max-height: 190px;
+  object-fit: contain;
   border: 1px solid var(--tm-border);
-  border-radius: 8px;
+  border-radius: 12px;
+  background: var(--tm-surface);
 }
 
 .image-field__preview :deep(.p-button) {
@@ -709,7 +819,7 @@ watch(
   gap: 8px;
   padding: 9px 14px;
   border: 1px dashed var(--tm-border);
-  border-radius: 8px;
+  border-radius: 11px;
   color: var(--tm-muted);
   font-weight: 800;
   cursor: pointer;
@@ -796,7 +906,32 @@ watch(
   grid-column: 1 / -1;
   justify-content: flex-end;
   gap: 10px;
-  padding-top: 8px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--tm-border);
+}
+
+:global(.resource-dialog.p-dialog) {
+  overflow: hidden;
+  border: 1px solid var(--tm-border);
+  border-radius: 20px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.25);
+}
+
+:global(.resource-dialog .p-dialog-header) {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--tm-border);
+}
+
+:global(.resource-dialog .p-dialog-title) {
+  color: var(--tm-heading);
+  font-size: 1.16rem;
+  letter-spacing: -0.02em;
+}
+
+:global(.resource-dialog .p-dialog-content) {
+  max-height: calc(100vh - 110px);
+  padding: 20px;
 }
 
 @media (max-width: 720px) {

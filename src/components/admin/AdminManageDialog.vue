@@ -140,11 +140,17 @@ function apiCall(method, path, body) {
   }
 }
 
-async function runAction(fn) {
+async function runAction(fn, action = {}) {
   busy.value = true;
   try {
     await fn();
-    toast.add({ severity: 'success', summary: t('Updated'), life: 2500 });
+    toast.add({ severity: 'success', summary: action.successSummary || t('Updated'), life: 2500 });
+    if (action.closeAfter) {
+      isOpen.value = false;
+      detail.value = null;
+      emit('changed');
+      return;
+    }
     await fetchDetail();
     emit('changed');
   } catch (err) {
@@ -212,7 +218,7 @@ function applyAction(action) {
       acceptClass: 'p-button-danger',
       acceptLabel: t('Confirm'),
       rejectLabel: t('Cancel'),
-      accept: () => runAction(() => apiCall(action.method, actionPath(action))),
+      accept: () => runAction(() => apiCall(action.method, actionPath(action)), action),
     });
     return;
   }
@@ -220,7 +226,7 @@ function applyAction(action) {
   if (value === null || value === undefined || value === '') {
     return;
   }
-  runAction(() => apiCall(action.method, actionPath(action), { [action.bodyKey]: value }));
+  runAction(() => apiCall(action.method, actionPath(action), { [action.bodyKey]: value }), action);
 }
 
 // One-click status change: each reachable status is its own button (no
@@ -229,7 +235,7 @@ function applyTransition(action, value) {
   if (busy.value || !actionEnabled(action) || value === null || value === undefined || value === '') {
     return;
   }
-  runAction(() => apiCall(action.method, actionPath(action), { [action.bodyKey]: value }));
+  runAction(() => apiCall(action.method, actionPath(action), { [action.bodyKey]: value }), action);
 }
 
 // --- nested collections ---
@@ -454,8 +460,10 @@ function cellDisplay(row, column) {
             <template v-if="action.type === 'confirm'">
               <Button
                 :label="action.label"
-                severity="warn"
+                :icon="action.icon"
+                :severity="action.severity || 'warn'"
                 :disabled="!actionEnabled(action) || busy"
+                :title="!actionEnabled(action) && action.disabledHelp ? t(action.disabledHelp) : action.confirmMessage"
                 @click="applyAction(action)"
               />
             </template>
