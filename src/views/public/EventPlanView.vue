@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 
-import GooglePlaceInput from '@/components/GooglePlaceInput.vue';
+import ClientLocationPicker from '@/components/ClientLocationPicker.vue';
 import { createEventRequest, listArtists, listEventServiceCategories, listEventServices } from '@/api/public';
 import { usePublicI18n } from '@/i18n/public';
 import { useAuthStore } from '@/stores/auth';
@@ -36,6 +36,9 @@ const draftKey = 'trimobe-event-planner';
 const form = reactive({
   event_type: 'wedding',
   location: '',
+  location_latitude: null,
+  location_longitude: null,
+  location_reference: '',
   guest_count: null,
   budget: null,
   contact_phone: '',
@@ -273,6 +276,11 @@ async function submitRequest() {
       services: selectedServiceIds.value.map((id) => ({ service_id: id, quantity: 1 })),
       artists: selectedArtistIds.value.map((id) => ({ artist_id: id })),
     };
+    if (Number.isFinite(form.location_latitude) && Number.isFinite(form.location_longitude)) {
+      body.location_latitude = form.location_latitude;
+      body.location_longitude = form.location_longitude;
+    }
+    if (form.location_reference.trim()) body.location_reference = form.location_reference.trim();
     if (endDate.value instanceof Date) body.event_end = endDate.value.toISOString();
     if (form.guest_count) body.guest_count = Number(form.guest_count);
     if (form.budget) body.budget = Number(form.budget).toFixed(2);
@@ -361,7 +369,15 @@ onMounted(async () => {
               <div class="form-grid">
                 <label><span>{{ t('Event start*') }}</span><DatePicker v-model="startDate" showIcon showTime hourFormat="24" fluid dateFormat="dd M yy" :minDate="today" /></label>
                 <label><span>{{ t('Event end') }}</span><DatePicker v-model="endDate" showIcon showTime hourFormat="24" fluid dateFormat="dd M yy" :minDate="startDate" /></label>
-                <label class="is-wide"><span>{{ t('Location*') }}</span><GooglePlaceInput v-model="form.location" :placeholder="t('Venue, hotel, city, or address')" /></label>
+                <ClientLocationPicker
+                  v-model="form.location"
+                  v-model:latitude="form.location_latitude"
+                  v-model:longitude="form.location_longitude"
+                  v-model:locationReference="form.location_reference"
+                  class="is-wide"
+                  :label="t('Event location or city*')"
+                  :placeholder="t('Venue, hotel, city, or address')"
+                />
                 <label><span>{{ t('Guests') }}</span><InputNumber v-model="form.guest_count" :min="0" fluid /></label>
               </div>
               <p v-if="invalidEndDate" class="form-hint is-error"><i class="pi pi-exclamation-circle" />{{ t('Event end must be after the start date.') }}</p>
@@ -487,7 +503,7 @@ onMounted(async () => {
 .planner-panel__head { display: flex; align-items: center; gap: 13px; padding-bottom: 18px; border-bottom: 1px solid var(--tm-border); } .planner-panel__head > span { display: grid; width: 46px; height: 46px; flex: 0 0 auto; border-radius: 14px; background: var(--tm-charcoal); color: var(--tm-gold); place-items: center; } .planner-panel__head h2 { margin: 4px 0 0; color: var(--tm-heading); font-size: clamp(1.5rem,3vw,2.15rem); letter-spacing: -.035em; }
 .event-type-grid { display: grid; gap: 9px; grid-template-columns: repeat(3,minmax(0,1fr)); }
 .event-type-grid button { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 9px; min-height: 54px; padding: 10px 12px; border: 1px solid var(--tm-border); border-radius: 13px; background: var(--tm-surface-soft); color: var(--tm-muted); font: inherit; font-weight: 820; text-align: left; cursor: pointer; } .event-type-grid button > i:first-child { color: var(--tm-gold); } .event-type-grid button.is-selected { border-color: var(--tm-emerald); background: rgba(12,155,128,.08); color: var(--tm-heading); } .event-type-grid button > i:last-child { color: var(--tm-emerald); }
-.form-grid { display: grid; gap: 14px; grid-template-columns: repeat(2,minmax(0,1fr)); } .form-grid label { display: grid; gap: 7px; min-width: 0; } .form-grid label.is-wide { grid-column: 1/-1; } .form-grid label > span { color: var(--tm-heading); font-size: .8rem; font-weight: 840; } .form-grid :deep(.p-select),.form-grid :deep(.p-datepicker),.form-grid :deep(.p-datepicker-input),.form-grid :deep(.p-inputnumber),.form-grid :deep(.p-inputnumber-input),.form-grid :deep(.p-inputtext),.form-grid :deep(.p-textarea) { width: 100%; }
+.form-grid { display: grid; gap: 14px; grid-template-columns: repeat(2,minmax(0,1fr)); } .form-grid label { display: grid; gap: 7px; min-width: 0; } .form-grid > .is-wide,.form-grid label.is-wide { grid-column: 1/-1; } .form-grid label > span { color: var(--tm-heading); font-size: .8rem; font-weight: 840; } .form-grid :deep(.p-select),.form-grid :deep(.p-datepicker),.form-grid :deep(.p-datepicker-input),.form-grid :deep(.p-inputnumber),.form-grid :deep(.p-inputnumber-input),.form-grid :deep(.p-inputtext),.form-grid :deep(.p-textarea) { width: 100%; }
 .form-hint { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--tm-muted); font-size: .82rem; font-weight: 780; } .form-hint.is-error { color: var(--tm-coral); }
 .selection-intro { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px; border-radius: 14px; background: var(--tm-surface-soft); } .selection-intro > div { display: grid; gap: 3px; } .selection-intro strong { color: var(--tm-heading); } .selection-intro small { color: var(--tm-muted); line-height: 1.45; } .selection-intro > span { flex: 0 0 auto; padding: 7px 10px; border-radius: 999px; background: var(--tm-charcoal); color: #fff; font-size: .75rem; font-weight: 850; }
 .service-pills { display: flex; flex-wrap: wrap; gap: 8px; } .service-pills button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1px solid var(--tm-border); border-radius: 999px; background: var(--tm-surface); color: var(--tm-muted); font: inherit; font-size: .78rem; font-weight: 820; cursor: pointer; } .service-pills button.is-active { border-color: var(--tm-charcoal); background: var(--tm-charcoal); color: #fff; } .service-pills button.is-active i { color: var(--tm-gold); }
@@ -509,5 +525,5 @@ onMounted(async () => {
 .planner-state { display: grid; min-height: 300px; align-content: center; place-items: center; gap: 10px; padding: 34px; border: 1px solid var(--tm-border); border-radius: 20px; background: var(--tm-surface); color: var(--tm-muted); font-weight: 850; text-align: center; } .planner-state i { color: var(--tm-gold); font-size: 1.6rem; } .planner-state--error i { color: var(--tm-coral); }
 @media (max-width: 980px) { .planner-layout { grid-template-columns: 1fr; } .planner-summary { position: static; } }
 @media (max-width: 760px) { .planner-page { padding-top: 12px; } .planner-hero { grid-template-columns: 1fr; border-radius: 22px; } .planner-hero__status { min-width: 0; } .planner-stepper button > div { display: none; } .planner-stepper button { justify-content: center; } .event-type-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .service-grid,.artist-grid,.review-grid { grid-template-columns: 1fr; } }
-@media (max-width: 520px) { .form-grid { grid-template-columns: 1fr; } .form-grid label.is-wide { grid-column: auto; } .selection-intro,.artist-selector > header { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 520px) { .form-grid { grid-template-columns: 1fr; } .form-grid > .is-wide,.form-grid label.is-wide { grid-column: auto; } .selection-intro,.artist-selector > header { align-items: flex-start; flex-direction: column; } }
 </style>

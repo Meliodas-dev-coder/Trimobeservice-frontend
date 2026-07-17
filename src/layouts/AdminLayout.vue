@@ -94,6 +94,8 @@ const groupedNav = [
 const secondaryNav = [
   { label: 'Orders', icon: 'pi pi-receipt', to: '/admin/orders' },
   { label: 'Payments', icon: 'pi pi-wallet', to: '/admin/payments' },
+  { label: 'Invoices', icon: 'pi pi-file', to: '/admin/invoices' },
+  { label: 'Billing settings', icon: 'pi pi-building', to: '/admin/org-settings' },
   { label: 'Customers', icon: 'pi pi-users', to: '/admin/customers' },
   { label: 'Activity log', icon: 'pi pi-history', to: '/admin/audit-logs' },
 ];

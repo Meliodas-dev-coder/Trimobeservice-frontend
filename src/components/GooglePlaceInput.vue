@@ -8,11 +8,12 @@ const props = defineProps({
   placeholder: { type: String, default: '' },
   disabled: { type: Boolean, default: false },
   manualFallback: { type: Boolean, default: true },
+  allowFreeText: { type: Boolean, default: false },
   minLength: { type: Number, default: 3 },
   delay: { type: Number, default: 250 },
 });
 
-const emit = defineEmits(['update:modelValue', 'place-select', 'place-clear']);
+const emit = defineEmits(['update:modelValue', 'place-select', 'place-clear', 'query-change']);
 
 const inputValue = ref(props.modelValue || '');
 const suggestions = ref([]);
@@ -66,6 +67,16 @@ function updateValue(value) {
     inputValue.value = value;
     return;
   }
+  if (props.allowFreeText) {
+    selectedPlace.value = null;
+    inputValue.value = value || '';
+    emit('update:modelValue', value || '');
+    emit('query-change', value || '');
+    if (!value) {
+      emit('place-clear');
+    }
+    return;
+  }
   clearSelection(value || '');
 }
 
@@ -83,6 +94,7 @@ async function selectPlace(place) {
   }
   const value = details?.formatted_address || place.description || '';
   emit('update:modelValue', value);
+  emit('query-change', value);
   emit('place-select', {
     value,
     prediction: place,
@@ -93,6 +105,7 @@ async function selectPlace(place) {
 
 function updateManualValue(value) {
   emit('update:modelValue', value || '');
+  emit('query-change', value || '');
   if (!value) {
     emit('place-clear');
   }
@@ -114,7 +127,7 @@ function updateManualValue(value) {
       :suggestions="suggestions"
       optionLabel="description"
       dataKey="place_id"
-      forceSelection
+      :forceSelection="!allowFreeText"
       :minLength="minLength"
       :delay="delay"
       :loading="loading"

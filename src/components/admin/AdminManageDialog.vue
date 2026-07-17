@@ -9,6 +9,8 @@ import { useAdminI18n } from '@/i18n/admin';
 import { formatDateTime, formatMGA } from '@/utils/format';
 import { statusSeverity } from '@/utils/status';
 import AdminResourceDialog from '@/components/admin/AdminResourceDialog.vue';
+import AdminLocationMap from '@/components/admin/AdminLocationMap.vue';
+import EventQuoteDialog from '@/components/admin/EventQuoteDialog.vue';
 
 const props = defineProps({
   visible: { type: Boolean, required: true },
@@ -39,12 +41,29 @@ const activeAction = ref(null);
 const actionSaving = ref(false);
 const actionErrors = ref({});
 
+// Event per-line quote editor (a dedicated dialog, not a declarative form).
+const quoteOpen = ref(false);
+const quoteAction = ref(null);
+const quoteSaving = ref(false);
+
 const isOpen = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value),
 });
 
 const spec = computed(() => props.resource.manage || {});
+const activeActionFields = computed(() => {
+  const fields = activeAction.value?.formFields;
+  return typeof fields === 'function' ? fields(detail.value || {}) : fields || [];
+});
+const showDriver = computed(() => (
+  typeof spec.value.showDriver === 'function'
+    ? spec.value.showDriver(detail.value || {})
+    : Boolean(spec.value.showDriver)
+));
+const visibleActions = computed(() => (spec.value.actions || []).filter(
+  (action) => !action.showWhen || action.showWhen(detail.value || {}),
+));
 
 function valueAt(source, path) {
   if (!path) {
@@ -71,7 +90,7 @@ async function fetchDetail() {
 }
 
 async function loadActionOptions() {
-  for (const action of spec.value.actions || []) {
+  for (const action of visibleActions.value) {
     if (action.type === 'select-endpoint') {
       try {
         const data = await api.get(action.optionsEndpoint, { params: { limit: 100 } });
@@ -188,7 +207,7 @@ async function handleActionFormSubmit(values) {
   actionErrors.value = {};
   try {
     const action = activeAction.value;
-    const body = actionBody(action, serializeForm(action.formFields || [], values));
+    const body = actionBody(action, serializeForm(activeActionFields.value, values));
     await apiCall(action.method, actionPath(action), body);
     toast.add({ severity: 'success', summary: action.successSummary || t('Updated'), life: 2500 });
     actionFormOpen.value = false;
@@ -205,9 +224,37 @@ async function handleActionFormSubmit(values) {
   }
 }
 
+async function handleQuoteSubmit(body) {
+  const action = quoteAction.value;
+  if (!action) {
+    return;
+  }
+  quoteSaving.value = true;
+  try {
+    await apiCall(action.method, actionPath(action), body);
+    toast.add({ severity: 'success', summary: action.successSummary || t('Quote saved'), life: 2500 });
+    quoteOpen.value = false;
+    quoteAction.value = null;
+    await fetchDetail();
+    emit('changed');
+  } catch (err) {
+    toast.add({ severity: 'error', summary: action.errorSummary || t('Quote failed'), detail: t(err?.message || 'Request failed'), life: 4000 });
+  } finally {
+    quoteSaving.value = false;
+  }
+}
+
 function applyAction(action) {
   if (action.type === 'form') {
     openActionForm(action);
+    return;
+  }
+  if (action.type === 'event-quote') {
+    if (!actionEnabled(action) || busy.value || quoteSaving.value) {
+      return;
+    }
+    quoteAction.value = action;
+    quoteOpen.value = true;
     return;
   }
   if (action.type === 'confirm') {
@@ -361,6 +408,28 @@ function targetRows(target) {
   return valueAt(source, target.itemsTable.key) || [];
 }
 
+function locationMapAddress(config, source) {
+  if (typeof config.value === 'function') {
+    return config.value(source || {}, detail.value || {});
+  }
+  return valueAt(source, config.key);
+}
+
+function locationMapsFor(configs, source) {
+  return (configs || [])
+    .filter((config) => !config.showWhen || config.showWhen(source || {}, detail.value || {}))
+    .map((config) => ({
+      ...config,
+      address: locationMapAddress(config, source),
+      latitude: config.latitudeKey ? valueAt(source, config.latitudeKey) : null,
+      longitude: config.longitudeKey ? valueAt(source, config.longitudeKey) : null,
+      reference: config.referenceKey ? valueAt(source, config.referenceKey) : '',
+    }))
+    .filter((config) => String(config.address || '').trim()
+      || (config.latitude !== null && config.latitude !== undefined
+        && config.longitude !== null && config.longitude !== undefined));
+}
+
 function cellDisplay(row, column) {
   const value = valueAt(row, column.field);
   if (column.type === 'image') {
@@ -441,13 +510,25 @@ function cellDisplay(row, column) {
         </section>
       </div>
 
-      <p v-if="spec.showDriver" class="manage-driver">
+      <section v-if="locationMapsFor(spec.locationMaps, detail).length" class="manage-location-maps">
+        <AdminLocationMap
+          v-for="location in locationMapsFor(spec.locationMaps, detail)"
+          :key="`${location.key || location.label}-${location.address}`"
+          :label="location.label"
+          :address="location.address"
+          :latitude="location.latitude"
+          :longitude="location.longitude"
+          :reference="location.reference"
+        />
+      </section>
+
+      <p v-if="showDriver" class="manage-driver">
         <span>{{ t('Driver') }}</span>
         <strong v-if="detail.driver">{{ detail.driver.full_name }} · {{ detail.driver.phone }}</strong>
         <strong v-else>{{ t('Not assigned') }}</strong>
       </p>
 
-      <div v-if="(spec.actions || []).length" class="manage-actions">
+      <div v-if="visibleActions.length" class="manage-actions">
         <div class="manage-actions__head">
           <span><i class="pi pi-bolt" /></span>
           <div>
@@ -456,7 +537,7 @@ function cellDisplay(row, column) {
           </div>
         </div>
         <div class="manage-actions__body">
-          <div v-for="action in spec.actions" :key="action.key" class="manage-action">
+          <div v-for="action in visibleActions" :key="action.key" class="manage-action">
             <template v-if="action.type === 'confirm'">
               <Button
                 :label="action.label"
@@ -467,12 +548,12 @@ function cellDisplay(row, column) {
                 @click="applyAction(action)"
               />
             </template>
-            <template v-else-if="action.type === 'form'">
+            <template v-else-if="action.type === 'form' || action.type === 'event-quote'">
               <Button
                 :label="action.label"
                 :icon="action.icon || 'pi pi-pencil'"
                 :severity="action.severity"
-                :disabled="!actionEnabled(action) || busy || actionSaving"
+                :disabled="!actionEnabled(action) || busy || actionSaving || quoteSaving"
                 @click="applyAction(action)"
               />
             </template>
@@ -523,6 +604,18 @@ function cellDisplay(row, column) {
             <span>{{ field.label }}</span>
             <strong>{{ fieldDisplay(field, targetData(spec.target)) }}</strong>
           </div>
+        </div>
+
+        <div v-if="locationMapsFor(spec.target.locationMaps, targetData(spec.target)).length" class="manage-location-maps">
+          <AdminLocationMap
+            v-for="location in locationMapsFor(spec.target.locationMaps, targetData(spec.target))"
+            :key="`${location.key || location.label}-${location.address}`"
+            :label="location.label"
+            :address="location.address"
+            :latitude="location.latitude"
+            :longitude="location.longitude"
+            :reference="location.reference"
+          />
         </div>
 
         <DataTable
@@ -620,10 +713,17 @@ function cellDisplay(row, column) {
     <AdminResourceDialog
       v-model:visible="actionFormOpen"
       :title="activeAction?.label || t('Action')"
-      :fields="activeAction?.formFields || []"
+      :fields="activeActionFields"
       :loading="actionSaving"
       :errors="actionErrors"
       @submit="handleActionFormSubmit"
+    />
+
+    <EventQuoteDialog
+      v-model:visible="quoteOpen"
+      :request="detail"
+      :loading="quoteSaving"
+      @submit="handleQuoteSubmit"
     />
   </Dialog>
 </template>
@@ -639,6 +739,16 @@ function cellDisplay(row, column) {
   display: grid;
   gap: 18px;
   padding: 2px 0 6px;
+}
+
+.manage-location-maps {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.manage-section .manage-location-maps {
+  margin-top: 14px;
 }
 
 .manage-summary {
@@ -1007,6 +1117,10 @@ function cellDisplay(row, column) {
   }
 
   .manage-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .manage-location-maps {
     grid-template-columns: 1fr;
   }
 
