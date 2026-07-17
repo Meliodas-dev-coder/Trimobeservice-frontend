@@ -17,26 +17,32 @@ const booking = ref(null);
 const loading = ref(false);
 const error = ref('');
 
+const bookingCars = computed(() => booking.value?.cars || []);
+const isMulti = computed(() => Boolean(booking.value?.is_multi_car || booking.value?.car_count > 1));
 const isCargo = computed(() => booking.value?.pricing_model === 'cargo_distance');
+const combinedTotal = computed(() => Number(booking.value?.total_price || 0));
 
 const facts = computed(() => {
   const b = booking.value;
   if (!b) {
     return [];
   }
-  const rows = [
-    { label: 'Car', value: b.car_name },
-    { label: 'Category', value: b.car_category || '-' },
+  const rows = [];
+  if (!isMulti.value) {
+    rows.push({ label: 'Car', value: b.car_name });
+    rows.push({ label: 'Category', value: b.car_category || '-' });
+  }
+  rows.push(
     { label: 'From', value: formatDate(b.start_at) },
     { label: 'To', value: formatDate(b.end_at) },
     { label: 'Pickup', value: b.pickup_location },
-  ];
+  );
   if (b.dropoff_location) {
     rows.push({ label: 'Dropoff', value: b.dropoff_location });
   }
   if (isCargo.value) {
     rows.push({ label: 'Distance', value: `${Number(b.distance_km || 0)} km` });
-  } else {
+  } else if (!isMulti.value) {
     rows.push({
       label: t('Travel area'),
       value: b.outside_antananarivo ? t('Outside Antananarivo region') : t('Within Antananarivo region'),
@@ -47,23 +53,29 @@ const facts = computed(() => {
   return rows;
 });
 
-const nextSteps = [
+const nextSteps = computed(() => [
   {
     icon: 'pi pi-user',
-    title: 'A driver gets assigned',
-    text: 'Our team assigns a driver to your booking before the start date. The car is already held for you.',
+    title: isMulti.value ? 'A driver gets assigned to each car' : 'A driver gets assigned',
+    text: isMulti.value
+      ? 'Our team assigns a driver to every car before the start date. All selected cars are already held for you.'
+      : 'Our team assigns a driver to your booking before the start date. The car is already held for you.',
   },
   {
     icon: 'pi pi-wallet',
     title: 'Confirm payment with the team',
-    text: 'Settle by cash, bank transfer, or mobile money. Our team records the payment against your booking.',
+    text: isMulti.value
+      ? 'Settle by cash, bank transfer, or mobile money. One payment is recorded against this booking for all cars.'
+      : 'Settle by cash, bank transfer, or mobile money. Our team records the payment against your booking.',
   },
   {
     icon: 'pi pi-calendar',
     title: 'Need to change plans?',
-    text: 'You can cancel from your bookings page while the booking is still confirmed.',
+    text: isMulti.value
+      ? 'You can cancel the complete multi-car booking from your bookings page while it is still confirmed.'
+      : 'You can cancel from your bookings page while the booking is still confirmed.',
   },
-];
+]);
 
 function titleize(value) {
   return String(value || '').replace(/_/g, ' ').replace(/^\w/, (char) => char.toUpperCase());
@@ -119,30 +131,40 @@ onMounted(load);
         <header class="confirm-hero">
           <span class="confirm-hero__badge"><i class="pi pi-check" /></span>
           <p class="eyebrow">{{ t('Booking confirmed') }}</p>
-          <h1>{{ t('The car is yours for those dates.') }}</h1>
+          <h1>{{ isMulti ? t('Your {count} cars are reserved under one booking.', { count: booking.car_count }) : t('The car is yours for those dates.') }}</h1>
           <p class="confirm-hero__number">
             {{ t('Booking') }} <strong>{{ booking.booking_number }}</strong>
           </p>
           <div class="confirm-hero__tags">
             <Tag :value="t(titleize(booking.status))" :severity="statusSeverity(booking.status)" />
             <Tag :value="t(titleize(booking.payment_status))" :severity="statusSeverity(booking.payment_status)" />
-            <Tag :value="isCargo ? t('Cargo transport') : t('Driver included')" severity="info" />
+            <Tag :value="isMulti ? t('{count} cars', { count: booking.car_count }) : (isCargo ? t('Cargo transport') : t('Driver included'))" severity="info" />
           </div>
         </header>
 
         <div class="confirm-grid">
           <section class="confirm-card soft-panel">
-            <h2>{{ t('Booking details') }}</h2>
+            <h2>{{ isMulti ? t('Trip details') : t('Booking details') }}</h2>
             <dl class="confirm-facts">
               <div v-for="fact in facts" :key="fact.label">
                 <dt>{{ t(fact.label) }}</dt>
                 <dd>{{ fact.value }}</dd>
               </div>
             </dl>
+            <div v-if="isMulti" class="confirm-vehicles">
+              <article v-for="item in bookingCars" :key="item.id">
+                <span><i class="pi pi-car" /></span>
+                <div>
+                  <strong>{{ item.car_name }}</strong>
+                  <small>{{ item.driver?.full_name || t('Driver assignment pending') }}</small>
+                </div>
+                <strong>{{ formatMGA(Number(item.total_price || 0)) }}</strong>
+              </article>
+            </div>
             <div class="confirm-totals">
               <div class="confirm-totals__grand">
-                <span>{{ t('Total') }}</span>
-                <strong>{{ formatMGA(Number(booking.total_price || 0)) }}</strong>
+                <span>{{ isMulti ? t('Combined total') : t('Total') }}</span>
+                <strong>{{ formatMGA(combinedTotal) }}</strong>
               </div>
             </div>
           </section>
@@ -284,6 +306,48 @@ onMounted(load);
   color: var(--tm-heading);
   font-weight: 780;
   text-align: right;
+}
+
+.confirm-vehicles {
+  display: grid;
+  gap: 8px;
+}
+
+.confirm-vehicles article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--tm-border);
+  border-radius: 12px;
+  background: var(--tm-surface-soft);
+}
+
+.confirm-vehicles article > span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--tm-charcoal);
+  color: var(--tm-gold);
+  place-items: center;
+}
+
+.confirm-vehicles article > div {
+  display: grid;
+  gap: 2px;
+}
+
+.confirm-vehicles article strong {
+  color: var(--tm-heading);
+  font-size: .86rem;
+}
+
+.confirm-vehicles article small {
+  color: var(--tm-muted);
+  font-size: .72rem;
+  font-weight: 760;
 }
 
 .confirm-totals {

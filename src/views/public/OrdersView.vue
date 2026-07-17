@@ -138,6 +138,7 @@ const detailNumber = computed(() => detail.value?.[TYPES[detailType.value].numbe
 const detailServices = computed(() => detail.value?.services || []);
 const detailArtists = computed(() => detail.value?.artists || []);
 const detailItems = computed(() => detail.value?.items || []);
+const detailCars = computed(() => detail.value?.cars || []);
 const detailAssignments = computed(() => detail.value?.assignments || []);
 const detailStaff = computed(() => detail.value?.staff || []);
 const detailIsPackage = computed(() => detail.value?.request_type === 'package');
@@ -165,14 +166,18 @@ const detailFacts = computed(() => {
   }
   if (detailType.value === 'bookings') {
     const rows = [
-      { label: t('Car'), value: it.car_name },
-      { label: t('Category'), value: it.car_category || '-' },
       { label: t('Start'), value: formatDateTime(it.start_at) },
       { label: t('End'), value: formatDateTime(it.end_at) },
     ];
+    if (!it.is_multi_car) {
+      rows.unshift(
+        { label: t('Car'), value: it.car_name },
+        { label: t('Category'), value: it.car_category || '-' },
+      );
+    }
     if (it.pricing_model === 'cargo_distance') {
       rows.push({ label: t('Distance'), value: `${Number(it.distance_km || 0)} km` });
-    } else {
+    } else if (!it.is_multi_car) {
       rows.push({
         label: t('Travel area'),
         value: it.outside_antananarivo ? t('Outside Antananarivo region') : t('Within Antananarivo region'),
@@ -474,6 +479,19 @@ onMounted(load);
             </div>
             <span>{{ t('Qty') }} {{ line.quantity }} · {{ formatMGA(Number(line.unit_price || 0)) }}</span>
             <strong class="dlg-line__total">{{ formatMGA(Number(line.line_total || 0)) }}</strong>
+          </div>
+        </section>
+
+        <!-- Cars belonging to one multi-car booking reference -->
+        <section v-if="detailType === 'bookings' && detailCars.length" class="dlg__section">
+          <h4>{{ t('Cars in this booking') }}</h4>
+          <div v-for="car in detailCars" :key="car.id" class="dlg-line">
+            <div>
+              <strong>{{ car.car_name }}</strong>
+              <small>{{ car.driver ? `${car.driver.full_name} · ${car.driver.phone}` : t('Driver assignment pending') }}</small>
+            </div>
+            <span>{{ car.car_category || '-' }}</span>
+            <strong class="dlg-line__total">{{ formatMGA(Number(car.total_price || 0)) }}</strong>
           </div>
         </section>
 

@@ -1,5 +1,7 @@
 let mapsPromise = null;
 let placesService = null;
+const geocodeCache = new Map();
+const reverseGeocodeCache = new Map();
 
 function apiKey() {
   return import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
@@ -80,6 +82,75 @@ export async function getPlaceDetails(placeId) {
   });
 }
 
+// Resolve a stored free-form address for read-only admin maps. Booking, order,
+// event, and healthcare records currently snapshot address text rather than
+// coordinates, so details are geocoded only when an admin opens the record.
+export async function geocodeAddress(address) {
+  const query = String(address || '').trim();
+  if (!query) {
+    throw new Error('Address is missing');
+  }
+  const cacheKey = query.toLocaleLowerCase();
+  if (!geocodeCache.has(cacheKey)) {
+    const request = loadGoogleMaps()
+      .then((maps) => new Promise((resolve, reject) => {
+        const geocoder = new maps.Geocoder();
+        geocoder.geocode({ address: query }, (results, status) => {
+          if (status !== maps.GeocoderStatus.OK || !results?.length) {
+            reject(new Error('Could not locate this address'));
+            return;
+          }
+          const result = results[0];
+          resolve({
+            position: {
+              lat: result.geometry.location.lat(),
+              lng: result.geometry.location.lng(),
+            },
+            formattedAddress: result.formatted_address || query,
+            placeId: result.place_id || '',
+          });
+        });
+      }))
+      .catch((error) => {
+        geocodeCache.delete(cacheKey);
+        throw error;
+      });
+    geocodeCache.set(cacheKey, request);
+  }
+  return geocodeCache.get(cacheKey);
+}
+
+export async function reverseGeocodePosition(position) {
+  const lat = Number(position?.lat);
+  const lng = Number(position?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new Error('Coordinates are invalid');
+  }
+  const cacheKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+  if (!reverseGeocodeCache.has(cacheKey)) {
+    const request = loadGoogleMaps()
+      .then((maps) => new Promise((resolve, reject) => {
+        const geocoder = new maps.Geocoder();
+        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+          if (status !== maps.GeocoderStatus.OK || !results?.length) {
+            reject(new Error('Could not identify this location'));
+            return;
+          }
+          resolve({
+            formattedAddress: results[0].formatted_address || '',
+            placeId: results[0].place_id || '',
+          });
+        });
+      }))
+      .catch((error) => {
+        reverseGeocodeCache.delete(cacheKey);
+        throw error;
+      });
+    reverseGeocodeCache.set(cacheKey, request);
+  }
+  return reverseGeocodeCache.get(cacheKey);
+}
+
 function addressComponent(components, types, key = 'long_name') {
   const found = components.find((component) => types.every((type) => component.types.includes(type)));
   return found?.[key] || '';
@@ -115,14 +186,28 @@ export function parseGoogleAddress(place) {
   };
 }
 
-export async function getDrivingDistanceKm(originPlaceId, destinationPlaceId) {
+function distanceEndpoint(value) {
+  if (typeof value === 'string') {
+    return { placeId: value };
+  }
+  const lat = Number(value?.lat);
+  const lng = Number(value?.lng);
+  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+}
+
+export async function getDrivingDistanceKm(origin, destination) {
   const maps = await loadGoogleMaps();
+  const originPoint = distanceEndpoint(origin);
+  const destinationPoint = distanceEndpoint(destination);
+  if (!originPoint || !destinationPoint) {
+    throw new Error('Route points are missing');
+  }
   const service = new maps.DistanceMatrixService();
   return new Promise((resolve, reject) => {
     service.getDistanceMatrix(
       {
-        origins: [{ placeId: originPlaceId }],
-        destinations: [{ placeId: destinationPlaceId }],
+        origins: [originPoint],
+        destinations: [destinationPoint],
         travelMode: maps.TravelMode.DRIVING,
         unitSystem: maps.UnitSystem.METRIC,
       },

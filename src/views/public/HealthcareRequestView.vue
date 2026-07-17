@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 
-import GooglePlaceInput from '@/components/GooglePlaceInput.vue';
+import ClientLocationPicker from '@/components/ClientLocationPicker.vue';
 import {
   createHealthcareRequest,
   getHealthcareEmergency,
@@ -38,6 +38,9 @@ const form = reactive({
   patient_age: null,
   patient_gender: '',
   address: '',
+  location_latitude: null,
+  location_longitude: null,
+  location_reference: '',
   symptoms: '',
   contact_phone: '',
   contact_email: '',
@@ -234,6 +237,11 @@ async function submitRequest() {
       address: form.address.trim(),
       contact_phone: form.contact_phone.trim(),
     };
+    if (Number.isFinite(form.location_latitude) && Number.isFinite(form.location_longitude)) {
+      body.location_latitude = form.location_latitude;
+      body.location_longitude = form.location_longitude;
+    }
+    if (form.location_reference.trim()) body.location_reference = form.location_reference.trim();
     if (selectedServiceId.value) body.service_id = Number(selectedServiceId.value);
     if (isPackage.value && startAt.value instanceof Date) body.start_at = startAt.value.toISOString();
     if (!isPackage.value && preferredAt.value instanceof Date) body.preferred_at = preferredAt.value.toISOString();
@@ -380,7 +388,15 @@ onMounted(async () => {
             <div class="form-grid">
               <label v-if="isPackage" class="is-wide"><span>{{ t('Coverage start*') }}</span><DatePicker v-model="startAt" showIcon fluid dateFormat="dd M yy" :minDate="today" /></label>
               <label v-else class="is-wide"><span>{{ t('Preferred visit time') }}</span><DatePicker v-model="preferredAt" showIcon showTime hourFormat="24" fluid dateFormat="dd M yy" :minDate="today" /></label>
-              <label class="is-wide"><span>{{ t('Home address*') }}</span><GooglePlaceInput v-model="form.address" :placeholder="t('Street, neighbourhood, city')" /></label>
+              <ClientLocationPicker
+                v-model="form.address"
+                v-model:latitude="form.location_latitude"
+                v-model:longitude="form.location_longitude"
+                v-model:locationReference="form.location_reference"
+                class="is-wide"
+                :label="t('Home address or city*')"
+                :placeholder="t('Street, neighbourhood, city')"
+              />
               <label><span>{{ t('Contact phone*') }}</span><InputText v-model="form.contact_phone" placeholder="+261..." /></label>
               <label><span>{{ t('Contact email') }}</span><InputText v-model="form.contact_email" placeholder="name@example.com" /></label>
             </div>
@@ -502,7 +518,7 @@ onMounted(async () => {
 .service-option--general > b { grid-column: auto; }
 .form-grid { display: grid; gap: 16px; grid-template-columns: repeat(2,minmax(0,1fr)); }
 .form-grid label { display: grid; gap: 7px; min-width: 0; }
-.form-grid label.is-wide { grid-column: 1/-1; }
+.form-grid > .is-wide,.form-grid label.is-wide { grid-column: 1/-1; }
 .form-grid label > span { color: var(--tm-heading); font-size: .78rem; font-weight: 840; }
 .form-grid :deep(.p-select),.form-grid :deep(.p-datepicker),.form-grid :deep(.p-datepicker-input),.form-grid :deep(.p-inputnumber),.form-grid :deep(.p-inputnumber-input),.form-grid :deep(.p-inputtext),.form-grid :deep(.p-textarea) { width: 100%; }
 .privacy-note,.visit-note,.review-consent { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border-radius: 13px; background: rgba(49,92,112,.08); color: var(--tm-blue); font-size: .78rem; font-weight: 760; line-height: 1.5; }
@@ -548,5 +564,5 @@ onMounted(async () => {
 .request-state--error i { color: var(--tm-coral); }
 @media (max-width: 1000px) { .request-layout { grid-template-columns: 1fr; } .request-summary { position: static; } }
 @media (max-width: 760px) { .care-request-page { padding-top: 12px; } .request-hero { grid-template-columns: 1fr; border-radius: 22px; } .request-stepper button { justify-content: center; } .request-stepper button div { display: none; } .service-grid,.review-grid { grid-template-columns: 1fr; } .review-grid > section.is-wide { grid-column: auto; } }
-@media (max-width: 540px) { .form-grid { grid-template-columns: 1fr; } .form-grid label.is-wide { grid-column: auto; } .service-option { grid-template-columns: auto minmax(0,1fr); } .service-option :deep(.p-radiobutton) { position: absolute; top: 11px; right: 11px; } .service-option__icon { grid-row: span 2; } .service-option > b { grid-column: 2; } .service-option--general { grid-template-columns: auto minmax(0,1fr); } .service-option--general > b { grid-column: 2; } .request-actions { grid-template-columns: 1fr; } .request-actions :deep(.p-button:only-child) { grid-column: auto; } }
+@media (max-width: 540px) { .form-grid { grid-template-columns: 1fr; } .form-grid > .is-wide,.form-grid label.is-wide { grid-column: auto; } .service-option { grid-template-columns: auto minmax(0,1fr); } .service-option :deep(.p-radiobutton) { position: absolute; top: 11px; right: 11px; } .service-option__icon { grid-row: span 2; } .service-option > b { grid-column: 2; } .service-option--general { grid-template-columns: auto minmax(0,1fr); } .service-option--general > b { grid-column: 2; } .request-actions { grid-template-columns: 1fr; } .request-actions :deep(.p-button:only-child) { grid-column: auto; } }
 </style>

@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 
-import GooglePlaceInput from '@/components/GooglePlaceInput.vue';
+import ClientLocationPicker from '@/components/ClientLocationPicker.vue';
 import VisualPlaceholder from '@/components/VisualPlaceholder.vue';
 import { checkAvailability, createBooking, getCar, listBookedRanges } from '@/api/public';
 import { usePublicI18n } from '@/i18n/public';
@@ -40,7 +40,13 @@ const serviceDate = ref(new Date(today));
 
 const form = reactive({
   pickup_location: '',
+  pickup_latitude: null,
+  pickup_longitude: null,
+  pickup_reference: '',
   dropoff_location: '',
+  dropoff_latitude: null,
+  dropoff_longitude: null,
+  dropoff_reference: '',
   distance_km: null,
   outside_antananarivo: null,
   contact_phone: '',
@@ -282,6 +288,10 @@ function clearComputedDistance() {
 
 function clearPlaceField(key) {
   form[key] = '';
+  const prefix = key === 'pickup_location' ? 'pickup' : 'dropoff';
+  form[`${prefix}_latitude`] = null;
+  form[`${prefix}_longitude`] = null;
+  form[`${prefix}_reference`] = '';
   delete placeMeta[key];
   if (key === 'pickup_location' || key === 'dropoff_location') {
     clearComputedDistance();
@@ -303,15 +313,27 @@ function handlePlaceSelect(selection, key) {
   form[key] = selection.value || selection.prediction?.description || '';
   placeMeta[key] = selection.prediction;
   clearComputedDistance();
-  maybeComputeDistance();
+}
+
+function handlePinChange(position, key) {
+  const prefix = key === 'pickup_location' ? 'pickup' : 'dropoff';
+  form[`${prefix}_latitude`] = position.lat;
+  form[`${prefix}_longitude`] = position.lng;
+  delete placeMeta[key];
+  clearComputedDistance();
+  nextTick(maybeComputeDistance);
 }
 
 async function maybeComputeDistance() {
   if (!isCargo.value) {
     return;
   }
-  const origin = placeMeta.pickup_location?.place_id;
-  const destination = placeMeta.dropoff_location?.place_id;
+  const origin = Number.isFinite(form.pickup_latitude) && Number.isFinite(form.pickup_longitude)
+    ? { lat: form.pickup_latitude, lng: form.pickup_longitude }
+    : placeMeta.pickup_location?.place_id;
+  const destination = Number.isFinite(form.dropoff_latitude) && Number.isFinite(form.dropoff_longitude)
+    ? { lat: form.dropoff_latitude, lng: form.dropoff_longitude }
+    : placeMeta.dropoff_location?.place_id;
   if (!origin || !destination) {
     return;
   }
@@ -498,9 +520,19 @@ async function submitBooking() {
       pickup_location: form.pickup_location.trim(),
       contact_phone: form.contact_phone.trim(),
     };
+    if (Number.isFinite(form.pickup_latitude) && Number.isFinite(form.pickup_longitude)) {
+      body.pickup_latitude = form.pickup_latitude;
+      body.pickup_longitude = form.pickup_longitude;
+    }
+    if (form.pickup_reference.trim()) body.pickup_reference = form.pickup_reference.trim();
     if (form.dropoff_location.trim()) {
       body.dropoff_location = form.dropoff_location.trim();
     }
+    if (Number.isFinite(form.dropoff_latitude) && Number.isFinite(form.dropoff_longitude)) {
+      body.dropoff_latitude = form.dropoff_latitude;
+      body.dropoff_longitude = form.dropoff_longitude;
+    }
+    if (form.dropoff_reference.trim()) body.dropoff_reference = form.dropoff_reference.trim();
     if (isCargo.value) {
       body.distance_km = Number(form.distance_km).toFixed(2);
     } else {
@@ -725,26 +757,28 @@ onMounted(load);
               </fieldset>
 
               <div class="place-grid">
-                <label>
-                  <span>{{ t('Pickup location*') }}</span>
-                  <GooglePlaceInput
-                    v-model="form.pickup_location"
-                    :manualFallback="false"
-                    :placeholder="t('Hotel, airport, office...')"
-                    @place-select="handlePlaceSelect($event, 'pickup_location')"
-                    @place-clear="handlePlaceClear('pickup_location')"
-                  />
-                </label>
-                <label>
-                  <span>{{ isCargo ? t('Dropoff location*') : t('Dropoff location') }}</span>
-                  <GooglePlaceInput
-                    v-model="form.dropoff_location"
-                    :manualFallback="false"
-                    :placeholder="t('Optional for standard hire')"
-                    @place-select="handlePlaceSelect($event, 'dropoff_location')"
-                    @place-clear="handlePlaceClear('dropoff_location')"
-                  />
-                </label>
+                <ClientLocationPicker
+                  v-model="form.pickup_location"
+                  v-model:latitude="form.pickup_latitude"
+                  v-model:longitude="form.pickup_longitude"
+                  v-model:locationReference="form.pickup_reference"
+                  :label="t('Pickup location or city*')"
+                  :placeholder="t('Hotel, airport, office...')"
+                  @place-select="handlePlaceSelect($event, 'pickup_location')"
+                  @place-clear="handlePlaceClear('pickup_location')"
+                  @pin-change="handlePinChange($event, 'pickup_location')"
+                />
+                <ClientLocationPicker
+                  v-model="form.dropoff_location"
+                  v-model:latitude="form.dropoff_latitude"
+                  v-model:longitude="form.dropoff_longitude"
+                  v-model:locationReference="form.dropoff_reference"
+                  :label="isCargo ? t('Dropoff location or city*') : t('Dropoff location or city')"
+                  :placeholder="t('Optional for standard hire')"
+                  @place-select="handlePlaceSelect($event, 'dropoff_location')"
+                  @place-clear="handlePlaceClear('dropoff_location')"
+                  @pin-change="handlePinChange($event, 'dropoff_location')"
+                />
               </div>
 
               <label v-if="isCargo">
@@ -1077,6 +1111,10 @@ onMounted(load);
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.place-grid {
+  grid-template-columns: 1fr;
 }
 
 /* Booked day inside the (teleported) date picker. A plain scoped class on the

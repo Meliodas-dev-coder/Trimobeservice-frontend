@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 
-import GooglePlaceInput from '@/components/GooglePlaceInput.vue';
+import ClientLocationPicker from '@/components/ClientLocationPicker.vue';
 import { listAddresses } from '@/api/public';
 import { usePublicI18n } from '@/i18n/public';
 import { useAuthStore } from '@/stores/auth';
@@ -36,6 +36,9 @@ const address = reactive({
   region: '',
   country: 'Madagascar',
   postal_code: '',
+  latitude: null,
+  longitude: null,
+  location_reference: '',
 });
 
 const fulfillmentOptions = computed(() => [
@@ -64,6 +67,9 @@ function resetDeliveryAddress() {
     region: '',
     country: 'Madagascar',
     postal_code: '',
+    latitude: null,
+    longitude: null,
+    location_reference: '',
   });
 }
 
@@ -81,6 +87,9 @@ function fillDeliveryAddress(saved) {
     region: saved.region || '',
     country: saved.country || 'Madagascar',
     postal_code: saved.postal_code || '',
+    latitude: null,
+    longitude: null,
+    location_reference: '',
   });
 }
 
@@ -175,6 +184,9 @@ function cleanAddress() {
     region: address.region.trim() || null,
     country: address.country.trim(),
     postal_code: address.postal_code.trim() || null,
+    latitude: Number.isFinite(address.latitude) ? address.latitude : null,
+    longitude: Number.isFinite(address.longitude) ? address.longitude : null,
+    location_reference: address.location_reference.trim() || null,
   };
 }
 
@@ -312,11 +324,18 @@ onMounted(loadCart);
               <InputText v-model="address.phone" />
               <small v-if="checkoutErrors['shipping_address.phone']">{{ checkoutErrors['shipping_address.phone'] }}</small>
             </label>
-            <label class="address-grid__wide">
-              <span>{{ t('Address line 1*') }}</span>
-              <GooglePlaceInput v-model="address.line1" @place-select="applyDeliveryPlace" />
+            <div class="address-grid__wide">
+              <ClientLocationPicker
+                v-model="address.line1"
+                v-model:latitude="address.latitude"
+                v-model:longitude="address.longitude"
+                v-model:locationReference="address.location_reference"
+                :label="t('Delivery address or city*')"
+                :placeholder="t('Type a city, neighbourhood, or address')"
+                @place-select="applyDeliveryPlace"
+              />
               <small v-if="checkoutErrors['shipping_address.line1']">{{ checkoutErrors['shipping_address.line1'] }}</small>
-            </label>
+            </div>
             <label class="address-grid__wide">
               <span>{{ t('Address line 2') }}</span>
               <InputText v-model="address.line2" />

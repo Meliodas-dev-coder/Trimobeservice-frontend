@@ -233,6 +233,13 @@ onMounted(async () => {
             <span><i class="pi pi-user" />{{ t('Driver included') }}</span>
             <span><i class="pi pi-tag" />{{ t('Clear pricing before booking') }}</span>
           </div>
+          <Button
+            as="router-link"
+            :to="{ name: 'multi-car-booking' }"
+            class="cars-hero__multi"
+            :label="t('Book multiple cars')"
+            icon="pi pi-clone"
+          />
         </div>
 
         <RouterLink v-if="heroCar" :to="heroCar.to" class="cars-hero__vehicle">
@@ -320,6 +327,7 @@ onMounted(async () => {
 .cars-hero__trust { display: flex; flex-wrap: wrap; gap: 12px 22px; margin-top: 24px; }
 .cars-hero__trust span { display: inline-flex; align-items: center; gap: 9px; color: rgba(255,255,255,.78); font-weight: 780; }
 .cars-hero__trust i { display: grid; width: 34px; height: 34px; border: 1px solid rgba(201,146,44,.5); border-radius: 50%; color: var(--tm-gold); place-items: center; }
+.cars-hero__multi { margin-top: 24px; background: var(--tm-gold); border-color: var(--tm-gold); color: var(--tm-charcoal); }
 .cars-hero__vehicle { display: grid; min-height: 280px; align-self: stretch; overflow: hidden; border-radius: 22px; color: inherit; text-decoration: none; }
 .cars-hero__vehicle img { position: absolute; width: 100%; height: 100%; object-fit: cover; filter: saturate(.88) contrast(1.04); }
 .cars-hero__vehicle::after { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 50%, rgba(10,15,16,.8)); content: ''; }

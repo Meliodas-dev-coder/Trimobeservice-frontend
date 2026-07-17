@@ -1775,6 +1775,17 @@ adminResources.orders.manage = {
     { key: 'delivery_address', label: 'Delivery address', value: orderDeliveryAddress, section: 'delivery', wide: true, emptyLabel: 'No delivery address provided.', showWhen: (order) => order.fulfillment_type === 'delivery' },
     { key: 'note', label: 'Order note', type: 'note', section: 'note', sectionLabel: 'Customer instructions', sectionIcon: 'pi pi-comment', wide: true, emptyLabel: 'No order note provided.' },
   ],
+  locationMaps: [
+    {
+      key: 'delivery_address',
+      label: 'Delivery destination',
+      value: orderDeliveryAddress,
+      latitudeKey: 'ship_latitude',
+      longitudeKey: 'ship_longitude',
+      referenceKey: 'ship_location_reference',
+      showWhen: (order) => order.fulfillment_type === 'delivery',
+    },
+  ],
   itemsTable: {
     key: 'items',
     title: 'Line items',
@@ -1835,6 +1846,31 @@ adminResources.orders.manage = {
           ? { pending: ['confirmed', 'cancelled'], confirmed: ['shipped', 'cancelled'], shipped: ['delivered'] }[order.status] || []
           : { pending: ['picked_up', 'cancelled'] }[order.status] || [],
     },
+    {
+      key: 'create-invoice',
+      label: 'Create invoice',
+      type: 'form',
+      method: 'POST',
+      path: () => '/admin/invoices',
+      icon: 'pi pi-file',
+      successSummary: 'Invoice created — find it under Invoices',
+      errorSummary: 'Could not create invoice',
+      enabled: (order) => order.status !== 'cancelled' && order.status !== 'expired',
+      body: (values, order) => ({ invoiceable_type: 'order', invoiceable_id: order.id, ...values }),
+      formFields: [
+        {
+          key: 'kind',
+          label: 'Document',
+          type: 'select',
+          defaultValue: 'proforma',
+          required: true,
+          options: [
+            { label: 'Proforma', value: 'proforma' },
+            { label: 'Final invoice', value: 'final' },
+          ],
+        },
+      ],
+    },
   ],
 };
 
@@ -1857,7 +1893,7 @@ adminResources.bookings.manage = {
     { key: 'end_at', label: 'End', type: 'date', section: 'schedule' },
     { key: 'pricing_model', label: 'Pricing', type: 'enum', section: 'schedule' },
     { key: 'outside_antananarivo', label: 'Outside Antananarivo', type: 'boolean', section: 'schedule' },
-    { key: 'daily_rate_snapshot', label: 'Applied daily rate', type: 'money', section: 'schedule' },
+    { key: 'daily_rate_snapshot', label: 'Applied daily rate', type: 'money', section: 'schedule', showWhen: (booking) => !booking.is_multi_car },
     { key: 'total_price', label: 'Total', type: 'money', section: 'schedule' },
     { key: 'distance_km', label: 'Distance', suffix: 'km', section: 'schedule' },
     { key: 'pickup_location', label: 'Pickup', section: 'route', sectionLabel: 'Route & contact', sectionIcon: 'pi pi-map-marker', wide: true },
@@ -1865,7 +1901,23 @@ adminResources.bookings.manage = {
     { key: 'contact_phone', label: 'Contact', section: 'route' },
     { key: 'note', label: 'Client note', type: 'note', section: 'note', sectionLabel: 'Client instructions', sectionIcon: 'pi pi-comment', wide: true, emptyLabel: 'No client note provided.' },
   ],
-  showDriver: true,
+  locationMaps: [
+    { key: 'pickup_location', label: 'Pickup location', latitudeKey: 'pickup_latitude', longitudeKey: 'pickup_longitude', referenceKey: 'pickup_reference' },
+    { key: 'dropoff_location', label: 'Dropoff location', latitudeKey: 'dropoff_latitude', longitudeKey: 'dropoff_longitude', referenceKey: 'dropoff_reference' },
+  ],
+  showDriver: (booking) => !booking.is_multi_car,
+  itemsTable: {
+    key: 'cars',
+    title: 'Cars in this booking',
+    showWhen: (booking) => booking.is_multi_car,
+    columns: [
+      { field: 'car_name', header: 'Car' },
+      { field: 'car_category', header: 'Category' },
+      { field: 'driver.full_name', header: 'Driver', emptyLabel: 'Not assigned' },
+      { field: 'status', header: 'Status', type: 'enum' },
+      { field: 'total_price', header: 'Subtotal', type: 'money' },
+    ],
+  },
   actions: [
     {
       key: 'record-payment',
@@ -1913,7 +1965,41 @@ adminResources.bookings.manage = {
       collectionKey: 'drivers',
       optionLabel: 'full_name',
       optionValue: 'id',
-      enabled: (b) => ['confirmed', 'driver_assigned'].includes(b.status),
+      showWhen: (b) => !b.is_multi_car,
+      enabled: (b) => !b.is_multi_car && ['confirmed', 'driver_assigned'].includes(b.status),
+    },
+    {
+      key: 'assign-car-driver',
+      label: 'Assign car driver',
+      type: 'form',
+      method: 'POST',
+      path: (id) => `/admin/bookings/${id}/assign-driver`,
+      icon: 'pi pi-user-plus',
+      showWhen: (b) => b.is_multi_car,
+      enabled: (b) => b.is_multi_car && ['confirmed', 'driver_assigned'].includes(b.status),
+      formFields: (booking) => [
+        {
+          key: 'booking_item_id',
+          label: 'Car',
+          type: 'select',
+          required: true,
+          options: (booking.cars || []).map((car) => ({
+            label: car.driver ? `${car.car_name} — ${car.driver.full_name}` : car.car_name,
+            value: car.id,
+          })),
+        },
+        {
+          key: 'driver_id',
+          label: 'Driver',
+          type: 'select',
+          required: true,
+          options: [],
+          optionsEndpoint: '/admin/drivers',
+          collectionKey: 'drivers',
+          optionLabel: 'full_name',
+          optionValue: 'id',
+        },
+      ],
     },
     {
       key: 'status',
@@ -1937,6 +2023,31 @@ adminResources.bookings.manage = {
       enabled: (b) => b.payment_status === 'unpaid',
       disabledHelp: 'Bookings with payment history cannot be deleted.',
       confirmMessage: 'Permanently delete this unpaid booking? This cannot be undone.',
+    },
+    {
+      key: 'create-invoice',
+      label: 'Create invoice',
+      type: 'form',
+      method: 'POST',
+      path: () => '/admin/invoices',
+      icon: 'pi pi-file',
+      successSummary: 'Invoice created — find it under Invoices',
+      errorSummary: 'Could not create invoice',
+      enabled: (b) => b.status !== 'cancelled',
+      body: (values, booking) => ({ invoiceable_type: 'booking', invoiceable_id: booking.id, ...values }),
+      formFields: [
+        {
+          key: 'kind',
+          label: 'Document',
+          type: 'select',
+          defaultValue: 'proforma',
+          required: true,
+          options: [
+            { label: 'Proforma', value: 'proforma' },
+            { label: 'Final invoice', value: 'final' },
+          ],
+        },
+      ],
     },
   ],
 };
@@ -1968,6 +2079,9 @@ adminResources['event-requests'].manage = {
     { key: 'note', label: 'Client note', type: 'note', section: 'client-note', sectionLabel: 'Client instructions', sectionIcon: 'pi pi-comment', wide: true, emptyLabel: 'No client note provided.' },
     { key: 'admin_note', label: 'Internal note', type: 'note', section: 'admin-note', sectionLabel: 'Internal follow-up', sectionIcon: 'pi pi-file-edit', wide: true, emptyLabel: 'No internal note yet.' },
   ],
+  locationMaps: [
+    { key: 'location', label: 'Event location', latitudeKey: 'location_latitude', longitudeKey: 'location_longitude', referenceKey: 'location_reference' },
+  ],
   itemsTable: {
     key: 'services',
     title: 'Requested services',
@@ -1976,6 +2090,7 @@ adminResources['event-requests'].manage = {
       { field: 'category_name', header: 'Category' },
       { field: 'from_price_snapshot', header: 'From', type: 'money' },
       { field: 'quantity', header: 'Qty' },
+      { field: 'quoted_unit_price', header: 'Quoted unit', type: 'money' },
     ],
   },
   itemsTables: [
@@ -1985,26 +2100,24 @@ adminResources['event-requests'].manage = {
       columns: [
         { field: 'artist_name', header: 'Artist' },
         { field: 'fee_snapshot', header: 'From', type: 'money' },
+        { field: 'quoted_fee', header: 'Quoted fee', type: 'money' },
         { field: 'note', header: 'Note' },
       ],
     },
   ],
   actions: [
     {
+      // Per-line quote editor (dedicated dialog): price each service/artist,
+      // total is their sum. See EventQuoteDialog.vue.
       key: 'quote',
       label: 'Set quote',
-      type: 'form',
+      type: 'event-quote',
       method: 'PATCH',
       path: (id) => `/admin/event-requests/${id}/quote`,
       icon: 'pi pi-tag',
       successSummary: 'Quote saved',
       errorSummary: 'Quote failed',
       enabled: (eventRequest) => ['requested', 'reviewing', 'quoted'].includes(eventRequest.status),
-      body: (values) => values,
-      formFields: [
-        { key: 'quoted_price', label: 'Quote amount', type: 'money', required: true },
-        { key: 'admin_note', label: 'Internal note', type: 'textarea' },
-      ],
     },
     {
       key: 'record-payment',
@@ -2058,6 +2171,31 @@ adminResources['event-requests'].manage = {
           in_progress: ['completed'],
         })[eventRequest.status] || [],
     },
+    {
+      key: 'create-invoice',
+      label: 'Create invoice',
+      type: 'form',
+      method: 'POST',
+      path: () => '/admin/invoices',
+      icon: 'pi pi-file',
+      successSummary: 'Invoice created — find it under Invoices',
+      errorSummary: 'Could not create invoice',
+      enabled: (eventRequest) => Boolean(eventRequest.quoted_price) && eventRequest.status !== 'cancelled',
+      body: (values, eventRequest) => ({ invoiceable_type: 'event', invoiceable_id: eventRequest.id, ...values }),
+      formFields: [
+        {
+          key: 'kind',
+          label: 'Document',
+          type: 'select',
+          defaultValue: 'proforma',
+          required: true,
+          options: [
+            { label: 'Proforma', value: 'proforma' },
+            { label: 'Final invoice', value: 'final' },
+          ],
+        },
+      ],
+    },
   ],
 };
 
@@ -2103,6 +2241,12 @@ adminResources.payments.manage = {
       { key: 'pickup_location', label: 'Address', showWhen: isHealthcareTarget },
       { key: 'contact_phone', label: 'Contact', showWhen: isHealthcareTarget },
       { key: 'created_at', label: 'Created', type: 'date' },
+    ],
+    locationMaps: [
+      { key: 'pickup_location', label: 'Pickup location', latitudeKey: 'pickup_latitude', longitudeKey: 'pickup_longitude', referenceKey: 'pickup_reference', showWhen: isBookingTarget },
+      { key: 'dropoff_location', label: 'Dropoff location', latitudeKey: 'dropoff_latitude', longitudeKey: 'dropoff_longitude', referenceKey: 'dropoff_reference', showWhen: isBookingTarget },
+      { key: 'pickup_location', label: 'Event location', latitudeKey: 'pickup_latitude', longitudeKey: 'pickup_longitude', referenceKey: 'pickup_reference', showWhen: isEventTarget },
+      { key: 'pickup_location', label: 'Care address', latitudeKey: 'pickup_latitude', longitudeKey: 'pickup_longitude', referenceKey: 'pickup_reference', showWhen: isHealthcareTarget },
     ],
     itemsTable: {
       key: 'items',
@@ -2174,6 +2318,9 @@ adminResources['healthcare-requests'].manage = {
     { key: 'contact_email', label: 'Email', section: 'contact', wide: true, emptyLabel: 'No email provided' },
     { key: 'note', label: 'Client note', type: 'note', section: 'client-note', sectionLabel: 'Client instructions', sectionIcon: 'pi pi-comment', wide: true, emptyLabel: 'No client note provided.' },
     { key: 'admin_note', label: 'Internal note', type: 'note', section: 'admin-note', sectionLabel: 'Internal follow-up', sectionIcon: 'pi pi-file-edit', wide: true, emptyLabel: 'No internal note yet.' },
+  ],
+  locationMaps: [
+    { key: 'address', label: 'Care address', latitudeKey: 'location_latitude', longitudeKey: 'location_longitude', referenceKey: 'location_reference' },
   ],
   itemsTable: {
     key: 'staff',
@@ -2279,6 +2426,31 @@ adminResources['healthcare-requests'].manage = {
           assigned: ['in_progress', 'cancelled'],
           in_progress: ['completed'],
         })[req.status] || [],
+    },
+    {
+      key: 'create-invoice',
+      label: 'Create invoice',
+      type: 'form',
+      method: 'POST',
+      path: () => '/admin/invoices',
+      icon: 'pi pi-file',
+      successSummary: 'Invoice created — find it under Invoices',
+      errorSummary: 'Could not create invoice',
+      enabled: (req) => Boolean(req.quoted_price) && req.status !== 'cancelled',
+      body: (values, req) => ({ invoiceable_type: 'healthcare', invoiceable_id: req.id, ...values }),
+      formFields: [
+        {
+          key: 'kind',
+          label: 'Document',
+          type: 'select',
+          defaultValue: 'proforma',
+          required: true,
+          options: [
+            { label: 'Proforma', value: 'proforma' },
+            { label: 'Final invoice', value: 'final' },
+          ],
+        },
+      ],
     },
   ],
 };

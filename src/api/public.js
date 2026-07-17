@@ -81,6 +81,11 @@ export async function createBooking(body) {
   return data?.booking || null;
 }
 
+export async function createBookings(body) {
+  const data = await api.post('/bookings/batch', body);
+  return data?.booking || null;
+}
+
 export async function listMyOrders({ page = 1, limit = 20 } = {}) {
   const data = await api.get('/orders', { params: { page, limit } });
   return listEnvelope(data, 'orders', page, limit);

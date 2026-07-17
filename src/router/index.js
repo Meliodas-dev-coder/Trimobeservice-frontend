@@ -7,6 +7,9 @@ import AdminProductDetailView from '@/views/admin/AdminProductDetailView.vue';
 import AdminOrderCreateView from '@/views/admin/AdminOrderCreateView.vue';
 import AdminEventRequestCreateView from '@/views/admin/AdminEventRequestCreateView.vue';
 import AdminHealthcareSettingsView from '@/views/admin/AdminHealthcareSettingsView.vue';
+import AdminInvoicesView from '@/views/admin/AdminInvoicesView.vue';
+import AdminInvoiceView from '@/views/admin/AdminInvoiceView.vue';
+import AdminOrgSettingsView from '@/views/admin/AdminOrgSettingsView.vue';
 import AdminLoginView from '@/views/admin/AdminLoginView.vue';
 import AdminResourceView from '@/views/admin/AdminResourceView.vue';
 import AdminTechOverviewView from '@/views/admin/AdminTechOverviewView.vue';
@@ -17,6 +20,7 @@ import AccountView from '@/views/public/AccountView.vue';
 import CartView from '@/views/public/CartView.vue';
 import CarDetailView from '@/views/public/CarDetailView.vue';
 import CarsView from '@/views/public/CarsView.vue';
+import MultiCarBookingView from '@/views/public/MultiCarBookingView.vue';
 import BookingConfirmationView from '@/views/public/BookingConfirmationView.vue';
 import CoffeeMisionaView from '@/views/public/CoffeeMisionaView.vue';
 import EventPlanView from '@/views/public/EventPlanView.vue';
@@ -116,6 +120,12 @@ const router = createRouter({
             eyebrow: 'Hire',
             description: 'Date-based car booking with daily rates, driver assignment, and status tracking.',
           },
+        },
+        {
+          path: 'cars/multiple',
+          name: 'multi-car-booking',
+          component: MultiCarBookingView,
+          meta: { title: 'Book multiple cars' },
         },
         {
           path: 'cars/:slug',
@@ -482,6 +492,24 @@ const router = createRouter({
           name: 'admin-payments',
           component: AdminResourceView,
           meta: { title: 'Payments', resource: 'payments', description: 'Record manual payments and refunds.' },
+        },
+        {
+          path: 'invoices',
+          name: 'admin-invoices',
+          component: AdminInvoicesView,
+          meta: { title: 'Invoices', description: 'Proforma bills, final invoices, and credit notes.' },
+        },
+        {
+          path: 'invoices/:id',
+          name: 'admin-invoice-detail',
+          component: AdminInvoiceView,
+          meta: { title: 'Invoice', description: 'View, issue, and print an invoice.' },
+        },
+        {
+          path: 'org-settings',
+          name: 'admin-org-settings',
+          component: AdminOrgSettingsView,
+          meta: { title: 'Billing settings', description: 'Company identity and invoice defaults printed on every invoice.' },
         },
         {
           path: 'customers',
