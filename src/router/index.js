@@ -10,7 +10,9 @@ import AdminHealthcareSettingsView from '@/views/admin/AdminHealthcareSettingsVi
 import AdminInvoicesView from '@/views/admin/AdminInvoicesView.vue';
 import AdminInvoiceView from '@/views/admin/AdminInvoiceView.vue';
 import AdminOrgSettingsView from '@/views/admin/AdminOrgSettingsView.vue';
+import AdminAccountView from '@/views/admin/AdminAccountView.vue';
 import AdminLoginView from '@/views/admin/AdminLoginView.vue';
+import AdminNoAccessView from '@/views/admin/AdminNoAccessView.vue';
 import AdminResourceView from '@/views/admin/AdminResourceView.vue';
 import AdminTechOverviewView from '@/views/admin/AdminTechOverviewView.vue';
 import AdminMobilityOverviewView from '@/views/admin/AdminMobilityOverviewView.vue';
@@ -523,13 +525,113 @@ const router = createRouter({
           component: AdminResourceView,
           meta: { title: 'Activity log', resource: 'audit-logs', description: 'Who changed what in the dashboard, and when.' },
         },
+        {
+          path: 'users',
+          name: 'admin-users',
+          component: AdminResourceView,
+          meta: { title: 'Team members', resource: 'admin-users', description: 'Create admin employees and assign each one an access role.' },
+        },
+        {
+          path: 'roles',
+          name: 'admin-roles',
+          component: AdminResourceView,
+          meta: { title: 'Access roles', resource: 'admin-roles', description: 'Bundle admin screens into roles you can assign to employees.' },
+        },
+        {
+          path: 'account',
+          name: 'admin-account',
+          component: AdminAccountView,
+          meta: { title: 'My account', description: 'Your profile and password.' },
+        },
+        {
+          path: 'no-access',
+          name: 'admin-no-access',
+          component: AdminNoAccessView,
+          meta: { title: 'No access' },
+        },
       ],
     },
   ],
 });
 
-// Guard the admin area: only an authenticated admin may enter. Everything under
-// /admin (except the login page) requires role=admin.
+// Which section permission each admin route requires. Restricted employees only
+// reach screens their role grants; super-admins pass everything. This mirrors
+// the backend's authz keys (internal/authz) — the backend is the real gate, so a
+// route missing here still has its data protected server-side. Keep new admin
+// routes in sync. String or array (any-of).
+const ROUTE_PERMISSIONS = {
+  'admin-dashboard': 'dashboard',
+  'admin-categories': ['tech', 'fashion', 'coffee'],
+  'admin-brands': ['tech', 'fashion', 'coffee'],
+  'admin-products': ['tech', 'fashion', 'coffee'],
+  'admin-product-new': ['tech', 'fashion', 'coffee'],
+  'admin-product-detail': ['tech', 'fashion', 'coffee'],
+  'admin-tech-overview': 'tech',
+  'admin-tech-categories': 'tech',
+  'admin-tech-brands': 'tech',
+  'admin-tech-products': 'tech',
+  'admin-tech-product-new': 'tech',
+  'admin-tech-product-detail': 'tech',
+  'admin-fashion-categories': 'fashion',
+  'admin-fashion-brands': 'fashion',
+  'admin-fashion-products': 'fashion',
+  'admin-coffee-products': 'coffee',
+  'admin-mobility-overview': 'mobility',
+  'admin-cars': 'mobility',
+  'admin-car-detail': 'mobility',
+  'admin-car-categories': 'mobility',
+  'admin-drivers': 'mobility',
+  'admin-bookings': 'mobility',
+  'admin-orders': 'orders',
+  'admin-order-new': 'orders',
+  'admin-events-overview': 'events',
+  'admin-event-service-categories': 'events',
+  'admin-event-services': 'events',
+  'admin-artists': 'events',
+  'admin-event-requests': 'events',
+  'admin-event-request-new': 'events',
+  'admin-healthcare-overview': 'healthcare',
+  'admin-practitioners': 'healthcare',
+  'admin-healthcare-categories': 'healthcare',
+  'admin-healthcare-services': 'healthcare',
+  'admin-healthcare-requests': 'healthcare',
+  'admin-healthcare-settings': 'healthcare',
+  'admin-payments': 'payments',
+  'admin-invoices': 'invoices',
+  'admin-invoice-detail': 'invoices',
+  'admin-org-settings': 'invoices',
+  'admin-customers': 'customers',
+  'admin-audit-logs': 'audit_logs',
+  'admin-users': 'user_management',
+  'admin-roles': 'user_management',
+};
+
+// Ordered landing candidates: the first screen the signed-in admin can reach.
+// Used for the post-login redirect and to bounce off a forbidden screen.
+const PERMISSION_LANDING = [
+  { permission: 'dashboard', to: { name: 'admin-dashboard' } },
+  { permission: 'tech', to: { name: 'admin-tech-overview' } },
+  { permission: 'fashion', to: { name: 'admin-fashion-products' } },
+  { permission: 'coffee', to: { name: 'admin-coffee-products' } },
+  { permission: 'mobility', to: { name: 'admin-mobility-overview' } },
+  { permission: 'events', to: { name: 'admin-events-overview' } },
+  { permission: 'healthcare', to: { name: 'admin-healthcare-overview' } },
+  { permission: 'orders', to: { name: 'admin-orders' } },
+  { permission: 'payments', to: { name: 'admin-payments' } },
+  { permission: 'invoices', to: { name: 'admin-invoices' } },
+  { permission: 'customers', to: { name: 'admin-customers' } },
+  { permission: 'audit_logs', to: { name: 'admin-audit-logs' } },
+  { permission: 'user_management', to: { name: 'admin-users' } },
+];
+
+function firstPermittedRoute(auth) {
+  const match = PERMISSION_LANDING.find((entry) => auth.can(entry.permission));
+  return match ? match.to : { name: 'admin-no-access' };
+}
+
+// Guard the admin area: only an authenticated admin may enter, and only the
+// screens their role permits. Everything under /admin (except login) requires
+// role=admin; individual screens additionally require their section permission.
 router.beforeEach(async (to) => {
   const auth = useAuthStore();
   await auth.ensureReady(); // wait for session restore before deciding
@@ -540,9 +642,23 @@ router.beforeEach(async (to) => {
     return { name: 'admin-login', query: { redirect: to.fullPath } };
   }
 
-  // Already-signed-in admins skip the login page.
+  // Already-signed-in admins skip the login page → land on their first screen.
   if (to.name === 'admin-login' && auth.isAuthenticated && auth.isAdmin) {
-    return { name: 'admin-dashboard' };
+    return firstPermittedRoute(auth);
+  }
+
+  // Screen-level access: redirect off any admin screen the role doesn't include.
+  if (isAdminArea) {
+    const required = ROUTE_PERMISSIONS[to.name];
+    if (required && !auth.can(required)) {
+      const target = firstPermittedRoute(auth);
+      if (target.name && target.name !== to.name) {
+        return target;
+      }
+      if (to.name !== 'admin-no-access') {
+        return { name: 'admin-no-access' };
+      }
+    }
   }
 
   return true;

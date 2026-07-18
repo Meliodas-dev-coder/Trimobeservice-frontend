@@ -20,7 +20,28 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => Boolean(state.accessToken && state.user),
     isAdmin: (state) => state.user?.role === 'admin',
+    isSuperAdmin: (state) => Boolean(state.user?.is_super_admin),
+    permissions: (state) => state.user?.permissions || [],
     displayName: (state) => state.user?.full_name || state.user?.email || 'Account',
+
+    // can(permission) → whether the signed-in admin may reach a screen. Accepts a
+    // single section key or an array (any-of). Super-admins pass everything; a
+    // null/empty requirement means "no restriction". Backend RequirePermission
+    // enforces the same rule server-side — this only drives what the UI shows.
+    can: (state) => (permission) => {
+      if (state.user?.is_super_admin) {
+        return true;
+      }
+      if (permission == null) {
+        return true;
+      }
+      const needed = Array.isArray(permission) ? permission : [permission];
+      if (needed.length === 0) {
+        return true;
+      }
+      const perms = state.user?.permissions || [];
+      return needed.some((key) => perms.includes(key));
+    },
   },
 
   actions: {
@@ -65,6 +86,15 @@ export const useAuthStore = defineStore('auth', {
       const data = await api.get('/auth/me');
       this.user = data.user;
       return this.user;
+    },
+
+    // Change the signed-in user's password. The backend verifies the current
+    // password and keeps the current session valid, so no re-login is needed.
+    async changePassword(currentPassword, newPassword) {
+      await api.post('/account/password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
     },
 
     // Returns a fresh access token, or null when refresh is not possible. Used

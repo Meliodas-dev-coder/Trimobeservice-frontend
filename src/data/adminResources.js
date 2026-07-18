@@ -106,6 +106,21 @@ function auditChanges(row) {
   return text.length > 70 ? `${text.slice(0, 67)}…` : text;
 }
 
+// --- admin user & role display helpers ---
+// How many screens a role grants ("3 screens", "No screens").
+function roleScreensLabel(row) {
+  const n = Array.isArray(row.permissions) ? row.permissions.length : 0;
+  return n === 0 ? 'No screens' : `${n} ${n === 1 ? 'screen' : 'screens'}`;
+}
+
+// A team member's role, with the super-admin (unrestricted) case spelled out.
+function userRoleLabel(row) {
+  if (row.is_super_admin) {
+    return 'Super admin';
+  }
+  return row.role_name || '—';
+}
+
 // Mirrors the client event planner's indicative-total calculation. Request
 // snapshots keep this comparison stable even when catalog prices change later.
 function eventIndicativeTotal(eventRequest) {
@@ -1399,6 +1414,89 @@ export const adminResources = {
       { field: 'status_code', header: 'Status', type: 'number' },
     ],
     formFields: [],
+  },
+
+  'admin-roles': {
+    id: 'admin-roles',
+    singular: 'role',
+    plural: 'Access roles',
+    eyebrow: 'Administration',
+    description: 'Bundle admin screens into roles you can assign to employees. Edit a role once and everyone with it updates.',
+    actionLabel: 'New role',
+    rowKey: 'id',
+    api: {
+      list: '/admin/admin-roles',
+      create: '/admin/admin-roles',
+      itemBase: '/admin/admin-roles',
+      collectionKey: 'admin_roles',
+      itemKey: 'admin_role',
+    },
+    capabilities: { create: true, edit: true, remove: true },
+    columns: [
+      { field: 'name', header: 'Role' },
+      { field: 'description', header: 'Description' },
+      { field: 'permissions', header: 'Screens', format: roleScreensLabel },
+      { field: 'user_count', header: 'Members', type: 'number' },
+      { field: 'is_system', header: 'Built-in', type: 'boolean' },
+    ],
+    formFields: [
+      { key: 'name', label: 'Role name', required: true, placeholder: 'e.g. Mobility manager' },
+      { key: 'description', label: 'Description', type: 'textarea', placeholder: 'What this role is responsible for' },
+      {
+        key: 'permissions',
+        label: 'Screens this role can access',
+        type: 'multiselect',
+        fullWidth: true,
+        optionsEndpoint: '/admin/permissions',
+        collectionKey: 'permissions',
+        optionLabel: 'label',
+        optionValue: 'key',
+        help: 'Tick every admin screen this role should reach. Super-admins always see everything.',
+      },
+    ],
+  },
+
+  'admin-users': {
+    id: 'admin-users',
+    singular: 'team member',
+    plural: 'Team members',
+    eyebrow: 'Administration',
+    description: 'Create admin employees and assign each one an access role so they only see their own work.',
+    actionLabel: 'Add member',
+    rowKey: 'id',
+    api: {
+      list: '/admin/users',
+      create: '/admin/users',
+      itemBase: '/admin/users',
+      collectionKey: 'users',
+      itemKey: 'user',
+    },
+    capabilities: { create: true, edit: true, remove: false },
+    columns: [
+      { field: 'full_name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'role_name', header: 'Role', format: userRoleLabel },
+      { field: 'is_active', header: 'Active', type: 'boolean' },
+      { field: 'created_at', header: 'Added', type: 'date' },
+    ],
+    formFields: [
+      { key: 'full_name', label: 'Full name', required: true },
+      { key: 'email', label: 'Email', required: true, createOnly: true, placeholder: 'name@trimobe.mg', help: 'Used to sign in. Cannot be changed later.' },
+      { key: 'password', label: 'Temporary password', type: 'password', required: true, createOnly: true, help: 'At least 8 characters. Share it with the employee to sign in.' },
+      { key: 'phone', label: 'Phone', placeholder: 'Optional' },
+      {
+        key: 'admin_role_id',
+        label: 'Access role',
+        type: 'select',
+        required: true,
+        optionsEndpoint: '/admin/admin-roles',
+        collectionKey: 'admin_roles',
+        optionLabel: 'name',
+        optionValue: 'id',
+        help: 'Which screens this employee can access.',
+      },
+      { key: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: true, help: 'Inactive members cannot sign in.' },
+    ],
   },
 
   practitioners: {

@@ -131,6 +131,9 @@ function fieldDefault(field) {
   if (props.defaults[field.key] !== undefined) {
     return props.defaults[field.key];
   }
+  if (field.type === 'multiselect') {
+    return [];
+  }
   if (field.type === 'number' || field.type === 'money') {
     return null;
   }
@@ -142,6 +145,10 @@ function initialValue(field) {
   if (raw !== undefined && raw !== null) {
     if (field.type === 'money' || field.type === 'number') {
       return Number(raw);
+    }
+    // Copy arrays so editing the checkbox group never mutates the source row.
+    if (field.type === 'multiselect') {
+      return Array.isArray(raw) ? [...raw] : [];
     }
     return raw;
   }
@@ -491,7 +498,7 @@ watch(
 
         <label
           class="resource-form__field"
-          :class="{ 'resource-form__field--wide': field.localized || field.type === 'textarea' || field.type === 'image' || field.fullWidth }"
+          :class="{ 'resource-form__field--wide': field.localized || field.type === 'textarea' || field.type === 'image' || field.type === 'multiselect' || field.fullWidth }"
         >
         <span class="resource-form__label">
           {{ field.label }}
@@ -580,6 +587,32 @@ watch(
         <div v-else-if="field.type === 'checkbox'" class="checkbox-field">
           <Checkbox v-model="draft[field.key]" binary />
           <span>{{ field.checkboxLabel || field.label }}</span>
+        </div>
+
+        <Password
+          v-else-if="field.type === 'password'"
+          v-model="draft[field.key]"
+          :placeholder="field.placeholder"
+          :feedback="false"
+          toggleMask
+          fluid
+          inputClass="w-full"
+          autocomplete="new-password"
+        />
+
+        <div v-else-if="field.type === 'multiselect'" class="multiselect-field">
+          <label
+            v-for="opt in optionsFor(field)"
+            :key="opt.value"
+            class="multiselect-field__option"
+          >
+            <Checkbox v-model="draft[field.key]" :value="opt.value" />
+            <span>
+              <strong>{{ opt.label }}</strong>
+              <small v-if="opt.item?.description">{{ opt.item.description }}</small>
+            </span>
+          </label>
+          <p v-if="!optionsFor(field).length" class="resource-form__hint">{{ t('Loading options…') }}</p>
         </div>
 
         <GooglePlaceInput
@@ -785,6 +818,55 @@ watch(
   min-height: 40px;
   color: var(--tm-heading);
   font-weight: 800;
+}
+
+.multiselect-field {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 14px;
+  border: 1px solid var(--tm-border);
+  border-radius: 14px;
+  background: var(--tm-surface-soft);
+}
+
+.multiselect-field__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.multiselect-field__option:hover {
+  border-color: var(--tm-border);
+  background: var(--tm-surface);
+}
+
+.multiselect-field__option span {
+  display: grid;
+  gap: 2px;
+}
+
+.multiselect-field__option strong {
+  color: var(--tm-heading);
+  font-size: 0.9rem;
+  font-weight: 820;
+}
+
+.multiselect-field__option small {
+  color: var(--tm-muted);
+  font-size: 0.76rem;
+  font-weight: 640;
+  line-height: 1.4;
+}
+
+@media (max-width: 720px) {
+  .multiselect-field {
+    grid-template-columns: 1fr;
+  }
 }
 
 .image-field__preview {

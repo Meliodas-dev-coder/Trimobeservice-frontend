@@ -19,7 +19,7 @@ async function handleLogout() {
 }
 
 const primaryNav = [
-  { label: 'Dashboard', icon: 'pi pi-chart-line', to: '/admin' },
+  { label: 'Dashboard', icon: 'pi pi-chart-line', to: '/admin', permission: 'dashboard' },
 ];
 
 const groupedNav = [
@@ -27,6 +27,7 @@ const groupedNav = [
     key: 'tech',
     label: 'Tech',
     icon: 'pi pi-mobile',
+    permission: 'tech',
     items: [
       { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/tech/overview' },
       { label: 'Categories', icon: 'pi pi-tags', to: '/admin/tech/categories' },
@@ -38,6 +39,7 @@ const groupedNav = [
     key: 'fashion',
     label: 'Fashion',
     icon: 'pi pi-shopping-bag',
+    permission: 'fashion',
     items: [
       { label: 'Categories', icon: 'pi pi-tags', to: '/admin/fashion/categories' },
       { label: 'Brands', icon: 'pi pi-bookmark', to: '/admin/fashion/brands' },
@@ -48,6 +50,7 @@ const groupedNav = [
     key: 'coffee',
     label: 'Coffee',
     icon: 'pi pi-inbox',
+    permission: 'coffee',
     items: [
       { label: 'Products', icon: 'pi pi-inbox', to: '/admin/coffee/products' },
     ],
@@ -56,6 +59,7 @@ const groupedNav = [
     key: 'mobility',
     label: 'Mobility',
     icon: 'pi pi-car',
+    permission: 'mobility',
     items: [
       { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/mobility/overview' },
       { label: 'Car categories', icon: 'pi pi-sitemap', to: '/admin/car-categories' },
@@ -68,6 +72,7 @@ const groupedNav = [
     key: 'events',
     label: 'Events',
     icon: 'pi pi-calendar',
+    permission: 'events',
     items: [
       { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/events/overview' },
       { label: 'Service categories', icon: 'pi pi-sitemap', to: '/admin/event-service-categories' },
@@ -80,6 +85,7 @@ const groupedNav = [
     key: 'healthcare',
     label: 'Healthcare',
     icon: 'pi pi-heart',
+    permission: 'healthcare',
     items: [
       { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/healthcare/overview' },
       { label: 'Practitioners', icon: 'pi pi-id-card', to: '/admin/practitioners' },
@@ -91,14 +97,35 @@ const groupedNav = [
   },
 ];
 
-const secondaryNav = [
-  { label: 'Orders', icon: 'pi pi-receipt', to: '/admin/orders' },
-  { label: 'Payments', icon: 'pi pi-wallet', to: '/admin/payments' },
-  { label: 'Invoices', icon: 'pi pi-file', to: '/admin/invoices' },
-  { label: 'Billing settings', icon: 'pi pi-building', to: '/admin/org-settings' },
-  { label: 'Customers', icon: 'pi pi-users', to: '/admin/customers' },
-  { label: 'Activity log', icon: 'pi pi-history', to: '/admin/audit-logs' },
+const financeNav = [
+  { label: 'Orders', icon: 'pi pi-receipt', to: '/admin/orders', permission: 'orders' },
+  { label: 'Payments', icon: 'pi pi-wallet', to: '/admin/payments', permission: 'payments' },
+  { label: 'Invoices', icon: 'pi pi-file', to: '/admin/invoices', permission: 'invoices' },
+  { label: 'Billing settings', icon: 'pi pi-building', to: '/admin/org-settings', permission: 'invoices' },
 ];
+
+const peopleNav = [
+  { label: 'Customers', icon: 'pi pi-users', to: '/admin/customers', permission: 'customers' },
+  { label: 'Team members', icon: 'pi pi-user-plus', to: '/admin/users', permission: 'user_management' },
+  { label: 'Access roles', icon: 'pi pi-shield', to: '/admin/roles', permission: 'user_management' },
+];
+
+const administrationNav = [
+  { label: 'Activity log', icon: 'pi pi-history', to: '/admin/audit-logs', permission: 'audit_logs' },
+];
+
+// Restrict the sidebar to the screens the signed-in admin's role grants (super-
+// admins see everything). auth.can accepts a string or array (any-of). The
+// router guard enforces the same rule if a link is somehow reached directly.
+const visiblePrimaryNav = computed(() => primaryNav.filter((item) => auth.can(item.permission)));
+const visibleGroupedNav = computed(() =>
+  groupedNav.filter((group) => auth.can(group.permission)),
+);
+const managementSections = computed(() => [
+  { label: 'Finance', items: financeNav.filter((item) => auth.can(item.permission)) },
+  { label: 'People', items: peopleNav.filter((item) => auth.can(item.permission)) },
+  { label: 'Administration', items: administrationNav.filter((item) => auth.can(item.permission)) },
+].filter((section) => section.items.length));
 
 const openGroups = ref({
   tech: false,
@@ -111,10 +138,14 @@ const openGroups = ref({
 const sidebarCollapsed = ref(false);
 const mobileNavOpen = ref(false);
 
-const navSections = [
-  { label: 'Catalog', groups: groupedNav.slice(0, 3) },
-  { label: 'Operations', groups: groupedNav.slice(3) },
-];
+const CATALOG_GROUP_KEYS = ['tech', 'fashion', 'coffee'];
+const navSections = computed(() => {
+  const sections = [
+    { label: 'Catalog', groups: visibleGroupedNav.value.filter((group) => CATALOG_GROUP_KEYS.includes(group.key)) },
+    { label: 'Operations', groups: visibleGroupedNav.value.filter((group) => !CATALOG_GROUP_KEYS.includes(group.key)) },
+  ];
+  return sections.filter((section) => section.groups.length > 0);
+});
 
 const pageTitle = computed(() => route.meta.title || 'Dashboard');
 const adminInitial = computed(() => String(auth.displayName || 'A').trim().charAt(0).toUpperCase());
@@ -123,8 +154,14 @@ const pageEyebrow = computed(() => {
   if (activeGroup) {
     return activeGroup.label;
   }
-  if (secondaryNav.some((item) => isActive(item.to))) {
-    return 'Finance & people';
+  const activeManagementSection = managementSections.value.find(
+    (section) => section.items.some((item) => isActive(item.to)),
+  );
+  if (activeManagementSection) {
+    return activeManagementSection.label;
+  }
+  if (route.path === '/admin/account') {
+    return 'Account & security';
   }
   return 'Operations console';
 });
@@ -190,10 +227,10 @@ watch(
 
       <div class="admin-sidebar__body">
         <nav :aria-label="t('Admin navigation')">
-          <section class="admin-nav-section">
+          <section v-if="visiblePrimaryNav.length" class="admin-nav-section">
             <p class="admin-nav-section__label">{{ t('Overview') }}</p>
             <RouterLink
-              v-for="item in primaryNav"
+              v-for="item in visiblePrimaryNav"
               :key="item.to"
               :class="{ 'is-active': isActive(item.to) }"
               :title="sidebarCollapsed ? t(item.label) : undefined"
@@ -239,10 +276,10 @@ watch(
             </div>
           </section>
 
-          <section class="admin-nav-section">
-            <p class="admin-nav-section__label">{{ t('Finance & people') }}</p>
+          <section v-for="section in managementSections" :key="section.label" class="admin-nav-section">
+            <p class="admin-nav-section__label">{{ t(section.label) }}</p>
             <RouterLink
-              v-for="item in secondaryNav"
+              v-for="item in section.items"
               :key="item.to"
               :class="{ 'is-active': isActive(item.to) }"
               :title="sidebarCollapsed ? t(item.label) : undefined"
@@ -286,10 +323,10 @@ watch(
           <NotificationBell />
           <ThemeToggle />
           <Button class="admin-language" icon="pi pi-language" :label="languageLabel" severity="secondary" outlined @click="toggleLanguage" />
-          <span class="admin-user-chip" :title="auth.displayName">
+          <RouterLink to="/admin/account" class="admin-user-chip" :title="t('My account')">
             <span>{{ adminInitial }}</span>
             <strong>{{ auth.displayName }}</strong>
-          </span>
+          </RouterLink>
           <Button icon="pi pi-sign-out" :aria-label="t('Sign out')" severity="secondary" text rounded @click="handleLogout" />
         </div>
       </header>
@@ -574,6 +611,21 @@ watch(
   border: 1px solid var(--tm-border);
   border-radius: 999px;
   background: var(--tm-surface-soft);
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.admin-user-chip:hover,
+.admin-user-chip:focus-visible {
+  border-color: var(--tm-gold);
+  background: var(--tm-surface);
+  outline: none;
+}
+
+.admin-user-chip.router-link-active {
+  border-color: var(--tm-gold);
 }
 
 .admin-user-chip > span {

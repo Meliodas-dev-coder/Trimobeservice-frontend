@@ -6,7 +6,7 @@ import { cleanTranslations, localizedValue } from '@/utils/localized';
 // These admin list endpoints support server-side pagination (+ ?q / filters).
 // The rest return the full list in one shot (categories, brands, car-categories,
 // drivers), so those paginate on the client.
-const PAGINATED = new Set(['products', 'cars', 'orders', 'bookings', 'payments', 'customers', 'event-services', 'event-requests', 'artists', 'practitioners', 'healthcare-services', 'healthcare-requests']);
+const PAGINATED = new Set(['products', 'cars', 'orders', 'bookings', 'payments', 'customers', 'event-services', 'event-requests', 'artists', 'practitioners', 'healthcare-services', 'healthcare-requests', 'admin-users', 'admin-roles']);
 
 export function isPaginated(resource) {
   return PAGINATED.has(resource.id);
