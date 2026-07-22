@@ -1,19 +1,23 @@
 <script setup>
+import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
+const auth = useAuthStore();
 const { t } = useAdminI18n();
 
 const links = [
-  { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/healthcare/overview', paths: ['/admin/healthcare/overview'] },
-  { label: 'Care categories', icon: 'pi pi-sitemap', to: '/admin/healthcare/categories', paths: ['/admin/healthcare/categories'] },
-  { label: 'Care services', icon: 'pi pi-heart-fill', to: '/admin/healthcare/services', paths: ['/admin/healthcare/services'] },
-  { label: 'Practitioners', icon: 'pi pi-user-plus', to: '/admin/practitioners', paths: ['/admin/practitioners'] },
-  { label: 'Care requests', icon: 'pi pi-calendar-plus', to: '/admin/healthcare/requests', paths: ['/admin/healthcare/requests'] },
-  { label: 'Emergency contact', icon: 'pi pi-phone', to: '/admin/healthcare/settings', paths: ['/admin/healthcare/settings'] },
+  { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/healthcare/overview', paths: ['/admin/healthcare/overview'], capability: 'healthcare.overview' },
+  { label: 'Care categories', icon: 'pi pi-sitemap', to: '/admin/healthcare/categories', paths: ['/admin/healthcare/categories'], capability: 'healthcare.categories' },
+  { label: 'Care services', icon: 'pi pi-heart-fill', to: '/admin/healthcare/services', paths: ['/admin/healthcare/services'], capability: 'healthcare.services' },
+  { label: 'Practitioners', icon: 'pi pi-user-plus', to: '/admin/practitioners', paths: ['/admin/practitioners'], capability: 'healthcare.practitioners' },
+  { label: 'Care requests', icon: 'pi pi-calendar-plus', to: '/admin/healthcare/requests', paths: ['/admin/healthcare/requests'], capability: 'healthcare.requests' },
+  { label: 'Emergency contact', icon: 'pi pi-phone', to: '/admin/healthcare/settings', paths: ['/admin/healthcare/settings'], capability: 'healthcare.settings' },
 ];
+const visibleLinks = computed(() => links.filter((link) => auth.canBusiness(link.capability)));
 
 function active(link) {
   return link.paths.some((path) => route.path === path || route.path.startsWith(`${path}/`));
@@ -23,7 +27,7 @@ function active(link) {
 <template>
   <nav class="healthcare-workspace-nav" :aria-label="t('Healthcare workspace')">
     <RouterLink
-      v-for="link in links"
+      v-for="link in visibleLinks"
       :key="link.to"
       :to="link.to"
       :class="{ 'is-active': active(link) }"

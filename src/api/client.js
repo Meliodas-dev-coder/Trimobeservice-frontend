@@ -69,6 +69,22 @@ async function parse(res) {
   return data;
 }
 
+async function authenticatedFetch(path, options = {}, retry = true) {
+  const headers = { Accept: '*/*', ...(options.headers || {}) };
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+  let res = await fetch(buildURL(path, options.params), { ...options, headers });
+  if (res.status === 401 && retry && refreshHandler) {
+    const newToken = await refreshHandler();
+    if (newToken) {
+      accessToken = newToken;
+      res = await authenticatedFetch(path, options, false);
+    }
+  }
+  return res;
+}
+
 async function request(method, path, options = {}) {
   let res = await send(method, path, options);
 
@@ -111,4 +127,23 @@ export async function uploadFile(path, formData) {
     }
   }
   return parse(res);
+}
+
+// Fetch a non-JSON response (CSV, PDF, or another protected attachment) with
+// the same token refresh behaviour as the JSON client. Keeping this here avoids
+// exposing the access token to feature modules and prevents download links from
+// losing authentication when opened directly by the browser.
+export async function downloadFile(path, { params, headers } = {}) {
+  const res = await authenticatedFetch(path, { method: 'GET', params, headers });
+  if (!res.ok) {
+    return parse(res);
+  }
+  const disposition = res.headers.get('content-disposition') || '';
+  const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  const quoted = disposition.match(/filename="([^"]+)"/i)?.[1];
+  return {
+    blob: await res.blob(),
+    filename: encoded ? decodeURIComponent(encoded) : quoted || '',
+    contentType: res.headers.get('content-type') || 'application/octet-stream',
+  };
 }

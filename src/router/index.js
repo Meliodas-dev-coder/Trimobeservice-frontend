@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
+import { hrFeatureForResource } from '@/data/hrAccess';
 import AdminDashboardView from '@/views/admin/AdminDashboardView.vue';
 import AdminCarDetailView from '@/views/admin/AdminCarDetailView.vue';
 import AdminProductDetailView from '@/views/admin/AdminProductDetailView.vue';
@@ -15,9 +16,19 @@ import AdminLoginView from '@/views/admin/AdminLoginView.vue';
 import AdminNoAccessView from '@/views/admin/AdminNoAccessView.vue';
 import AdminResourceView from '@/views/admin/AdminResourceView.vue';
 import AdminTechOverviewView from '@/views/admin/AdminTechOverviewView.vue';
+import AdminDepartmentOverviewView from '@/views/admin/AdminDepartmentOverviewView.vue';
 import AdminMobilityOverviewView from '@/views/admin/AdminMobilityOverviewView.vue';
 import AdminEventOverviewView from '@/views/admin/AdminEventOverviewView.vue';
 import AdminHealthcareOverviewView from '@/views/admin/AdminHealthcareOverviewView.vue';
+import AdminHrDashboardView from '@/views/admin/hr/AdminHrDashboardView.vue';
+import AdminHrPortalView from '@/views/admin/hr/AdminHrPortalView.vue';
+import AdminHrDirectoryView from '@/views/admin/hr/AdminHrDirectoryView.vue';
+import AdminHrEmployeeDetailView from '@/views/admin/hr/AdminHrEmployeeDetailView.vue';
+import AdminHrAreaView from '@/views/admin/hr/AdminHrAreaView.vue';
+import AdminHrReportsView from '@/views/admin/hr/AdminHrReportsView.vue';
+import AdminHrGovernanceView from '@/views/admin/hr/AdminHrGovernanceView.vue';
+import AdminHrAccessView from '@/views/admin/hr/AdminHrAccessView.vue';
+import AdminHrContractDocumentView from '@/views/admin/hr/AdminHrContractDocumentView.vue';
 import AccountView from '@/views/public/AccountView.vue';
 import CartView from '@/views/public/CartView.vue';
 import CarDetailView from '@/views/public/CarDetailView.vue';
@@ -349,13 +360,84 @@ const router = createRouter({
           component: AdminResourceView,
           meta: { title: 'Fashion products', resource: 'products', department: 'fashion', description: 'Clothing & footwear products.' },
         },
-        // Coffee is a products-only department (its category + Kafe Misiona brand
-        // are seeded), sold like phones: product → variants (SKUs) → cart → order.
+        {
+          path: 'tech/orders',
+          name: 'admin-tech-orders',
+          component: AdminResourceView,
+          meta: { title: 'Tech orders', resource: 'department-orders', department: 'tech', description: 'Orders containing Tech products, and this department’s share of them.' },
+        },
+        {
+          path: 'tech/stock',
+          name: 'admin-tech-stock',
+          component: AdminResourceView,
+          meta: { title: 'Tech stock', resource: 'stock', department: 'tech', description: 'On-hand quantities, reorder points, and movement history for Tech SKUs.' },
+        },
+        {
+          path: 'fashion/orders',
+          name: 'admin-fashion-orders',
+          component: AdminResourceView,
+          meta: { title: 'Fashion orders', resource: 'department-orders', department: 'fashion', description: 'Orders containing Fashion products, and this department’s share of them.' },
+        },
+        {
+          path: 'fashion/stock',
+          name: 'admin-fashion-stock',
+          component: AdminResourceView,
+          meta: { title: 'Fashion stock', resource: 'stock', department: 'fashion', description: 'On-hand quantities, reorder points, and movement history for Fashion SKUs.' },
+        },
+        // Coffee (Kafe Misiona) is sold like phones — product → variants (SKUs)
+        // → cart → order — and runs a full back office: its own overview, its
+        // slice of the shared order book, and its own shelf.
+        {
+          path: 'coffee',
+          redirect: { name: 'admin-coffee-overview' },
+        },
+        {
+          path: 'coffee/overview',
+          name: 'admin-coffee-overview',
+          component: AdminDepartmentOverviewView,
+          meta: { title: 'Coffee overview', department: 'coffee', description: 'Kafe Misiona sales, orders, stock, and what needs attention.' },
+        },
+        {
+          path: 'coffee/categories',
+          name: 'admin-coffee-categories',
+          component: AdminResourceView,
+          meta: { title: 'Coffee categories', resource: 'categories', department: 'coffee', defaultView: 'card', description: 'How the Kafe Misiona range is organised.' },
+        },
+        {
+          path: 'coffee/brands',
+          name: 'admin-coffee-brands',
+          component: AdminResourceView,
+          meta: { title: 'Coffee brands', resource: 'brands', department: 'coffee', defaultView: 'card', description: 'Coffee labels, starting with Kafe Misiona.' },
+        },
         {
           path: 'coffee/products',
           name: 'admin-coffee-products',
           component: AdminResourceView,
-          meta: { title: 'Coffee products', resource: 'products', department: 'coffee', description: 'Kafe Misiona coffee packs — variants, prices, stock, and images.' },
+          meta: { title: 'Coffee products', resource: 'products', department: 'coffee', defaultView: 'card', description: 'Kafe Misiona coffee packs — variants, prices, stock, and images.' },
+        },
+        {
+          path: 'coffee/products/new',
+          name: 'admin-coffee-product-new',
+          component: AdminProductDetailView,
+          meta: { title: 'New coffee product', department: 'coffee', description: 'Create a coffee product, then add its pack sizes and images.' },
+        },
+        {
+          path: 'coffee/products/:id',
+          name: 'admin-coffee-product-detail',
+          component: AdminProductDetailView,
+          meta: { title: 'Coffee product detail', department: 'coffee', description: 'Edit a coffee product, its pack sizes, and images.' },
+        },
+        {
+          path: 'coffee/orders',
+          name: 'admin-coffee-orders',
+          component: AdminResourceView,
+          meta: { title: 'Coffee orders', resource: 'department-orders', department: 'coffee', description: 'Orders containing coffee, followed from placement to hand-over.' },
+        },
+        {
+          path: 'coffee/stock',
+          name: 'admin-coffee-stock',
+          component: AdminResourceView,
+          meta: { title: 'Coffee stock', resource: 'stock', department: 'coffee', description: 'Pack-size stock levels, reorder points, and every movement behind them.' },
         },
         {
           path: 'mobility',
@@ -490,6 +572,82 @@ const router = createRouter({
           meta: { title: 'Emergency contact', description: 'Edit the emergency number shown on the client healthcare page.' },
         },
         {
+          path: 'hr',
+          redirect: { name: 'admin-hr-overview' },
+        },
+        {
+          path: 'hr/overview',
+          name: 'admin-hr-overview',
+          component: AdminHrDashboardView,
+          meta: { title: 'HR overview', description: 'Manage the complete employee lifecycle from one workspace.' },
+        },
+        {
+          path: 'hr/portal',
+          name: 'admin-hr-portal',
+          component: AdminHrPortalView,
+          meta: { title: 'My HR', description: 'Your leave, working time, and personal HR details.' },
+        },
+        {
+          path: 'hr/employees',
+          name: 'admin-hr-employees',
+          component: AdminHrDirectoryView,
+          meta: { title: 'Employee directory', description: 'Manage employee identity and work records.' },
+        },
+        {
+          path: 'hr/me',
+          name: 'admin-hr-self',
+          component: AdminHrEmployeeDetailView,
+          meta: { title: 'My employee profile', description: 'Your HR record, documents, requests, time, performance, and access.' },
+        },
+        {
+          path: 'hr/employees/:id',
+          name: 'admin-hr-employee-detail',
+          component: AdminHrEmployeeDetailView,
+          meta: { title: 'Employee profile', description: 'Employee record, documents, lifecycle, leave, and compensation.' },
+        },
+        {
+          path: 'hr/reports',
+          name: 'admin-hr-reports',
+          component: AdminHrReportsView,
+          meta: { title: 'HR reports', description: 'Operational HR reports and CSV exports.' },
+        },
+        {
+          path: 'hr/notifications',
+          name: 'admin-hr-notifications',
+          component: AdminHrGovernanceView,
+          meta: { title: 'HR notifications', hrResource: 'notifications', description: 'HR deadlines, approvals, and employee changes.' },
+        },
+        {
+          path: 'hr/audit-history',
+          name: 'admin-hr-audit-history',
+          component: AdminHrGovernanceView,
+          meta: { title: 'HR audit history', hrResource: 'audit-history', description: 'Complete audit trail for HR data and workflows.' },
+        },
+        {
+          path: 'hr/access',
+          name: 'admin-hr-access',
+          component: AdminHrAccessView,
+          meta: { title: 'Organization access control', description: 'Department modules, position capabilities, and scoped HR responsibilities.' },
+        },
+        {
+          path: 'hr/contract-documents/:id',
+          name: 'admin-hr-contract-document',
+          component: AdminHrContractDocumentView,
+          meta: { title: 'Contract document', hrResource: 'contract-documents', description: 'The issued contract, ready to print.' },
+        },
+        {
+          path: 'hr/:area(organization|lifecycle|leave|time|performance|recruitment|finance)',
+          name: 'admin-hr-area',
+          component: AdminHrAreaView,
+          meta: { title: 'HR workspace', description: 'Manage connected HR workflows.' },
+        },
+        {
+          path: 'hr/:area(organization|lifecycle|leave|time|performance|recruitment|finance)/:resource',
+          name: 'admin-hr-area-resource',
+          component: AdminHrAreaView,
+          meta: { title: 'HR workspace', description: 'Manage connected HR workflows.' },
+        },
+        {
           path: 'payments',
           name: 'admin-payments',
           component: AdminResourceView,
@@ -528,14 +686,12 @@ const router = createRouter({
         {
           path: 'users',
           name: 'admin-users',
-          component: AdminResourceView,
-          meta: { title: 'Team members', resource: 'admin-users', description: 'Create admin employees and assign each one an access role.' },
+          redirect: { name: 'admin-hr-employees', query: { accounts: '1' } },
         },
         {
           path: 'roles',
           name: 'admin-roles',
-          component: AdminResourceView,
-          meta: { title: 'Access roles', resource: 'admin-roles', description: 'Bundle admin screens into roles you can assign to employees.' },
+          redirect: { name: 'admin-hr-access' },
         },
         {
           path: 'account',
@@ -559,73 +715,115 @@ const router = createRouter({
 // the backend's authz keys (internal/authz) — the backend is the real gate, so a
 // route missing here still has its data protected server-side. Keep new admin
 // routes in sync. String or array (any-of).
-const ROUTE_PERMISSIONS = {
-  'admin-dashboard': 'dashboard',
-  'admin-categories': ['tech', 'fashion', 'coffee'],
-  'admin-brands': ['tech', 'fashion', 'coffee'],
-  'admin-products': ['tech', 'fashion', 'coffee'],
-  'admin-product-new': ['tech', 'fashion', 'coffee'],
-  'admin-product-detail': ['tech', 'fashion', 'coffee'],
-  'admin-tech-overview': 'tech',
-  'admin-tech-categories': 'tech',
-  'admin-tech-brands': 'tech',
-  'admin-tech-products': 'tech',
-  'admin-tech-product-new': 'tech',
-  'admin-tech-product-detail': 'tech',
-  'admin-fashion-categories': 'fashion',
-  'admin-fashion-brands': 'fashion',
-  'admin-fashion-products': 'fashion',
-  'admin-coffee-products': 'coffee',
-  'admin-mobility-overview': 'mobility',
-  'admin-cars': 'mobility',
-  'admin-car-detail': 'mobility',
-  'admin-car-categories': 'mobility',
-  'admin-drivers': 'mobility',
-  'admin-bookings': 'mobility',
-  'admin-orders': 'orders',
-  'admin-order-new': 'orders',
-  'admin-events-overview': 'events',
-  'admin-event-service-categories': 'events',
-  'admin-event-services': 'events',
-  'admin-artists': 'events',
-  'admin-event-requests': 'events',
-  'admin-event-request-new': 'events',
-  'admin-healthcare-overview': 'healthcare',
-  'admin-practitioners': 'healthcare',
-  'admin-healthcare-categories': 'healthcare',
-  'admin-healthcare-services': 'healthcare',
-  'admin-healthcare-requests': 'healthcare',
-  'admin-healthcare-settings': 'healthcare',
-  'admin-payments': 'payments',
-  'admin-invoices': 'invoices',
-  'admin-invoice-detail': 'invoices',
-  'admin-org-settings': 'invoices',
-  'admin-customers': 'customers',
-  'admin-audit-logs': 'audit_logs',
-  'admin-users': 'user_management',
-  'admin-roles': 'user_management',
+const ROUTE_ACCESS = {
+  'admin-dashboard': { business: 'dashboard.overview' },
+  'admin-categories': { permission: ['tech', 'fashion', 'coffee'] },
+  'admin-brands': { permission: ['tech', 'fashion', 'coffee'] },
+  'admin-products': { permission: ['tech', 'fashion', 'coffee'] },
+  'admin-product-new': { permission: ['tech', 'fashion', 'coffee'] },
+  'admin-product-detail': { permission: ['tech', 'fashion', 'coffee'] },
+  'admin-tech-overview': { business: ['tech.overview', 'tech.categories', 'tech.brands', 'tech.products'] },
+  'admin-tech-categories': { business: 'tech.categories' },
+  'admin-tech-brands': { business: 'tech.brands' },
+  'admin-tech-products': { business: 'tech.products' },
+  'admin-tech-product-new': { business: 'tech.products', level: 'manage' },
+  'admin-tech-product-detail': { business: 'tech.products' },
+  'admin-tech-orders': { business: 'tech.orders' },
+  'admin-tech-stock': { business: 'tech.stock' },
+  'admin-fashion-categories': { business: 'fashion.categories' },
+  'admin-fashion-brands': { business: 'fashion.brands' },
+  'admin-fashion-products': { business: 'fashion.products' },
+  'admin-fashion-orders': { business: 'fashion.orders' },
+  'admin-fashion-stock': { business: 'fashion.stock' },
+  'admin-coffee-overview': { business: 'coffee.overview' },
+  'admin-coffee-categories': { business: 'coffee.categories' },
+  'admin-coffee-brands': { business: 'coffee.brands' },
+  'admin-coffee-products': { business: 'coffee.products' },
+  'admin-coffee-product-new': { business: 'coffee.products', level: 'manage' },
+  'admin-coffee-product-detail': { business: 'coffee.products' },
+  'admin-coffee-orders': { business: 'coffee.orders' },
+  'admin-coffee-stock': { business: 'coffee.stock' },
+  'admin-mobility-overview': { business: 'mobility.overview' },
+  'admin-cars': { business: 'mobility.cars' },
+  'admin-car-detail': { business: 'mobility.cars' },
+  'admin-car-categories': { business: 'mobility.categories' },
+  'admin-drivers': { business: 'mobility.drivers' },
+  'admin-bookings': { business: 'mobility.bookings' },
+  'admin-orders': { business: 'orders.orders' },
+  'admin-order-new': { business: 'orders.orders', level: 'manage' },
+  'admin-events-overview': { business: 'events.overview' },
+  'admin-event-service-categories': { business: 'events.categories' },
+  'admin-event-services': { business: 'events.services' },
+  'admin-artists': { business: 'events.artists' },
+  'admin-event-requests': { business: 'events.requests' },
+  'admin-event-request-new': { business: 'events.requests', level: 'manage' },
+  'admin-healthcare-overview': { business: 'healthcare.overview' },
+  'admin-practitioners': { business: 'healthcare.practitioners' },
+  'admin-healthcare-categories': { business: 'healthcare.categories' },
+  'admin-healthcare-services': { business: 'healthcare.services' },
+  'admin-healthcare-requests': { business: 'healthcare.requests' },
+  'admin-healthcare-settings': { business: 'healthcare.settings' },
+  'admin-hr-overview': (auth) => auth.isHrManager,
+  'admin-hr-portal': { employee: true },
+  'admin-hr-self': { hr: true, employee: true },
+  'admin-hr-employees': { hrFeature: 'employees' },
+  'admin-hr-employee-detail': (auth, to) => Number(to.params.id) === Number(auth.employee?.id) || auth.canHr('employees', 'view'),
+  'admin-hr-area': (auth, to) => auth.canHrArea(to.params.area, 'view'),
+  'admin-hr-area-resource': (auth, to) => auth.canHr(hrFeatureForResource(to.params.resource), 'view'),
+  'admin-hr-reports': { hrFeature: 'reports' },
+  'admin-hr-notifications': { hr: true },
+  'admin-hr-audit-history': (auth) => auth.canHr('audit', 'view') && auth.hrScope('audit', 'view') === 'all',
+  'admin-hr-access': { superAdmin: true },
+  'admin-payments': { business: 'payments.payments' },
+  'admin-invoices': { business: 'invoices.documents' },
+  'admin-invoice-detail': { business: 'invoices.documents' },
+  'admin-org-settings': { business: 'invoices.settings' },
+  'admin-customers': { business: 'customers.directory' },
+  'admin-audit-logs': { business: 'audit_logs.history' },
 };
+
+function routeAccessAllowed(auth, rule, to) {
+  if (!rule) return true;
+  if (typeof rule === 'function') return Boolean(rule(auth, to));
+  if (rule.superAdmin) return auth.isSuperAdmin;
+  if (rule.employee && !auth.hasEmployee) return false;
+  if (rule.hr && !auth.hasHrAccess) return false;
+  if (rule.business && !auth.canBusiness(rule.business, rule.level || 'read')) return false;
+  if (rule.hrFeature && !auth.canHr(rule.hrFeature, rule.action || 'view')) return false;
+  if (rule.permission && !auth.can(rule.permission)) return false;
+  return true;
+}
 
 // Ordered landing candidates: the first screen the signed-in admin can reach.
 // Used for the post-login redirect and to bounce off a forbidden screen.
 const PERMISSION_LANDING = [
-  { permission: 'dashboard', to: { name: 'admin-dashboard' } },
-  { permission: 'tech', to: { name: 'admin-tech-overview' } },
-  { permission: 'fashion', to: { name: 'admin-fashion-products' } },
-  { permission: 'coffee', to: { name: 'admin-coffee-products' } },
-  { permission: 'mobility', to: { name: 'admin-mobility-overview' } },
-  { permission: 'events', to: { name: 'admin-events-overview' } },
-  { permission: 'healthcare', to: { name: 'admin-healthcare-overview' } },
-  { permission: 'orders', to: { name: 'admin-orders' } },
-  { permission: 'payments', to: { name: 'admin-payments' } },
-  { permission: 'invoices', to: { name: 'admin-invoices' } },
-  { permission: 'customers', to: { name: 'admin-customers' } },
-  { permission: 'audit_logs', to: { name: 'admin-audit-logs' } },
-  { permission: 'user_management', to: { name: 'admin-users' } },
+  { allowed: (auth) => auth.canBusiness('dashboard.overview'), to: { name: 'admin-dashboard' } },
+  { allowed: (auth) => auth.canBusiness(['tech.overview', 'tech.categories', 'tech.brands', 'tech.products']), to: { name: 'admin-tech-overview' } },
+  { allowed: (auth) => auth.canBusiness('tech.products'), to: { name: 'admin-tech-products' } },
+  { allowed: (auth) => auth.canBusiness('tech.orders'), to: { name: 'admin-tech-orders' } },
+  { allowed: (auth) => auth.canBusiness('fashion.products'), to: { name: 'admin-fashion-products' } },
+  { allowed: (auth) => auth.canBusiness('fashion.orders'), to: { name: 'admin-fashion-orders' } },
+  { allowed: (auth) => auth.canBusiness('coffee.overview'), to: { name: 'admin-coffee-overview' } },
+  { allowed: (auth) => auth.canBusiness('coffee.products'), to: { name: 'admin-coffee-products' } },
+  { allowed: (auth) => auth.canBusiness('coffee.orders'), to: { name: 'admin-coffee-orders' } },
+  { allowed: (auth) => auth.canBusiness('coffee.stock'), to: { name: 'admin-coffee-stock' } },
+  { allowed: (auth) => auth.canBusiness('mobility.overview'), to: { name: 'admin-mobility-overview' } },
+  { allowed: (auth) => auth.canBusiness('mobility.bookings'), to: { name: 'admin-bookings' } },
+  { allowed: (auth) => auth.canBusiness('events.overview'), to: { name: 'admin-events-overview' } },
+  { allowed: (auth) => auth.canBusiness('events.requests'), to: { name: 'admin-event-requests' } },
+  { allowed: (auth) => auth.canBusiness('healthcare.overview'), to: { name: 'admin-healthcare-overview' } },
+  { allowed: (auth) => auth.canBusiness('healthcare.requests'), to: { name: 'admin-healthcare-requests' } },
+  { allowed: (auth) => auth.isHrManager, to: { name: 'admin-hr-overview' } },
+  { allowed: (auth) => auth.hasEmployee, to: { name: 'admin-hr-portal' } },
+  { allowed: (auth) => auth.canBusiness('orders.orders'), to: { name: 'admin-orders' } },
+  { allowed: (auth) => auth.canBusiness('payments.payments'), to: { name: 'admin-payments' } },
+  { allowed: (auth) => auth.canBusiness('invoices.documents'), to: { name: 'admin-invoices' } },
+  { allowed: (auth) => auth.canBusiness('customers.directory'), to: { name: 'admin-customers' } },
+  { allowed: (auth) => auth.canBusiness('audit_logs.history'), to: { name: 'admin-audit-logs' } },
 ];
 
 function firstPermittedRoute(auth) {
-  const match = PERMISSION_LANDING.find((entry) => auth.can(entry.permission));
+  const match = PERMISSION_LANDING.find((entry) => entry.allowed(auth));
   return match ? match.to : { name: 'admin-no-access' };
 }
 
@@ -649,8 +847,8 @@ router.beforeEach(async (to) => {
 
   // Screen-level access: redirect off any admin screen the role doesn't include.
   if (isAdminArea) {
-    const required = ROUTE_PERMISSIONS[to.name];
-    if (required && !auth.can(required)) {
+    const rule = ROUTE_ACCESS[to.name];
+    if (rule && !routeAccessAllowed(auth, rule, to)) {
       const target = firstPermittedRoute(auth);
       if (target.name && target.name !== to.name) {
         return target;

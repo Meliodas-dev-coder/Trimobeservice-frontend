@@ -16,18 +16,21 @@ const errors = reactive({ current: '', next: '', confirm: '' });
 const submitting = ref(false);
 
 const initial = computed(() => String(auth.displayName || 'A').trim().charAt(0).toUpperCase());
-const permissionCount = computed(() => auth.isSuperAdmin ? t('All screens') : t('{n} screens', { n: auth.permissions.length }));
+const businessCapabilities = computed(() => auth.accessContext?.business_capabilities || []);
+const permissionCount = computed(() => auth.isSuperAdmin
+  ? t('All screens')
+  : t('{n} screens', { n: businessCapabilities.value.length || auth.permissions.length }));
 
 const accessLevel = computed(() => {
   if (auth.isSuperAdmin) {
     return { label: t('Super administrator'), detail: t('Full access to every admin screen.') };
   }
-  const count = auth.permissions.length;
+  const count = businessCapabilities.value.length || auth.permissions.length;
   return {
-    label: t('Team member'),
+    label: t(auth.employee?.position_title || 'Employee'),
     detail: count
-      ? t('Your role grants access to {n} admin screens.', { n: count })
-      : t('No screens assigned yet. Ask a super-admin to assign you a role.'),
+      ? t('Your department and position grant access to {n} admin screens.', { n: count })
+      : t('HR self-service only. No operational workspace is assigned.'),
   };
 });
 
@@ -50,10 +53,15 @@ const permissionLabels = {
 const visiblePermissions = computed(() => (
   auth.isSuperAdmin
     ? []
-    : auth.permissions.map((permission) => ({
-      key: permission,
-      label: t(permissionLabels[permission] || titleize(permission)),
-    }))
+    : (businessCapabilities.value.length
+      ? businessCapabilities.value.map((capability) => ({
+        key: capability.key || capability,
+        label: t(capability.label || titleize(capability.key || capability)),
+      }))
+      : auth.permissions.map((permission) => ({
+        key: permission,
+        label: t(permissionLabels[permission] || titleize(permission)),
+      })))
 ));
 
 const passwordScore = computed(() => {
@@ -228,8 +236,8 @@ async function handleSubmit() {
 
         <div class="account-access">
           <div class="account-access__head">
-            <div><p>{{ t('Accessible workspaces') }}</p><span>{{ t('Screens currently granted by your assigned role.') }}</span></div>
-            <RouterLink v-if="auth.can('user_management')" to="/admin/roles">{{ t('Manage roles') }} <i class="pi pi-arrow-right" /></RouterLink>
+            <div><p>{{ t('Accessible workspaces') }}</p><span>{{ t('Effective access from your department and position.') }}</span></div>
+            <RouterLink v-if="auth.isSuperAdmin" to="/admin/hr/access">{{ t('Manage access') }} <i class="pi pi-arrow-right" /></RouterLink>
           </div>
           <div v-if="auth.isSuperAdmin" class="account-access__all">
             <i class="pi pi-shield" />

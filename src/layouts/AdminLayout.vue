@@ -19,7 +19,7 @@ async function handleLogout() {
 }
 
 const primaryNav = [
-  { label: 'Dashboard', icon: 'pi pi-chart-line', to: '/admin', permission: 'dashboard' },
+  { label: 'Dashboard', icon: 'pi pi-chart-line', to: '/admin', capability: 'dashboard.overview' },
 ];
 
 const groupedNav = [
@@ -29,10 +29,12 @@ const groupedNav = [
     icon: 'pi pi-mobile',
     permission: 'tech',
     items: [
-      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/tech/overview' },
-      { label: 'Categories', icon: 'pi pi-tags', to: '/admin/tech/categories' },
-      { label: 'Brands', icon: 'pi pi-bookmark', to: '/admin/tech/brands' },
-      { label: 'Products', icon: 'pi pi-mobile', to: '/admin/tech/products' },
+      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/tech/overview', capability: ['tech.overview', 'tech.categories', 'tech.brands', 'tech.products'] },
+      { label: 'Categories', icon: 'pi pi-tags', to: '/admin/tech/categories', capability: 'tech.categories' },
+      { label: 'Brands', icon: 'pi pi-bookmark', to: '/admin/tech/brands', capability: 'tech.brands' },
+      { label: 'Products', icon: 'pi pi-mobile', to: '/admin/tech/products', capability: 'tech.products' },
+      { label: 'Orders', icon: 'pi pi-shopping-cart', to: '/admin/tech/orders', capability: 'tech.orders' },
+      { label: 'Stock', icon: 'pi pi-box', to: '/admin/tech/stock', capability: 'tech.stock' },
     ],
   },
   {
@@ -41,9 +43,11 @@ const groupedNav = [
     icon: 'pi pi-shopping-bag',
     permission: 'fashion',
     items: [
-      { label: 'Categories', icon: 'pi pi-tags', to: '/admin/fashion/categories' },
-      { label: 'Brands', icon: 'pi pi-bookmark', to: '/admin/fashion/brands' },
-      { label: 'Products', icon: 'pi pi-shopping-bag', to: '/admin/fashion/products' },
+      { label: 'Categories', icon: 'pi pi-tags', to: '/admin/fashion/categories', capability: 'fashion.categories' },
+      { label: 'Brands', icon: 'pi pi-bookmark', to: '/admin/fashion/brands', capability: 'fashion.brands' },
+      { label: 'Products', icon: 'pi pi-shopping-bag', to: '/admin/fashion/products', capability: 'fashion.products' },
+      { label: 'Orders', icon: 'pi pi-shopping-cart', to: '/admin/fashion/orders', capability: 'fashion.orders' },
+      { label: 'Stock', icon: 'pi pi-box', to: '/admin/fashion/stock', capability: 'fashion.stock' },
     ],
   },
   {
@@ -52,7 +56,12 @@ const groupedNav = [
     icon: 'pi pi-inbox',
     permission: 'coffee',
     items: [
-      { label: 'Products', icon: 'pi pi-inbox', to: '/admin/coffee/products' },
+      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/coffee/overview', capability: 'coffee.overview' },
+      { label: 'Categories', icon: 'pi pi-tags', to: '/admin/coffee/categories', capability: 'coffee.categories' },
+      { label: 'Brands', icon: 'pi pi-bookmark', to: '/admin/coffee/brands', capability: 'coffee.brands' },
+      { label: 'Products', icon: 'pi pi-inbox', to: '/admin/coffee/products', capability: 'coffee.products' },
+      { label: 'Orders', icon: 'pi pi-shopping-cart', to: '/admin/coffee/orders', capability: 'coffee.orders' },
+      { label: 'Stock', icon: 'pi pi-box', to: '/admin/coffee/stock', capability: 'coffee.stock' },
     ],
   },
   {
@@ -61,11 +70,11 @@ const groupedNav = [
     icon: 'pi pi-car',
     permission: 'mobility',
     items: [
-      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/mobility/overview' },
-      { label: 'Car categories', icon: 'pi pi-sitemap', to: '/admin/car-categories' },
-      { label: 'Cars', icon: 'pi pi-car', to: '/admin/cars' },
-      { label: 'Drivers', icon: 'pi pi-id-card', to: '/admin/drivers' },
-      { label: 'Bookings', icon: 'pi pi-calendar-clock', to: '/admin/bookings' },
+      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/mobility/overview', capability: 'mobility.overview' },
+      { label: 'Car categories', icon: 'pi pi-sitemap', to: '/admin/car-categories', capability: 'mobility.categories' },
+      { label: 'Cars', icon: 'pi pi-car', to: '/admin/cars', capability: 'mobility.cars' },
+      { label: 'Drivers', icon: 'pi pi-id-card', to: '/admin/drivers', capability: 'mobility.drivers' },
+      { label: 'Bookings', icon: 'pi pi-calendar-clock', to: '/admin/bookings', capability: 'mobility.bookings' },
     ],
   },
   {
@@ -74,11 +83,11 @@ const groupedNav = [
     icon: 'pi pi-calendar',
     permission: 'events',
     items: [
-      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/events/overview' },
-      { label: 'Service categories', icon: 'pi pi-sitemap', to: '/admin/event-service-categories' },
-      { label: 'Event services', icon: 'pi pi-star', to: '/admin/event-services' },
-      { label: 'Gospel artists', icon: 'pi pi-microphone', to: '/admin/artists' },
-      { label: 'Event requests', icon: 'pi pi-calendar-plus', to: '/admin/event-requests' },
+      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/events/overview', capability: 'events.overview' },
+      { label: 'Service categories', icon: 'pi pi-sitemap', to: '/admin/event-service-categories', capability: 'events.categories' },
+      { label: 'Event services', icon: 'pi pi-star', to: '/admin/event-services', capability: 'events.services' },
+      { label: 'Gospel artists', icon: 'pi pi-microphone', to: '/admin/artists', capability: 'events.artists' },
+      { label: 'Event requests', icon: 'pi pi-calendar-plus', to: '/admin/event-requests', capability: 'events.requests' },
     ],
   },
   {
@@ -87,44 +96,74 @@ const groupedNav = [
     icon: 'pi pi-heart',
     permission: 'healthcare',
     items: [
-      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/healthcare/overview' },
-      { label: 'Practitioners', icon: 'pi pi-id-card', to: '/admin/practitioners' },
-      { label: 'Care categories', icon: 'pi pi-sitemap', to: '/admin/healthcare/categories' },
-      { label: 'Care services', icon: 'pi pi-plus-circle', to: '/admin/healthcare/services' },
-      { label: 'Care requests', icon: 'pi pi-calendar-plus', to: '/admin/healthcare/requests' },
-      { label: 'Emergency contact', icon: 'pi pi-phone', to: '/admin/healthcare/settings' },
+      { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/healthcare/overview', capability: 'healthcare.overview' },
+      { label: 'Practitioners', icon: 'pi pi-id-card', to: '/admin/practitioners', capability: 'healthcare.practitioners' },
+      { label: 'Care categories', icon: 'pi pi-sitemap', to: '/admin/healthcare/categories', capability: 'healthcare.categories' },
+      { label: 'Care services', icon: 'pi pi-plus-circle', to: '/admin/healthcare/services', capability: 'healthcare.services' },
+      { label: 'Care requests', icon: 'pi pi-calendar-plus', to: '/admin/healthcare/requests', capability: 'healthcare.requests' },
+      { label: 'Emergency contact', icon: 'pi pi-phone', to: '/admin/healthcare/settings', capability: 'healthcare.settings' },
+    ],
+  },
+  {
+    key: 'hr',
+    label: 'Human Resources',
+    icon: 'pi pi-users',
+    visible: () => auth.hasHrAccess,
+    items: [
+      { label: 'My HR', icon: 'pi pi-home', to: '/admin/hr/portal', visible: () => auth.hasEmployee },
+      { label: 'HR overview', icon: 'pi pi-th-large', to: '/admin/hr/overview', visible: () => auth.isHrManager },
+      { label: 'My profile', icon: 'pi pi-id-card', to: '/admin/hr/me', visible: () => auth.hasEmployee },
+      { label: 'Employees', icon: 'pi pi-users', to: '/admin/hr/employees', visible: () => auth.canHr('employees', 'view') && auth.hrScope('employees', 'view') !== 'self' },
+      { label: 'Organization', icon: 'pi pi-sitemap', to: '/admin/hr/organization', visible: () => auth.canHrArea('organization') },
+      { label: 'Lifecycle', icon: 'pi pi-directions', to: '/admin/hr/lifecycle', visible: () => auth.canHrArea('lifecycle') },
+      { label: 'Leave', icon: 'pi pi-calendar-plus', to: '/admin/hr/leave', visible: () => auth.canHrArea('leave') },
+      { label: 'Time & attendance', icon: 'pi pi-clock', to: '/admin/hr/time', visible: () => auth.canHrArea('time') },
+      { label: 'Performance', icon: 'pi pi-chart-line', to: '/admin/hr/performance', visible: () => auth.canHrArea('performance') },
+      { label: 'Recruitment', icon: 'pi pi-briefcase', to: '/admin/hr/recruitment', visible: () => auth.canHrArea('recruitment') },
+      { label: 'Pay & expenses', icon: 'pi pi-wallet', to: '/admin/hr/finance', visible: () => auth.canHrArea('finance') },
+      { label: 'Reports', icon: 'pi pi-chart-bar', to: '/admin/hr/reports', visible: () => auth.canHr('reports', 'view') },
+      { label: 'Notifications', icon: 'pi pi-bell', to: '/admin/hr/notifications', visible: () => auth.canHr('notifications', 'view') || auth.hasEmployee },
+      { label: 'Audit history', icon: 'pi pi-history', to: '/admin/hr/audit-history', visible: () => auth.canHr('audit', 'view') && auth.hrScope('audit', 'view') === 'all' },
+      { label: 'Access control', icon: 'pi pi-shield', to: '/admin/hr/access', visible: () => auth.isSuperAdmin },
     ],
   },
 ];
 
 const financeNav = [
-  { label: 'Orders', icon: 'pi pi-receipt', to: '/admin/orders', permission: 'orders' },
-  { label: 'Payments', icon: 'pi pi-wallet', to: '/admin/payments', permission: 'payments' },
-  { label: 'Invoices', icon: 'pi pi-file', to: '/admin/invoices', permission: 'invoices' },
-  { label: 'Billing settings', icon: 'pi pi-building', to: '/admin/org-settings', permission: 'invoices' },
+  { label: 'Orders', icon: 'pi pi-receipt', to: '/admin/orders', capability: 'orders.orders' },
+  { label: 'Payments', icon: 'pi pi-wallet', to: '/admin/payments', capability: 'payments.payments' },
+  { label: 'Invoices', icon: 'pi pi-file', to: '/admin/invoices', capability: 'invoices.documents' },
+  { label: 'Billing settings', icon: 'pi pi-building', to: '/admin/org-settings', capability: 'invoices.settings' },
 ];
 
 const peopleNav = [
-  { label: 'Customers', icon: 'pi pi-users', to: '/admin/customers', permission: 'customers' },
-  { label: 'Team members', icon: 'pi pi-user-plus', to: '/admin/users', permission: 'user_management' },
-  { label: 'Access roles', icon: 'pi pi-shield', to: '/admin/roles', permission: 'user_management' },
+  { label: 'Customers', icon: 'pi pi-users', to: '/admin/customers', capability: 'customers.directory' },
 ];
 
 const administrationNav = [
-  { label: 'Activity log', icon: 'pi pi-history', to: '/admin/audit-logs', permission: 'audit_logs' },
+  { label: 'Activity log', icon: 'pi pi-history', to: '/admin/audit-logs', capability: 'audit_logs.history' },
 ];
 
 // Restrict the sidebar to the screens the signed-in admin's role grants (super-
 // admins see everything). auth.can accepts a string or array (any-of). The
 // router guard enforces the same rule if a link is somehow reached directly.
-const visiblePrimaryNav = computed(() => primaryNav.filter((item) => auth.can(item.permission)));
+function itemIsVisible(item) {
+  if (item.visible) return item.visible();
+  if (item.capability) return auth.canBusiness(item.capability, 'read');
+  return auth.can(item.permission);
+}
+
+const visiblePrimaryNav = computed(() => primaryNav.filter(itemIsVisible));
 const visibleGroupedNav = computed(() =>
-  groupedNav.filter((group) => auth.can(group.permission)),
+  groupedNav
+    .filter((group) => !group.visible || group.visible())
+    .map((group) => ({ ...group, items: group.items.filter(itemIsVisible) }))
+    .filter((group) => group.items.length),
 );
 const managementSections = computed(() => [
-  { label: 'Finance', items: financeNav.filter((item) => auth.can(item.permission)) },
-  { label: 'People', items: peopleNav.filter((item) => auth.can(item.permission)) },
-  { label: 'Administration', items: administrationNav.filter((item) => auth.can(item.permission)) },
+  { label: 'Finance', items: financeNav.filter(itemIsVisible) },
+  { label: 'People', items: peopleNav.filter(itemIsVisible) },
+  { label: 'Administration', items: administrationNav.filter(itemIsVisible) },
 ].filter((section) => section.items.length));
 
 const openGroups = ref({
@@ -134,6 +173,7 @@ const openGroups = ref({
   mobility: false,
   events: false,
   healthcare: false,
+  hr: false,
 });
 const sidebarCollapsed = ref(false);
 const mobileNavOpen = ref(false);
@@ -142,7 +182,8 @@ const CATALOG_GROUP_KEYS = ['tech', 'fashion', 'coffee'];
 const navSections = computed(() => {
   const sections = [
     { label: 'Catalog', groups: visibleGroupedNav.value.filter((group) => CATALOG_GROUP_KEYS.includes(group.key)) },
-    { label: 'Operations', groups: visibleGroupedNav.value.filter((group) => !CATALOG_GROUP_KEYS.includes(group.key)) },
+    { label: 'Operations', groups: visibleGroupedNav.value.filter((group) => !CATALOG_GROUP_KEYS.includes(group.key) && group.key !== 'hr') },
+    { label: 'Human Resources', groups: visibleGroupedNav.value.filter((group) => group.key === 'hr') },
   ];
   return sections.filter((section) => section.groups.length > 0);
 });
@@ -320,7 +361,7 @@ watch(
           </div>
         </div>
         <div class="admin-topbar__actions">
-          <NotificationBell />
+          <NotificationBell v-if="auth.hasOperationalAccess" />
           <ThemeToggle />
           <Button class="admin-language" icon="pi pi-language" :label="languageLabel" severity="secondary" outlined @click="toggleLanguage" />
           <RouterLink to="/admin/account" class="admin-user-chip" :title="t('My account')">

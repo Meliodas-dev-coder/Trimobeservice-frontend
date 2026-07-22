@@ -2552,3 +2552,229 @@ adminResources['healthcare-requests'].manage = {
     },
   ],
 };
+
+// --- Department back office: the shared order book, sliced -------------------
+//
+// A customer still checks out ONCE, pays ONCE, and gets ONE invoice. What
+// changes here is who reads it: the Finance "Orders" screen sees whole orders,
+// while a department screen (Coffee, Tech, Fashion) sees only its own lines of
+// those same orders, plus its share of the money. AdminResourceView appends
+// `department` to every request from the route meta.
+//
+// Payment and invoicing are deliberately absent here: money is Finance's job
+// and needs Finance's permissions. A department follows fulfillment — pick,
+// hand over, advance the status.
+adminResources['department-orders'] = {
+  ...adminResources.orders,
+  id: 'department-orders',
+  eyebrow: 'Department',
+  description:
+    'Orders containing this department’s products. The customer pays once for the whole order; the figures here are this department’s share of it.',
+  actionLabel: null,
+  createRoute: null,
+  capabilities: { create: false, edit: false, remove: false },
+  columns: [
+    { field: 'order_number', header: 'Order' },
+    { field: 'customer_name', header: 'Customer' },
+    { field: 'department_quantity', header: 'Units', type: 'number' },
+    { field: 'department_subtotal', header: 'Department share', type: 'money' },
+    { field: 'total', header: 'Order total', type: 'money' },
+    { field: 'fulfillment_type', header: 'Fulfillment' },
+    { field: 'status', header: 'Status', type: 'status' },
+    { field: 'payment_status', header: 'Payment', type: 'status' },
+    { field: 'created_at', header: 'Placed', type: 'date' },
+  ],
+  cardView: {
+    layout: 'grid',
+    placeholderIcon: 'pi pi-shopping-bag',
+    titleField: 'order_number',
+    subtitleField: 'customer_name',
+    badgeField: 'status',
+    details: [
+      { field: 'department_quantity', label: 'Units', type: 'number' },
+      { field: 'department_subtotal', label: 'Department share', type: 'money' },
+      { field: 'total', label: 'Order total', type: 'money' },
+      { field: 'payment_status', label: 'Payment', type: 'status' },
+    ],
+  },
+};
+
+adminResources['department-orders'].manage = {
+  ...adminResources.orders.manage,
+  fields: [
+    ...adminResources.orders.manage.fields.filter((field) => field.section !== 'value'),
+    {
+      key: 'department_subtotal',
+      label: 'This department',
+      type: 'money',
+      section: 'value',
+      sectionLabel: 'Order value',
+      sectionIcon: 'pi pi-wallet',
+      highlight: true,
+      tone: 'emerald',
+    },
+    { key: 'department_quantity', label: 'Units in this department', type: 'number', section: 'value' },
+    { key: 'total', label: 'Order total (all departments)', type: 'money', section: 'value' },
+    {
+      key: 'departments',
+      label: 'Departments in this order',
+      section: 'value',
+      wide: true,
+      // Only worth saying when the order reaches beyond this department.
+      showWhen: (order) => String(order.departments || '').includes(','),
+    },
+  ],
+  itemsTable: {
+    key: 'items',
+    title: 'Line items in this department',
+    columns: [
+      { field: 'product_name', header: 'Product' },
+      { field: 'variant_label', header: 'Variant' },
+      { field: 'sku', header: 'SKU' },
+      { field: 'unit_price', header: 'Unit', type: 'money' },
+      { field: 'quantity', header: 'Qty' },
+      { field: 'line_total', header: 'Line total', type: 'money' },
+    ],
+  },
+  actionsDescription: 'Advance the fulfillment status. Payment and invoicing are handled by Finance.',
+  actions: adminResources.orders.manage.actions.filter((action) => action.key === 'status'),
+};
+
+// --- Department back office: stock ------------------------------------------
+//
+// One row per sellable SKU. `stock_quantity` already nets out what open orders
+// have reserved, so what is shown is genuinely free to sell. Every change —
+// checkout reservations included — is appended to the ledger a SKU's detail
+// shows, so a level always has an explanation.
+adminResources.stock = {
+  id: 'stock',
+  singular: 'SKU',
+  plural: 'Stock',
+  eyebrow: 'Department',
+  description:
+    'Every sellable SKU with its on-hand quantity and reorder point. Record deliveries, correct a count, and read the movement history behind each level.',
+  actionLabel: null,
+  rowKey: 'variant_id',
+  api: {
+    list: '/admin/stock',
+    create: null,
+    itemBase: '/admin/stock',
+    collectionKey: 'stock',
+    itemKey: 'item',
+  },
+  capabilities: { create: false, edit: false, remove: false },
+  filters: [
+    { key: 'level', label: 'Stock level', options: ['out', 'low', 'ok'] },
+  ],
+  columns: [
+    { field: 'product_name', header: 'Product' },
+    { field: 'label', header: 'Variant' },
+    { field: 'sku', header: 'SKU' },
+    { field: 'stock_quantity', header: 'On hand', type: 'number' },
+    { field: 'reorder_threshold', header: 'Reorder at', type: 'number' },
+    { field: 'level', header: 'Level', type: 'status' },
+    { field: 'price', header: 'Price', type: 'money' },
+    { field: 'stock_value', header: 'Shelf value', type: 'money' },
+  ],
+  cardView: {
+    layout: 'grid',
+    imageField: 'primary_image_url',
+    placeholderIcon: 'pi pi-box',
+    titleField: 'product_name',
+    subtitleField: 'sku',
+    badgeField: 'level',
+    details: [
+      { field: 'label', label: 'Variant' },
+      { field: 'stock_quantity', label: 'On hand', type: 'number' },
+      { field: 'reorder_threshold', label: 'Reorder at', type: 'number' },
+      { field: 'stock_value', label: 'Shelf value', type: 'money' },
+    ],
+  },
+  formFields: [],
+};
+
+adminResources.stock.manage = {
+  summary: {
+    icon: 'pi pi-box',
+    eyebrow: 'Stock item',
+    titleKey: 'product_name',
+    subtitleKey: 'sku',
+    badges: [{ key: 'level', label: 'Level' }],
+  },
+  fields: [
+    { key: 'label', label: 'Variant', section: 'sku', sectionLabel: 'SKU', sectionIcon: 'pi pi-tag', emptyLabel: 'Single variant' },
+    { key: 'category_name', label: 'Category', section: 'sku' },
+    { key: 'brand_name', label: 'Brand', section: 'sku', emptyLabel: 'No brand' },
+    { key: 'price', label: 'Unit price', type: 'money', section: 'sku' },
+    { key: 'stock_quantity', label: 'On hand', type: 'number', section: 'level', sectionLabel: 'Shelf', sectionIcon: 'pi pi-box', highlight: true, tone: 'emerald' },
+    { key: 'reorder_threshold', label: 'Reorder point', type: 'number', section: 'level' },
+    { key: 'stock_value', label: 'Shelf value', type: 'money', section: 'level' },
+    { key: 'last_movement_at', label: 'Last movement', type: 'date', section: 'level', emptyLabel: 'No movement recorded' },
+    { key: 'is_active', label: 'SKU available', type: 'boolean', section: 'status', sectionLabel: 'Availability', sectionIcon: 'pi pi-check-circle' },
+    { key: 'product_is_active', label: 'Product published', type: 'boolean', section: 'status' },
+  ],
+  itemsTable: {
+    key: 'movements',
+    title: 'Movement history',
+    columns: [
+      { field: 'created_at', header: 'When', type: 'date' },
+      { field: 'reason', header: 'Reason', type: 'enum' },
+      { field: 'delta', header: 'Change', type: 'number' },
+      { field: 'quantity_after', header: 'On hand after', type: 'number' },
+      { field: 'order_number', header: 'Order' },
+      { field: 'created_by_name', header: 'By' },
+      { field: 'note', header: 'Note' },
+    ],
+  },
+  actionsDescription: 'Record a delivery, correct a miscount, or change when this SKU should be reordered.',
+  actions: [
+    {
+      key: 'restock',
+      label: 'Record delivery',
+      type: 'form',
+      method: 'POST',
+      path: (id) => `/admin/stock/${id}/adjust`,
+      icon: 'pi pi-plus-circle',
+      severity: 'success',
+      successSummary: 'Stock added',
+      errorSummary: 'Could not add stock',
+      body: (values) => ({ mode: 'adjust', reason: 'restock', ...values }),
+      formFields: [
+        { key: 'quantity', label: 'Units received', type: 'number', required: true },
+        { key: 'note', label: 'Note', type: 'text', placeholder: 'Supplier, delivery reference…' },
+      ],
+    },
+    {
+      key: 'recount',
+      label: 'Correct the count',
+      type: 'form',
+      method: 'POST',
+      path: (id) => `/admin/stock/${id}/adjust`,
+      icon: 'pi pi-sync',
+      successSummary: 'Count corrected',
+      errorSummary: 'Could not correct the count',
+      // `set` states the counted shelf quantity and lets the backend derive the
+      // delta, so a stocktake reads as a correction rather than a mystery jump.
+      body: (values) => ({ mode: 'set', reason: 'correction', ...values }),
+      formFields: [
+        { key: 'quantity', label: 'Counted on the shelf', type: 'number', required: true },
+        { key: 'note', label: 'Reason', type: 'text', placeholder: 'Stocktake, breakage, damaged pack…' },
+      ],
+    },
+    {
+      key: 'threshold',
+      label: 'Set reorder point',
+      type: 'form',
+      method: 'PATCH',
+      path: (id) => `/admin/stock/${id}/threshold`,
+      icon: 'pi pi-bell',
+      severity: 'secondary',
+      successSummary: 'Reorder point saved',
+      errorSummary: 'Could not save the reorder point',
+      body: (values) => values,
+      formFields: [
+        { key: 'reorder_threshold', label: 'Warn at or below', type: 'number', required: true },
+      ],
+    },
+  ],
+};

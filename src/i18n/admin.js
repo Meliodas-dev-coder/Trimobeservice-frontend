@@ -1,5 +1,7 @@
 import { computed, ref } from 'vue';
 
+import hrFr from '@/i18n/hr-fr';
+
 const STORAGE_KEY = 'trimobe-admin-language';
 const DISPLAY_KEYS = new Set([
   'addLabel',
@@ -137,6 +139,51 @@ const fr = {
   'View all bookings': 'Voir toutes les réservations',
   'No upcoming bookings.': 'Aucune réservation à venir.',
   'Could not load Mobility operations': 'Impossible de charger les opérations de mobilité',
+  'Human Resources': 'Ressources humaines',
+  'HR overview': 'Aperçu RH',
+  'HR workspace': 'Espace RH',
+  'People operations': 'Gestion des collaborateurs',
+  'Build one reliable home for every employee journey.':
+    'Créez un espace fiable pour chaque parcours collaborateur.',
+  'Manage employee records, time, growth, and hiring through one connected workflow built directly into Trimobe.':
+    'Gérez les dossiers du personnel, le temps, l’évolution et le recrutement dans un processus unifié directement intégré à Trimobe.',
+  'Independent workspace': 'Espace indépendant',
+  'Team Members and Access Roles remain unchanged while the HR data model is built separately.':
+    'Les Membres de l’équipe et les Rôles d’accès restent inchangés pendant que le modèle de données RH est construit séparément.',
+  'Approved HR scope': 'Périmètre RH approuvé',
+  'The workspace is ready for each end-to-end flow to be added in focused releases.':
+    'L’espace est prêt à accueillir chaque processus de bout en bout par versions ciblées.',
+  'Employee records': 'Dossiers du personnel',
+  'Profiles, contracts, departments, positions, documents, onboarding, and offboarding.':
+    'Profils, contrats, départements, postes, documents, intégration et départ.',
+  'Time and leave': 'Temps et congés',
+  'Leave policies, balances, requests, approvals, attendance, shifts, and timesheets.':
+    'Politiques de congés, soldes, demandes, validations, présences, horaires et feuilles de temps.',
+  Performance: 'Performance',
+  'Goals, review cycles, feedback, one-to-ones, and employee development.':
+    'Objectifs, cycles d’évaluation, retours, entretiens individuels et développement.',
+  Recruitment: 'Recrutement',
+  'Vacancies, candidates, interviews, offers, and conversion into employee records.':
+    'Postes vacants, candidats, entretiens, offres et conversion en dossiers du personnel.',
+  'Compensation and expenses': 'Rémunération et dépenses',
+  'Salary history, benefits, expense claims, approval, and reimbursement tracking.':
+    'Historique salarial, avantages, notes de frais, validations et suivi des remboursements.',
+  'Reports and compliance': 'Rapports et conformité',
+  'HR dashboards, exports, document tracking, permissions, and complete audit history.':
+    'Tableaux de bord RH, exports, suivi documentaire, permissions et historique d’audit complet.',
+  Foundation: 'Fondation',
+  Workforce: 'Effectifs',
+  Growth: 'Évolution',
+  Hiring: 'Recrutement',
+  Governance: 'Gouvernance',
+  Planned: 'Planifié',
+  'First delivery': 'Première livraison',
+  'Employee foundation and lifecycle': 'Base collaborateurs et cycle de vie',
+  'The first implementation will establish the employee record, organizational structure, contracts, documents, and onboarding/offboarding states that every later HR flow depends on.':
+    'La première implémentation établira le dossier collaborateur, la structure organisationnelle, les contrats, les documents et les états d’intégration ou de départ dont dépendent tous les processus RH suivants.',
+  'Separate from admin accounts': 'Séparé des comptes administrateur',
+  'Permission controlled': 'Contrôlé par permissions',
+  'Audit ready': 'Prêt pour l’audit',
   'Events overview': 'Aperçu Événements',
   'Events workspace': 'Espace de travail Événements',
   'Event operations': 'Opérations événementielles',
@@ -391,6 +438,8 @@ const fr = {
   'Select image': 'Sélectionner une image',
   Translations: 'Traductions',
   '{lang} version': 'Version {lang}',
+  // Shared by the invoice and contract print views.
+  'Print / PDF': 'Imprimer / PDF', Back: 'Retour',
 
   // Login
   'Trimobe admin': 'Administration Trimobe',
@@ -1211,7 +1260,109 @@ const fr = {
   'Use a password you do not use on another website.': 'Utilisez un mot de passe différent de ceux de vos autres sites.',
   'Sign out when using a shared or public computer.': 'Déconnectez-vous lorsque vous utilisez un ordinateur partagé ou public.',
   'Ask a super-admin to update your access if your responsibilities change.': 'Demandez à un super-administrateur de mettre à jour vos accès si vos responsabilités changent.',
+  'Overview access is active': 'L’accès à l’aperçu est actif',
+  'Additional submenu access is required to view operational data.': 'Un accès supplémentaire aux sous-menus est requis pour consulter les données opérationnelles.',
   'Team & roles': 'Équipe et rôles',
+
+  // Department back office (Coffee / Tech / Fashion): its overview, its slice of
+  // the shared order book, and its stock.
+  'Department workspace': 'Espace du rayon',
+  Coffee: 'Café',
+  Tech: 'Tech',
+  Fashion: 'Mode',
+  '{department} back office': 'Back-office {department}',
+  '{department} catalog': 'Catalogue {department}',
+  'Everything {department} sells, in one place.': 'Tout ce que {department} vend, au même endroit.',
+  'Follow this department\'s orders from placement to hand-over, watch the shelf, and keep the catalog ready to sell.':
+    'Suivez les commandes de ce rayon de la validation à la remise, surveillez le stock et gardez le catalogue prêt à vendre.',
+  'Follow orders': 'Suivre les commandes',
+  'Manage stock': 'Gérer le stock',
+  'Key figures': 'Chiffres clés',
+  'Paid this month': 'Encaissé ce mois-ci',
+  'Paid all time': 'Encaissé depuis le début',
+  'First revenue this month': 'Premier chiffre d’affaires ce mois-ci',
+  'Level with last month': 'Au niveau du mois dernier',
+  '{n}% above last month': '{n} % de plus que le mois dernier',
+  '{n}% below last month': '{n} % de moins que le mois dernier',
+  'No revenue yet': 'Aucun chiffre d’affaires pour l’instant',
+  '{n} units sold': '{n} articles vendus',
+  '{n} units sold this month': '{n} articles vendus ce mois-ci',
+  '{n} still to hand over': '{n} encore à remettre',
+  'Nothing waiting to be handed over': 'Rien à remettre pour le moment',
+  'Awaiting payment': 'En attente de paiement',
+  '{amount} of this department': '{amount} pour ce rayon',
+  'Stock on hand': 'Stock disponible',
+  '{n} units across {s} SKUs': '{n} articles sur {s} références',
+  'Needs restocking': 'À réapprovisionner',
+  '{n} completely out of stock': '{n} en rupture totale',
+  'Nothing is out of stock': 'Aucune rupture de stock',
+  'Last 30 days': '30 derniers jours',
+  'Paid revenue for this department': 'Chiffre d’affaires encaissé du rayon',
+  'Paid revenue over the last 30 days': 'Chiffre d’affaires encaissé des 30 derniers jours',
+  'Peak day': 'Meilleure journée',
+  'No payment has been recorded for this department in the last 30 days.':
+    'Aucun paiement n’a été enregistré pour ce rayon durant les 30 derniers jours.',
+  'Order pipeline': 'Flux des commandes',
+  'Where this department’s orders stand': 'Où en sont les commandes de ce rayon',
+  'Open orders': 'Ouvrir les commandes',
+  'No order has included a product from this department yet.':
+    'Aucune commande ne contient encore de produit de ce rayon.',
+  'Best sellers': 'Meilleures ventes',
+  'Most units sold': 'Les plus vendus',
+  '{n} units': '{n} articles',
+  'Nothing has sold yet.': 'Aucune vente pour l’instant.',
+  'Needs a decision': 'À traiter',
+  'What to deal with next': 'Ce qu’il faut traiter ensuite',
+  'To hand over': 'À remettre',
+  'Running out': 'Bientôt en rupture',
+  'This department': 'Ce rayon',
+  'Out of stock': 'En rupture',
+  '{n} left': 'Il en reste {n}',
+  'Latest activity': 'Activité récente',
+  'Recent orders': 'Commandes récentes',
+  'See all': 'Tout voir',
+  'of {total} across departments': 'sur {total} tous rayons confondus',
+  'No orders yet.': 'Aucune commande pour l’instant.',
+
+  // Stock screen
+  'Department share': 'Part du rayon',
+  'Order total': 'Total de la commande',
+  'Order total (all departments)': 'Total de la commande (tous rayons)',
+  'Units in this department': 'Articles de ce rayon',
+  'Departments in this order': 'Rayons présents dans cette commande',
+  'Line items in this department': 'Lignes de ce rayon',
+  'On hand': 'En stock',
+  'On hand after': 'Stock après',
+  'Reorder at': 'Seuil d’alerte',
+  'Reorder point': 'Seuil de réapprovisionnement',
+  'Shelf value': 'Valeur du stock',
+  'Stock level': 'Niveau de stock',
+  Shelf: 'Stock',
+  'Stock item': 'Article en stock',
+  'Single variant': 'Variante unique',
+  'Last movement': 'Dernier mouvement',
+  'No movement recorded': 'Aucun mouvement enregistré',
+  'Movement history': 'Historique des mouvements',
+  'SKU available': 'Référence disponible',
+  'Product published': 'Produit publié',
+  'Record delivery': 'Enregistrer une livraison',
+  'Units received': 'Articles reçus',
+  'Stock added': 'Stock ajouté',
+  'Could not add stock': 'Impossible d’ajouter le stock',
+  'Correct the count': 'Corriger le comptage',
+  'Counted on the shelf': 'Quantité comptée',
+  'Count corrected': 'Comptage corrigé',
+  'Could not correct the count': 'Impossible de corriger le comptage',
+  'Set reorder point': 'Définir le seuil',
+  'Warn at or below': 'Alerter à partir de',
+  'Reorder point saved': 'Seuil enregistré',
+  'Could not save the reorder point': 'Impossible d’enregistrer le seuil',
+  'Record a delivery, correct a miscount, or change when this SKU should be reordered.':
+    'Enregistrez une livraison, corrigez un comptage ou modifiez le seuil de réapprovisionnement de cette référence.',
+  'Advance the fulfillment status. Payment and invoicing are handled by Finance.':
+    'Faites avancer le statut de préparation. Le paiement et la facturation sont gérés par la finance.',
+
+  ...hrFr,
 };
 
 function translate(value, params = {}) {

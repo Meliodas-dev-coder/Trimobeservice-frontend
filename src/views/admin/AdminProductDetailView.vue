@@ -7,11 +7,12 @@ import { useConfirm } from 'primevue/useconfirm';
 import AdminResourceDialog from '@/components/admin/AdminResourceDialog.vue';
 import DynamicSpecFields from '@/components/admin/DynamicSpecFields.vue';
 import LocalizedFieldControl from '@/components/admin/LocalizedFieldControl.vue';
-import TechWorkspaceNav from '@/components/admin/TechWorkspaceNav.vue';
+import DepartmentWorkspaceNav from '@/components/admin/DepartmentWorkspaceNav.vue';
 import { api } from '@/api/client';
 import { loadFieldOptions, serializeForm, uploadImage } from '@/api/resources';
 import { adminResources } from '@/data/adminResources';
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 import { formatMGA } from '@/utils/format';
 import { cloneTranslations, ensureTranslationBucket } from '@/utils/localized';
 import { statusSeverity } from '@/utils/status';
@@ -20,16 +21,30 @@ const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
+const auth = useAuthStore();
 const { enumLabel, t, translateConfig } = useAdminI18n();
 
 const productsResource = computed(() => translateConfig(adminResources.products));
 
-const isNew = computed(() => ['admin-product-new', 'admin-tech-product-new'].includes(route.name));
+const isNew = computed(() => String(route.name || '').endsWith('product-new'));
 const productId = computed(() => Number(route.params.id));
-// When created from a Tech/Fashion section, scope the category/brand pickers to
-// that department (passed as ?department=).
+// When created from a department section, scope the category/brand pickers to
+// that department (passed as ?department= on the generic screens).
 const department = computed(() => route.meta.department || route.query.department || '');
-const isTech = computed(() => department.value === 'tech');
+// Departments with their own detail route keep the user inside their section
+// after saving; the rest fall back to the generic screen with ?department=.
+const DEPARTMENT_DETAIL_ROUTES = {
+  tech: 'admin-tech-product-detail',
+  coffee: 'admin-coffee-product-detail',
+};
+const departmentDetailRoute = computed(() => DEPARTMENT_DETAIL_ROUTES[department.value] || null);
+const departmentLabel = computed(() => {
+  if (!department.value) {
+    return t('Catalog');
+  }
+  const name = department.value.charAt(0).toUpperCase() + department.value.slice(1);
+  return t('{department} catalog', { department: t(name) });
+});
 
 const product = ref(null);
 const loading = ref(false);
@@ -67,6 +82,18 @@ const activeTemplate = computed(() => {
   return templates.value.find((tpl) => tpl.key === key) || null;
 });
 const specFields = computed(() => activeTemplate.value?.product_fields || []);
+const effectiveDepartment = computed(() => {
+  const templateKey = product.value?.category?.template_key || selectedCategory.value?.item?.template_key;
+  const inferred = templates.value.find((template) => template.key === templateKey)?.department || '';
+  // An existing product's category is authoritative; a route query must not
+  // let a manager apply one department's grant to another department's item.
+  if (!isNew.value) return inferred;
+  return department.value || inferred;
+});
+const canManage = computed(() => Boolean(
+  auth.isSuperAdmin
+  || (effectiveDepartment.value && auth.canBusiness(`${effectiveDepartment.value}.products`, 'manage')),
+));
 
 const productImages = computed(() => (product.value?.images || []).filter((img) => !img.variant_id));
 const coverImage = computed(() => productImages.value.find((img) => img.is_primary) || null);
@@ -92,7 +119,7 @@ const priceRange = computed(() => {
 });
 
 const canSave = computed(() => {
-  if (!draft.name || !draft.category_id) {
+  if (!canManage.value || !draft.name || !draft.category_id) {
     return false;
   }
   return specFields.value.every((field) => {
@@ -198,6 +225,7 @@ async function load() {
 }
 
 async function save() {
+  if (!canManage.value) return;
   saving.value = true;
   errors.value = {};
   try {
@@ -207,9 +235,9 @@ async function save() {
       const created = data?.product;
       toast.add({ severity: 'success', summary: t('Product created'), life: 2500 });
       router.replace({
-        name: isTech.value ? 'admin-tech-product-detail' : 'admin-product-detail',
+        name: departmentDetailRoute.value || 'admin-product-detail',
         params: { id: created.id },
-        query: department.value && !isTech.value ? { department: department.value } : undefined,
+        query: department.value && !departmentDetailRoute.value ? { department: department.value } : undefined,
       });
     } else {
       const data = await api.put(`/admin/products/${productId.value}`, body);
@@ -230,12 +258,14 @@ async function save() {
 // --- variants ---
 
 function openVariantCreate() {
+  if (!canManage.value) return;
   editingVariant.value = null;
   variantErrors.value = {};
   variantDialogOpen.value = true;
 }
 
 function openVariantEdit(variant) {
+  if (!canManage.value) return;
   // Seed the dialog's image field with the variant's current image so an
   // unchanged submit doesn't re-upload/replace it.
   editingVariant.value = { ...variant, variant_image_url: variantImage(variant) };
@@ -244,6 +274,7 @@ function openVariantEdit(variant) {
 }
 
 async function submitVariant(values) {
+  if (!canManage.value) return;
   variantSaving.value = true;
   variantErrors.value = {};
   try {
@@ -273,7 +304,7 @@ async function submitVariant(values) {
 // Attach/replace/remove a variant's image only when it actually changed. `newUrl`
 // is the (possibly just-uploaded) URL from the dialog's image field.
 async function syncVariantImage(variant, newUrl) {
-  if (!variant) {
+  if (!canManage.value || !variant) {
     return;
   }
   const original = editingVariant.value?.variant_image_url || '';
@@ -296,6 +327,7 @@ async function syncVariantImage(variant, newUrl) {
 }
 
 function confirmVariantDelete(variant) {
+  if (!canManage.value) return;
   confirm.require({
     header: t('Delete variant'),
     message: t('Delete this variant? This cannot be undone.'),
@@ -304,6 +336,7 @@ function confirmVariantDelete(variant) {
     acceptLabel: t('Delete'),
     rejectLabel: t('Cancel'),
     accept: async () => {
+      if (!canManage.value) return;
       try {
         await api.del(`/admin/variants/${variant.id}`);
         toast.add({ severity: 'success', summary: t('Deleted'), life: 2500 });
@@ -323,14 +356,17 @@ function variantImage(variant) {
 
 // Called from script scope where the refs are the actual <input> elements.
 function pickCover() {
+  if (!canManage.value) return;
   coverInput.value?.click();
 }
 
 function pickGallery() {
+  if (!canManage.value) return;
   galleryInput.value?.click();
 }
 
 async function addImage(file, body) {
+  if (!canManage.value) return;
   uploading.value = true;
   try {
     const { url } = await uploadImage(file);
@@ -346,7 +382,7 @@ async function addImage(file, body) {
 function onCoverChange(event) {
   const file = event.target.files?.[0];
   event.target.value = '';
-  if (file) {
+  if (file && canManage.value) {
     addImage(file, { is_primary: true, alt_text: product.value?.name || null });
   }
 }
@@ -354,7 +390,7 @@ function onCoverChange(event) {
 function onGalleryChange(event) {
   const file = event.target.files?.[0];
   event.target.value = '';
-  if (file) {
+  if (file && canManage.value) {
     addImage(file, { is_primary: false, alt_text: product.value?.name || null });
   }
 }
@@ -364,7 +400,7 @@ async function onVariantImageChange(event) {
   event.target.value = '';
   const variant = pendingVariant.value;
   pendingVariant.value = null;
-  if (!file || !variant) {
+  if (!canManage.value || !file || !variant) {
     return;
   }
   uploading.value = true;
@@ -390,11 +426,13 @@ async function onVariantImageChange(event) {
 }
 
 function pickVariantImage(variant) {
+  if (!canManage.value) return;
   pendingVariant.value = variant;
   variantInput.value?.click();
 }
 
 async function setAsCover(img) {
+  if (!canManage.value) return;
   try {
     await api.put(`/admin/images/${img.id}`, { is_primary: true });
     toast.add({ severity: 'success', summary: t('Cover updated'), life: 2500 });
@@ -405,6 +443,7 @@ async function setAsCover(img) {
 }
 
 function confirmImageDelete(img) {
+  if (!canManage.value) return;
   confirm.require({
     header: t('Delete image'),
     message: t('Delete this image?'),
@@ -413,6 +452,7 @@ function confirmImageDelete(img) {
     acceptLabel: t('Delete'),
     rejectLabel: t('Cancel'),
     accept: async () => {
+      if (!canManage.value) return;
       try {
         await api.del(`/admin/images/${img.id}`);
         toast.add({ severity: 'success', summary: t('Image deleted'), life: 2500 });
@@ -459,17 +499,18 @@ watch(
 
 <template>
   <section class="product-detail">
-    <TechWorkspaceNav v-if="isTech" />
+    <DepartmentWorkspaceNav v-if="departmentDetailRoute" :department="department" />
 
     <div class="product-detail__top">
       <div class="product-detail__back">
         <Button icon="pi pi-arrow-left" severity="secondary" text rounded :aria-label="t('Back to products')" @click="goBack" />
         <div>
-          <span>{{ t(isTech ? 'Tech catalog' : 'Catalog') }}</span>
+          <span>{{ departmentLabel }}</span>
           <strong>{{ isNew ? t('Create product') : product?.name || t('Product details') }}</strong>
         </div>
       </div>
       <Button
+        v-if="canManage"
         :label="isNew ? t('Create product') : t('Save changes')"
         icon="pi pi-check"
         :loading="saving"
@@ -516,6 +557,7 @@ watch(
       </section>
 
       <!-- Basics + specs -->
+      <fieldset class="product-editor-fields" :disabled="!canManage">
       <section class="panel">
         <div class="panel__head">
           <div class="panel__title">
@@ -525,6 +567,7 @@ watch(
               <p>{{ t('Name, category, brand, and category-specific specs.') }}</p>
             </div>
           </div>
+          <Tag v-if="!canManage" :value="t('Read only')" severity="secondary" />
         </div>
 
         <div class="basics-form">
@@ -569,6 +612,7 @@ watch(
           <DynamicSpecFields v-else :fields="specFields" :model-value="draft.attributes" :errors="errors" />
         </div>
       </section>
+      </fieldset>
 
       <p v-if="isNew" class="product-detail__note">
         {{ t('Save the product first — then you can add its variants and images.') }}
@@ -584,13 +628,13 @@ watch(
               <p>{{ t('Each variant is a sellable SKU with its own price, stock, and image.') }}</p>
             </div>
           </div>
-          <Button :label="t('Add variant')" icon="pi pi-plus" @click="openVariantCreate" />
+          <Button v-if="canManage" :label="t('Add variant')" icon="pi pi-plus" @click="openVariantCreate" />
         </div>
 
         <DataTable :value="variants" responsiveLayout="scroll" tableStyle="min-width: 760px">
           <Column :header="t('Image')" style="width: 92px">
             <template #body="{ data }">
-              <button type="button" class="variant-thumb" :title="t('Set variant image')" @click="pickVariantImage(data)">
+              <button type="button" class="variant-thumb" :disabled="!canManage" :title="canManage ? t('Set variant image') : undefined" @click="pickVariantImage(data)">
                 <img v-if="variantImage(data)" :src="variantImage(data)" :alt="data.sku" />
                 <i v-else class="pi pi-camera" />
               </button>
@@ -609,7 +653,7 @@ watch(
               <Tag :value="data.is_active ? t('Available') : t('Unavailable')" :severity="statusSeverity(data.is_active)" />
             </template>
           </Column>
-          <Column :header="t('Actions')" style="width: 7rem">
+          <Column v-if="canManage" :header="t('Actions')" style="width: 7rem">
             <template #body="{ data }">
               <div class="row-actions">
                 <Button icon="pi pi-pencil" severity="secondary" text rounded :aria-label="t('Edit')" @click="openVariantEdit(data)" />
@@ -631,7 +675,7 @@ watch(
               <p>{{ t('A cover plus gallery shots. No cover set falls back to the first variant image.') }}</p>
             </div>
           </div>
-          <div class="panel__head-actions">
+          <div v-if="canManage" class="panel__head-actions">
             <Button :label="t('Upload cover')" icon="pi pi-star" severity="secondary" outlined :loading="uploading" @click="pickCover" />
             <Button :label="t('Add image')" icon="pi pi-plus" :loading="uploading" @click="pickGallery" />
           </div>
@@ -641,13 +685,13 @@ watch(
           <article v-if="coverImage" class="image-item image-item--cover">
             <img :src="coverImage.url" :alt="product.name" />
             <Tag :value="t('Cover')" severity="success" />
-            <Button icon="pi pi-trash" severity="danger" text rounded :aria-label="t('Delete image')" @click="confirmImageDelete(coverImage)" />
+            <Button v-if="canManage" icon="pi pi-trash" severity="danger" text rounded :aria-label="t('Delete image')" @click="confirmImageDelete(coverImage)" />
           </article>
 
           <article v-for="img in galleryImages" :key="img.id" class="image-item">
             <img :src="img.url" :alt="img.alt_text || product.name" />
-            <Button :label="t('Set as cover')" icon="pi pi-star" size="small" severity="secondary" text @click="setAsCover(img)" />
-            <Button icon="pi pi-trash" severity="danger" text rounded :aria-label="t('Delete image')" @click="confirmImageDelete(img)" />
+            <Button v-if="canManage" :label="t('Set as cover')" icon="pi pi-star" size="small" severity="secondary" text @click="setAsCover(img)" />
+            <Button v-if="canManage" icon="pi pi-trash" severity="danger" text rounded :aria-label="t('Delete image')" @click="confirmImageDelete(img)" />
           </article>
 
           <div v-if="!productImages.length" class="empty-state">{{ t('No product images yet.') }}</div>
@@ -655,11 +699,12 @@ watch(
       </section>
     </template>
 
-    <input ref="coverInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden-file" @change="onCoverChange" />
-    <input ref="galleryInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden-file" @change="onGalleryChange" />
-    <input ref="variantInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden-file" @change="onVariantImageChange" />
+    <input v-if="canManage" ref="coverInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden-file" @change="onCoverChange" />
+    <input v-if="canManage" ref="galleryInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden-file" @change="onGalleryChange" />
+    <input v-if="canManage" ref="variantInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden-file" @change="onVariantImageChange" />
 
     <AdminResourceDialog
+      v-if="canManage"
       v-model:visible="variantDialogOpen"
       :title="editingVariant ? t('Edit variant') : t('Add variant')"
       :fields="variantFields"
@@ -900,6 +945,13 @@ watch(
   box-shadow: 0 12px 34px rgba(37, 31, 20, 0.055);
 }
 
+.product-editor-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .panel__head {
   display: flex;
   align-items: center;
@@ -1019,6 +1071,10 @@ watch(
   border-radius: 10px;
   background: var(--tm-surface-soft);
   cursor: pointer;
+}
+
+.variant-thumb:disabled {
+  cursor: default;
 }
 
 .variant-thumb img {

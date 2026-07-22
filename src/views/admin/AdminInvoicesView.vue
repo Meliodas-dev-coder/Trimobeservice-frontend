@@ -5,16 +5,20 @@ import { useToast } from 'primevue/usetoast';
 
 import { api } from '@/api/client';
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 import { formatDate, formatMGA } from '@/utils/format';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
+const auth = useAuthStore();
 const { t } = useAdminI18n();
 
 const loading = ref(false);
 const rows = ref([]);
 const total = ref(0);
+const canManage = computed(() => auth.canBusiness('invoices.documents', 'manage'));
+const canOpenSettings = computed(() => auth.canBusiness('invoices.settings', 'read'));
 
 const filters = reactive({ kind: '', status: '', invoiceable_type: '' });
 
@@ -133,8 +137,8 @@ onMounted(() => {
         <span>{{ t('Proforma bills, final invoices, and credit notes across every service.') }}</span>
       </div>
       <div class="inv-hero__actions">
-        <Button as="router-link" to="/admin/org-settings" :label="t('Billing settings')" icon="pi pi-cog" severity="secondary" outlined />
-        <Button :label="t('New invoice')" icon="pi pi-plus" @click="openCreate()" />
+        <Button v-if="canOpenSettings" as="router-link" to="/admin/org-settings" :label="t('Billing settings')" icon="pi pi-cog" severity="secondary" outlined />
+        <Button v-if="canManage" :label="t('New invoice')" icon="pi pi-plus" @click="openCreate()" />
       </div>
     </header>
 
@@ -186,7 +190,7 @@ onMounted(() => {
       </Column>
     </DataTable>
 
-    <Dialog v-model:visible="dialog.visible" modal :header="t('New invoice')" :style="{ width: '460px', maxWidth: '94vw' }">
+    <Dialog v-if="canManage" v-model:visible="dialog.visible" modal :header="t('New invoice')" :style="{ width: '460px', maxWidth: '94vw' }">
       <div class="create-form">
         <label>
           <span>{{ t('Service') }}</span>

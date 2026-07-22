@@ -6,15 +6,18 @@ import HealthcareWorkspaceNav from '@/components/admin/HealthcareWorkspaceNav.vu
 import LocalizedFieldControl from '@/components/admin/LocalizedFieldControl.vue';
 import { api } from '@/api/client';
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 import { formatDateTime } from '@/utils/format';
 import { cleanTranslations, cloneTranslations, ensureTranslationBucket } from '@/utils/localized';
 
 const toast = useToast();
+const auth = useAuthStore();
 const { localeCode, t } = useAdminI18n();
 
 const loading = ref(false);
 const saving = ref(false);
 const updatedAt = ref(null);
+const canManage = computed(() => auth.canBusiness('healthcare.settings', 'manage'));
 
 const form = reactive({
   emergency_phone: '',
@@ -126,7 +129,7 @@ onMounted(load);
         </div>
       </aside>
 
-      <form class="settings-card" @submit.prevent="save">
+      <form class="settings-card" :class="{ 'is-readonly': !canManage }" @submit.prevent="save">
         <div class="settings-card__head">
           <span><i class="pi pi-file-edit" /></span>
           <div><p>{{ t('Client-facing details') }}</p><h3>{{ t('Emergency line content') }}</h3></div>
@@ -158,7 +161,8 @@ onMounted(load);
 
         <div class="settings-actions">
           <span>{{ t('Last saved') }} · {{ updatedLabel }}</span>
-          <Button type="submit" :label="t('Save emergency contact')" icon="pi pi-check" :loading="saving" :disabled="loading" />
+          <Tag v-if="!canManage" :value="t('Read only')" severity="secondary" />
+          <Button v-else type="submit" :label="t('Save emergency contact')" icon="pi pi-check" :loading="saving" :disabled="loading" />
         </div>
       </form>
     </div>
@@ -176,6 +180,7 @@ onMounted(load);
 .settings-hero__actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 9px; } .settings-hero__actions :deep(.p-button) { border-color: rgba(255,255,255,.2); color: #fff; }
 .settings-layout { display: grid; align-items: start; gap: 16px; grid-template-columns: minmax(290px,.72fr) minmax(0,1.28fr); }
 .emergency-preview, .settings-card { display: grid; gap: 18px; padding: 20px; border: 1px solid var(--tm-border); border-radius: 18px; background: var(--tm-surface); box-shadow: 0 12px 34px rgba(37,31,20,.055); }
+.settings-card.is-readonly :deep(input),.settings-card.is-readonly :deep(textarea) { pointer-events: none; opacity: .82; }
 .emergency-preview { position: sticky; top: 18px; background: radial-gradient(circle at 100% 0%,rgba(192,90,125,.12),transparent 46%),var(--tm-surface); }
 .emergency-preview__head, .settings-card__head { display: flex; align-items: center; gap: 12px; } .emergency-preview__head > span, .settings-card__head > span { display: grid; width: 42px; height: 42px; flex: 0 0 auto; border-radius: 13px; background: #c05a7d; color: #fff; place-items: center; } .emergency-preview__head > div, .settings-card__head > div { min-width: 0; flex: 1; } .emergency-preview__head h3, .settings-card__head h3 { margin: 3px 0 0; color: var(--tm-heading); font-size: 1.08rem; }
 .emergency-preview__line { display: grid; gap: 5px; padding: 18px; border: 1px solid rgba(192,90,125,.22); border-radius: 16px; background: rgba(192,90,125,.07); } .emergency-preview__line small { color: #a74466; font-weight: 850; } .emergency-preview__line strong { color: var(--tm-heading); font-size: clamp(1.5rem,3vw,2.2rem); letter-spacing: -.035em; overflow-wrap: anywhere; } .emergency-preview__line span { color: var(--tm-muted); font-weight: 760; }

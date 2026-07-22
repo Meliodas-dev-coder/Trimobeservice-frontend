@@ -4,10 +4,12 @@ import { computed, onMounted, ref } from 'vue';
 import EventWorkspaceNav from '@/components/admin/EventWorkspaceNav.vue';
 import { api } from '@/api/client';
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 import { formatDateTime, formatMGA } from '@/utils/format';
 import { statusSeverity } from '@/utils/status';
 
 const { enumLabel, localeCode, t } = useAdminI18n();
+const auth = useAuthStore();
 
 const loading = ref(true);
 const error = ref('');
@@ -28,57 +30,64 @@ const unquotedRequests = computed(() => requests.value.filter((item) => (
 const unpaidRequests = computed(() => requests.value.filter((item) => (
   item.payment_status === 'unpaid' && !['cancelled'].includes(item.status)
 )).length);
+const hasChildAccess = computed(() => [
+  'events.categories',
+  'events.services',
+  'events.artists',
+  'events.requests',
+].some((capability) => auth.canBusiness(capability)));
 
 const workspaceCards = computed(() => [
   {
     key: 'categories', icon: 'pi pi-sitemap', tone: 'gold', eyebrow: t('Offer structure'),
     title: t('Service categories'), value: categories.value.length,
-    note: t('{n} active', { n: activeCategories.value }), to: '/admin/event-service-categories',
+    note: t('{n} active', { n: activeCategories.value }), to: '/admin/event-service-categories', capability: 'events.categories',
   },
   {
     key: 'services', icon: 'pi pi-star', tone: 'emerald', eyebrow: t('Event catalog'),
     title: t('Event services'), value: services.value.length,
-    note: t('{n} available', { n: activeServices.value }), to: '/admin/event-services',
+    note: t('{n} available', { n: activeServices.value }), to: '/admin/event-services', capability: 'events.services',
   },
   {
     key: 'artists', icon: 'pi pi-microphone', tone: 'blue', eyebrow: t('Talent roster'),
     title: t('Gospel artists'), value: artists.value.length,
-    note: t('{n} featured', { n: featuredArtists.value }), to: '/admin/artists',
+    note: t('{n} featured', { n: featuredArtists.value }), to: '/admin/artists', capability: 'events.artists',
   },
   {
     key: 'requests', icon: 'pi pi-calendar-plus', tone: 'coral', eyebrow: t('Planning pipeline'),
     title: t('Event requests'), value: requestTotal.value,
     note: requestsToReview.value ? t('{n} to review', { n: requestsToReview.value }) : t('All reviewed'),
-    to: '/admin/event-requests',
+    to: '/admin/event-requests', capability: 'events.requests',
   },
-]);
+].filter((card) => auth.canBusiness(card.capability)));
 
 const readinessRows = computed(() => [
-  { label: t('Active service categories'), value: activeCategories.value, total: categories.value.length, icon: 'pi pi-sitemap' },
-  { label: t('Available event services'), value: activeServices.value, total: services.value.length, icon: 'pi pi-star' },
-  { label: t('Available artists'), value: activeArtists.value, total: artists.value.length, icon: 'pi pi-microphone' },
+  { label: t('Active service categories'), value: activeCategories.value, total: categories.value.length, icon: 'pi pi-sitemap', capability: 'events.categories' },
+  { label: t('Available event services'), value: activeServices.value, total: services.value.length, icon: 'pi pi-star', capability: 'events.services' },
+  { label: t('Available artists'), value: activeArtists.value, total: artists.value.length, icon: 'pi pi-microphone', capability: 'events.artists' },
   {
     label: t('Services with an image'),
     value: services.value.filter((item) => item.is_active && item.image_url).length,
     total: activeServices.value,
     icon: 'pi pi-image',
+    capability: 'events.services',
   },
-]);
+].filter((row) => auth.canBusiness(row.capability)));
 
 const attentionItems = computed(() => [
   {
     label: t('Requests waiting for review'), value: requestsToReview.value, icon: 'pi pi-inbox',
-    tone: requestsToReview.value ? 'coral' : 'emerald', to: '/admin/event-requests',
+    tone: requestsToReview.value ? 'coral' : 'emerald', to: '/admin/event-requests', capability: 'events.requests',
   },
   {
     label: t('Requests need a quote'), value: unquotedRequests.value, icon: 'pi pi-tag',
-    tone: unquotedRequests.value ? 'gold' : 'emerald', to: '/admin/event-requests',
+    tone: unquotedRequests.value ? 'gold' : 'emerald', to: '/admin/event-requests', capability: 'events.requests',
   },
   {
     label: t('Event payments outstanding'), value: unpaidRequests.value, icon: 'pi pi-wallet',
-    tone: unpaidRequests.value ? 'blue' : 'emerald', to: '/admin/event-requests',
+    tone: unpaidRequests.value ? 'blue' : 'emerald', to: '/admin/event-requests', capability: 'events.requests',
   },
-]);
+].filter((item) => auth.canBusiness(item.capability)));
 
 const upcomingRequests = computed(() => {
   const now = Date.now();
@@ -104,28 +113,37 @@ function requestAmount(request) {
 async function load() {
   loading.value = true;
   error.value = '';
-  try {
-    const [categoryData, serviceData, artistData, requestData] = await Promise.all([
-      api.get('/admin/event-service-categories'),
-      api.get('/admin/event-services', { params: { limit: 100, page: 1 } }),
-      api.get('/admin/artists', { params: { limit: 100, page: 1 } }),
-      api.get('/admin/event-requests', { params: { limit: 100, page: 1 } }),
-    ]);
-    categories.value = categoryData?.event_service_categories || [];
-    services.value = serviceData?.event_services || [];
-    artists.value = artistData?.artists || [];
-    requests.value = requestData?.event_requests || [];
-    requestTotal.value = Number(requestData?.meta?.total ?? requests.value.length);
-  } catch (err) {
-    categories.value = [];
-    services.value = [];
-    artists.value = [];
-    requests.value = [];
-    requestTotal.value = 0;
-    error.value = err?.message || t('Could not load Events operations');
-  } finally {
-    loading.value = false;
-  }
+  categories.value = [];
+  services.value = [];
+  artists.value = [];
+  requests.value = [];
+  requestTotal.value = 0;
+  const failures = [];
+  const loadWidget = async (capability, request, apply) => {
+    if (!auth.canBusiness(capability)) return;
+    try {
+      apply(await request());
+    } catch (err) {
+      if (err?.status !== 403) failures.push(err);
+    }
+  };
+  await Promise.all([
+    loadWidget('events.categories', () => api.get('/admin/event-service-categories'), (data) => {
+      categories.value = data?.event_service_categories || [];
+    }),
+    loadWidget('events.services', () => api.get('/admin/event-services', { params: { limit: 100, page: 1 } }), (data) => {
+      services.value = data?.event_services || [];
+    }),
+    loadWidget('events.artists', () => api.get('/admin/artists', { params: { limit: 100, page: 1 } }), (data) => {
+      artists.value = data?.artists || [];
+    }),
+    loadWidget('events.requests', () => api.get('/admin/event-requests', { params: { limit: 100, page: 1 } }), (data) => {
+      requests.value = data?.event_requests || [];
+      requestTotal.value = Number(data?.meta?.total ?? requests.value.length);
+    }),
+  ]);
+  if (failures.length) error.value = failures[0]?.message || t('Could not load Events operations');
+  loading.value = false;
 }
 
 onMounted(load);
@@ -142,8 +160,8 @@ onMounted(load);
         <span>{{ t('Keep services and artists ready, review client needs, compare budgets, quote confidently, and follow every event through payment.') }}</span>
       </div>
       <div class="event-hero__actions">
-        <Button as="router-link" to="/admin/event-requests/new" :label="t('Create request')" icon="pi pi-plus" />
-        <Button as="router-link" to="/admin/event-services" :label="t('Manage services')" icon="pi pi-star" severity="secondary" outlined />
+        <Button v-if="auth.canBusiness('events.requests', 'manage')" as="router-link" to="/admin/event-requests/new" :label="t('Create request')" icon="pi pi-plus" />
+        <Button v-if="auth.canBusiness('events.services', 'manage')" as="router-link" to="/admin/event-services" :label="t('Manage services')" icon="pi pi-star" severity="secondary" outlined />
         <Button as="router-link" to="/events" :label="t('View events page')" icon="pi pi-external-link" severity="secondary" outlined />
       </div>
     </header>
@@ -153,12 +171,12 @@ onMounted(load);
       <Button :label="t('Retry')" icon="pi pi-refresh" severity="secondary" outlined @click="load" />
     </div>
 
-    <div v-if="loading" class="workspace-grid">
-      <Skeleton v-for="index in 4" :key="index" height="10.5rem" borderRadius="18px" />
+    <div v-if="loading && hasChildAccess" class="workspace-grid">
+      <Skeleton v-for="index in Math.max(workspaceCards.length, 1)" :key="index" height="10.5rem" borderRadius="18px" />
     </div>
 
     <template v-else>
-      <section class="workspace-grid" :aria-label="t('Events workspace')">
+      <section v-if="workspaceCards.length" class="workspace-grid" :aria-label="t('Events workspace')">
         <RouterLink v-for="card in workspaceCards" :key="card.key" :to="card.to" class="workspace-card" :class="`is-${card.tone}`">
           <div class="workspace-card__top"><span><i :class="card.icon" /></span><i class="pi pi-arrow-up-right" /></div>
           <p>{{ card.eyebrow }}</p>
@@ -167,8 +185,13 @@ onMounted(load);
         </RouterLink>
       </section>
 
-      <div class="event-overview__grid">
-        <section class="event-panel">
+      <section v-if="!hasChildAccess" class="overview-access-note">
+        <i class="pi pi-eye" />
+        <div><strong>{{ t('Overview access is active') }}</strong><span>{{ t('Additional submenu access is required to view operational data.') }}</span></div>
+      </section>
+
+      <div v-if="readinessRows.length || attentionItems.length" class="event-overview__grid">
+        <section v-if="readinessRows.length" class="event-panel">
           <div class="event-panel__head">
             <div><p>{{ t('Catalog readiness') }}</p><h3>{{ t('What clients can request') }}</h3></div>
             <span class="event-panel__count">{{ activeServices }}/{{ services.length }}</span>
@@ -184,7 +207,7 @@ onMounted(load);
           </div>
         </section>
 
-        <section class="event-panel">
+        <section v-if="attentionItems.length" class="event-panel">
           <div class="event-panel__head">
             <div><p>{{ t('Needs attention') }}</p><h3>{{ t('Planning checklist') }}</h3></div>
           </div>
@@ -196,7 +219,7 @@ onMounted(load);
         </section>
       </div>
 
-      <section class="event-panel upcoming-panel">
+      <section v-if="auth.canBusiness('events.requests')" class="event-panel upcoming-panel">
         <div class="event-panel__head">
           <div><p>{{ t('Event calendar') }}</p><h3>{{ t('Upcoming client events') }}</h3></div>
           <Button as="router-link" to="/admin/event-requests" :label="t('View all requests')" icon="pi pi-arrow-right" severity="secondary" text />
@@ -230,7 +253,10 @@ onMounted(load);
 .event-hero__actions :deep(.p-button-secondary) { border-color: rgba(255,255,255,.2); color: #fff; }
 .event-error { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid rgba(206,107,85,.28); border-radius: 14px; background: rgba(206,107,85,.08); color: var(--tm-coral); font-weight: 800; }
 .event-error span { display: flex; align-items: center; gap: 8px; }
-.workspace-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0,1fr)); }
+.workspace-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.overview-access-note { display: flex; align-items: center; gap: 13px; padding: 20px; border: 1px solid var(--tm-border); border-radius: 18px; background: var(--tm-surface); color: var(--tm-muted); }
+.overview-access-note > i { display: grid; width: 42px; height: 42px; flex: 0 0 auto; border-radius: 13px; background: var(--tm-surface-soft); color: var(--tm-gold); place-items: center; }
+.overview-access-note div { display: grid; gap: 4px; }.overview-access-note strong { color: var(--tm-heading); }.overview-access-note span { font-size: .86rem; }
 .workspace-card { --accent: var(--tm-gold); --wash: rgba(201,146,44,.12); display: grid; min-height: 170px; gap: 8px; padding: 18px; border: 1px solid var(--tm-border); border-radius: 18px; background: radial-gradient(circle at 100% 0%, var(--wash), transparent 50%), var(--tm-surface); box-shadow: 0 12px 34px rgba(37,31,20,.055); color: inherit; text-decoration: none; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
 .workspace-card.is-emerald { --accent: var(--tm-emerald); --wash: rgba(12,155,128,.12); } .workspace-card.is-blue { --accent: var(--tm-blue); --wash: rgba(49,92,112,.12); } .workspace-card.is-coral { --accent: var(--tm-coral); --wash: rgba(206,107,85,.12); }
 .workspace-card:hover, .workspace-card:focus-visible { border-color: var(--accent); box-shadow: var(--tm-shadow-hover); outline: none; transform: translateY(-3px); }

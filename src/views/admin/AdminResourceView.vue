@@ -9,11 +9,12 @@ import AdminManageDialog from '@/components/admin/AdminManageDialog.vue';
 import CardView from '@/components/admin/CardView.vue';
 import EventWorkspaceNav from '@/components/admin/EventWorkspaceNav.vue';
 import HealthcareWorkspaceNav from '@/components/admin/HealthcareWorkspaceNav.vue';
+import DepartmentWorkspaceNav from '@/components/admin/DepartmentWorkspaceNav.vue';
 import MobilityWorkspaceNav from '@/components/admin/MobilityWorkspaceNav.vue';
-import TechWorkspaceNav from '@/components/admin/TechWorkspaceNav.vue';
 import { api } from '@/api/client';
 import { adminResources } from '@/data/adminResources';
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 import { formatDate, formatDateTime, formatMGA } from '@/utils/format';
 import { localizedValue } from '@/utils/localized';
 import { statusSeverity } from '@/utils/status';
@@ -32,11 +33,28 @@ const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
+const auth = useAuthStore();
 const { enumLabel, language, localeCode, t, translateConfig } = useAdminI18n();
 
 const resourceKey = computed(() => route.meta.resource || 'products');
 const department = computed(() => route.meta.department || '');
+// A catalog department section (Tech / Fashion / Coffee) gets the department
+// workspace nav and the catalog hero treatment.
+const CATALOG_DEPARTMENTS = ['tech', 'fashion', 'coffee'];
+const isDepartmentSection = computed(() => CATALOG_DEPARTMENTS.includes(department.value));
 const isTechDepartment = computed(() => department.value === 'tech');
+// Where each department's storefront lives, for the hero's "view storefront".
+const DEPARTMENT_STOREFRONTS = { tech: '/tech', fashion: '/fashion', coffee: '/coffee' };
+const departmentStorefront = computed(() => DEPARTMENT_STOREFRONTS[department.value] || null);
+// Departments with their own product create/detail screens. The generic
+// /admin/products screens back every other department.
+const DEPARTMENT_PRODUCT_ROUTES = {
+  tech: { create: 'admin-tech-product-new', detail: 'admin-tech-product-detail' },
+  coffee: { create: 'admin-coffee-product-new', detail: 'admin-coffee-product-detail' },
+};
+const productRoutes = computed(() =>
+  (resourceKey.value === 'products' && DEPARTMENT_PRODUCT_ROUTES[department.value]) || null,
+);
 const isMobilityResource = computed(() => ['car-categories', 'cars', 'drivers', 'bookings'].includes(resourceKey.value));
 const isEventResource = computed(() => ['event-service-categories', 'event-services', 'artists', 'event-requests'].includes(resourceKey.value));
 const isHealthcareResource = computed(() => ['practitioners', 'healthcare-service-categories', 'healthcare-services', 'healthcare-requests'].includes(resourceKey.value));
@@ -45,6 +63,22 @@ const resource = computed(() => translateConfig(baseResource.value));
 const serverPaginated = computed(() => isPaginated(resource.value));
 const preferredView = computed(() => route.meta.defaultView || resource.value.defaultView || 'table');
 const pageDescription = computed(() => t(route.meta.description || resource.value.description));
+const RESOURCE_BUSINESS_CAPABILITIES = {
+  'admin-tech-categories': 'tech.categories', 'admin-tech-brands': 'tech.brands', 'admin-tech-products': 'tech.products',
+  'admin-fashion-categories': 'fashion.categories', 'admin-fashion-brands': 'fashion.brands', 'admin-fashion-products': 'fashion.products',
+  'admin-coffee-categories': 'coffee.categories', 'admin-coffee-brands': 'coffee.brands', 'admin-coffee-products': 'coffee.products',
+  'admin-tech-orders': 'tech.orders', 'admin-fashion-orders': 'fashion.orders', 'admin-coffee-orders': 'coffee.orders',
+  'admin-tech-stock': 'tech.stock', 'admin-fashion-stock': 'fashion.stock', 'admin-coffee-stock': 'coffee.stock',
+  'admin-car-categories': 'mobility.categories', 'admin-cars': 'mobility.cars',
+  'admin-drivers': 'mobility.drivers', 'admin-bookings': 'mobility.bookings',
+  'admin-event-service-categories': 'events.categories', 'admin-event-services': 'events.services', 'admin-artists': 'events.artists',
+  'admin-event-requests': 'events.requests', 'admin-practitioners': 'healthcare.practitioners',
+  'admin-healthcare-categories': 'healthcare.categories', 'admin-healthcare-services': 'healthcare.services',
+  'admin-healthcare-requests': 'healthcare.requests', 'admin-orders': 'orders.orders', 'admin-payments': 'payments.payments',
+  'admin-customers': 'customers.directory', 'admin-audit-logs': 'audit_logs.history',
+};
+const businessCapability = computed(() => route.meta.businessCapability || RESOURCE_BUSINESS_CAPABILITIES[route.name]);
+const canManageAccess = computed(() => !businessCapability.value || auth.canBusiness(businessCapability.value, 'manage'));
 const resourceIcon = computed(() => ({
   categories: 'pi pi-tags',
   brands: 'pi pi-bookmark',
@@ -80,10 +114,10 @@ const heroEyebrow = computed(() => {
 });
 
 const canCreate = computed(
-  () => resource.value.capabilities?.create !== false && Boolean(resource.value.actionLabel),
+  () => canManageAccess.value && resource.value.capabilities?.create !== false && Boolean(resource.value.actionLabel),
 );
-const canEdit = computed(() => resource.value.capabilities?.edit !== false);
-const canRemove = computed(() => resource.value.capabilities?.remove !== false);
+const canEdit = computed(() => canManageAccess.value && resource.value.capabilities?.edit !== false);
+const canRemove = computed(() => canManageAccess.value && resource.value.capabilities?.remove !== false);
 const canDuplicate = computed(() => canCreate.value && Boolean(resource.value.duplicate));
 const hasDetailRoute = computed(() => Boolean(resource.value.detailRoute));
 const canEditRow = computed(() => canEdit.value && !hasDetailRoute.value);
@@ -418,8 +452,8 @@ async function loadFilterOptions() {
 }
 
 function openCreate() {
-  if (isTechDepartment.value && resourceKey.value === 'products') {
-    router.push({ name: 'admin-tech-product-new' });
+  if (productRoutes.value) {
+    router.push({ name: productRoutes.value.create });
     return;
   }
   if (resource.value.createRoute) {
@@ -491,8 +525,8 @@ async function openDuplicateFromQuery() {
 }
 
 function openManage(row) {
-  if (isTechDepartment.value && resourceKey.value === 'products') {
-    router.push({ name: 'admin-tech-product-detail', params: { id: row.id } });
+  if (productRoutes.value) {
+    router.push({ name: productRoutes.value.detail, params: { id: row.id } });
     return;
   }
   if (resource.value.detailRoute) {
@@ -682,14 +716,14 @@ function displayValue(row, column) {
 
 <template>
   <section class="admin-resource">
-    <TechWorkspaceNav v-if="isTechDepartment" />
+    <DepartmentWorkspaceNav v-if="isDepartmentSection" :department="department" />
     <MobilityWorkspaceNav v-if="isMobilityResource" />
     <EventWorkspaceNav v-if="isEventResource" />
     <HealthcareWorkspaceNav v-if="isHealthcareResource" />
 
-    <div class="resource-hero" :class="{ 'is-tech': isTechDepartment, 'is-mobility': isMobilityResource, 'is-events': isEventResource, 'is-healthcare': isHealthcareResource }">
+    <div class="resource-hero" :class="{ 'is-catalog': isDepartmentSection, 'is-mobility': isMobilityResource, 'is-events': isEventResource, 'is-healthcare': isHealthcareResource }">
       <div class="resource-hero__copy">
-        <span v-if="isTechDepartment || isMobilityResource || isEventResource || isHealthcareResource" class="resource-hero__icon"><i :class="resourceIcon" /></span>
+        <span v-if="isDepartmentSection || isMobilityResource || isEventResource || isHealthcareResource" class="resource-hero__icon"><i :class="resourceIcon" /></span>
         <div>
           <p>{{ heroEyebrow }}</p>
           <h2>{{ resource.plural }}</h2>
@@ -697,7 +731,7 @@ function displayValue(row, column) {
         </div>
       </div>
       <div class="resource-hero__actions">
-        <Button v-if="isTechDepartment" as="router-link" to="/tech" :label="t('View storefront')" icon="pi pi-external-link" severity="secondary" outlined />
+        <Button v-if="departmentStorefront" as="router-link" :to="departmentStorefront" :label="t('View storefront')" icon="pi pi-external-link" severity="secondary" outlined />
         <Button v-if="isMobilityResource" as="router-link" to="/cars" :label="t('View car rentals')" icon="pi pi-external-link" severity="secondary" outlined />
         <Button v-if="isEventResource" as="router-link" to="/events" :label="t('View events page')" icon="pi pi-external-link" severity="secondary" outlined />
         <Button v-if="isHealthcareResource" as="router-link" to="/healthcare" :label="t('View healthcare page')" icon="pi pi-external-link" severity="secondary" outlined />
@@ -922,6 +956,7 @@ function displayValue(row, column) {
       v-model:visible="manageOpen"
       :resource="resource"
       :itemId="manageId"
+      :readOnly="!canManageAccess"
       @changed="fetchData"
     />
   </section>
@@ -940,7 +975,7 @@ function displayValue(row, column) {
   gap: 18px;
 }
 
-.resource-hero.is-tech,
+.resource-hero.is-catalog,
 .resource-hero.is-mobility,
 .resource-hero.is-events,
 .resource-hero.is-healthcare {

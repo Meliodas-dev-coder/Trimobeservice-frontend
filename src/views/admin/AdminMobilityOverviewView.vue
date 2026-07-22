@@ -4,10 +4,12 @@ import { computed, onMounted, ref } from 'vue';
 import MobilityWorkspaceNav from '@/components/admin/MobilityWorkspaceNav.vue';
 import { api } from '@/api/client';
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 import { formatDateTime, formatMGA } from '@/utils/format';
 import { statusSeverity } from '@/utils/status';
 
 const { enumLabel, localeCode, t } = useAdminI18n();
+const auth = useAuthStore();
 
 const loading = ref(true);
 const error = ref('');
@@ -25,47 +27,54 @@ const availableDrivers = computed(() => drivers.value.filter((item) => item.stat
 const activeBookings = computed(() => bookings.value.filter((item) => ['confirmed', 'driver_assigned', 'active'].includes(item.status)).length);
 const bookingsWithoutDriver = computed(() => bookings.value.filter((item) => ['confirmed', 'active'].includes(item.status) && !item.driver_id).length);
 const unpaidBookings = computed(() => bookings.value.filter((item) => item.payment_status === 'unpaid' && item.status !== 'cancelled').length);
+const hasChildAccess = computed(() => [
+  'mobility.categories',
+  'mobility.cars',
+  'mobility.drivers',
+  'mobility.bookings',
+].some((capability) => auth.canBusiness(capability)));
 
 const workspaceCards = computed(() => [
   {
     key: 'categories', icon: 'pi pi-sitemap', tone: 'gold', eyebrow: t('Fleet structure'),
     title: t('Car categories'), value: categories.value.length,
-    note: t('{n} active', { n: activeCategories.value }), to: '/admin/car-categories',
+    note: t('{n} active', { n: activeCategories.value }), to: '/admin/car-categories', capability: 'mobility.categories',
   },
   {
     key: 'cars', icon: 'pi pi-car', tone: 'emerald', eyebrow: t('Fleet readiness'),
     title: t('Cars'), value: carTotal.value,
-    note: t('{n} available now', { n: availableCars.value }), to: '/admin/cars',
+    note: t('{n} available now', { n: availableCars.value }), to: '/admin/cars', capability: 'mobility.cars',
   },
   {
     key: 'drivers', icon: 'pi pi-id-card', tone: 'blue', eyebrow: t('Dispatch team'),
     title: t('Drivers'), value: drivers.value.length,
-    note: t('{n} ready to assign', { n: availableDrivers.value }), to: '/admin/drivers',
+    note: t('{n} ready to assign', { n: availableDrivers.value }), to: '/admin/drivers', capability: 'mobility.drivers',
   },
   {
     key: 'bookings', icon: 'pi pi-calendar-clock', tone: 'coral', eyebrow: t('Rental operations'),
     title: t('Bookings'), value: bookingTotal.value,
-    note: t('{n} currently active', { n: activeBookings.value }), to: '/admin/bookings',
+    note: t('{n} currently active', { n: activeBookings.value }), to: '/admin/bookings', capability: 'mobility.bookings',
   },
-]);
+].filter((card) => auth.canBusiness(card.capability)));
 
 const healthRows = computed(() => [
-  { label: t('Available cars'), value: availableCars.value, total: cars.value.length, icon: 'pi pi-car' },
-  { label: t('Available drivers'), value: availableDrivers.value, total: drivers.value.length, icon: 'pi pi-id-card' },
-  { label: t('Active categories'), value: activeCategories.value, total: categories.value.length, icon: 'pi pi-sitemap' },
+  { label: t('Available cars'), value: availableCars.value, total: cars.value.length, icon: 'pi pi-car', capability: 'mobility.cars' },
+  { label: t('Available drivers'), value: availableDrivers.value, total: drivers.value.length, icon: 'pi pi-id-card', capability: 'mobility.drivers' },
+  { label: t('Active categories'), value: activeCategories.value, total: categories.value.length, icon: 'pi pi-sitemap', capability: 'mobility.categories' },
   {
     label: t('Bookings with a driver'),
     value: Math.max(activeBookings.value - bookingsWithoutDriver.value, 0),
     total: activeBookings.value,
     icon: 'pi pi-user-plus',
+    capability: 'mobility.bookings',
   },
-]);
+].filter((row) => auth.canBusiness(row.capability)));
 
 const attentionItems = computed(() => [
-  { label: t('Bookings need a driver'), value: bookingsWithoutDriver.value, icon: 'pi pi-user-plus', tone: bookingsWithoutDriver.value ? 'coral' : 'emerald', to: '/admin/bookings' },
-  { label: t('Bookings awaiting payment'), value: unpaidBookings.value, icon: 'pi pi-wallet', tone: unpaidBookings.value ? 'gold' : 'emerald', to: '/admin/bookings' },
-  { label: t('Cars in maintenance'), value: maintenanceCars.value, icon: 'pi pi-wrench', tone: maintenanceCars.value ? 'blue' : 'emerald', to: '/admin/cars' },
-]);
+  { label: t('Bookings need a driver'), value: bookingsWithoutDriver.value, icon: 'pi pi-user-plus', tone: bookingsWithoutDriver.value ? 'coral' : 'emerald', to: '/admin/bookings', capability: 'mobility.bookings' },
+  { label: t('Bookings awaiting payment'), value: unpaidBookings.value, icon: 'pi pi-wallet', tone: unpaidBookings.value ? 'gold' : 'emerald', to: '/admin/bookings', capability: 'mobility.bookings' },
+  { label: t('Cars in maintenance'), value: maintenanceCars.value, icon: 'pi pi-wrench', tone: maintenanceCars.value ? 'blue' : 'emerald', to: '/admin/cars', capability: 'mobility.cars' },
+].filter((item) => auth.canBusiness(item.capability)));
 
 const upcomingBookings = computed(() => {
   const now = Date.now();
@@ -82,30 +91,41 @@ function percent(row) {
 async function load() {
   loading.value = true;
   error.value = '';
-  try {
-    const [categoryData, carData, driverData, bookingData] = await Promise.all([
-      api.get('/admin/car-categories'),
-      api.get('/admin/cars', { params: { limit: 100, page: 1 } }),
-      api.get('/admin/drivers'),
-      api.get('/admin/bookings', { params: { limit: 100, page: 1 } }),
-    ]);
-    categories.value = categoryData?.car_categories || [];
-    cars.value = carData?.cars || [];
-    carTotal.value = Number(carData?.meta?.total ?? cars.value.length);
-    drivers.value = driverData?.drivers || [];
-    bookings.value = bookingData?.bookings || [];
-    bookingTotal.value = Number(bookingData?.meta?.total ?? bookings.value.length);
-  } catch (err) {
-    categories.value = [];
-    cars.value = [];
-    drivers.value = [];
-    bookings.value = [];
-    carTotal.value = 0;
-    bookingTotal.value = 0;
-    error.value = err?.message || t('Could not load Mobility operations');
-  } finally {
-    loading.value = false;
-  }
+  categories.value = [];
+  cars.value = [];
+  drivers.value = [];
+  bookings.value = [];
+  carTotal.value = 0;
+  bookingTotal.value = 0;
+  const failures = [];
+  const loadWidget = async (capability, request, apply) => {
+    if (!auth.canBusiness(capability)) return;
+    try {
+      apply(await request());
+    } catch (err) {
+      // An overview grant does not imply access to its child APIs. A 403 from
+      // one optional widget must not make the entire overview unusable.
+      if (err?.status !== 403) failures.push(err);
+    }
+  };
+  await Promise.all([
+    loadWidget('mobility.categories', () => api.get('/admin/car-categories'), (data) => {
+      categories.value = data?.car_categories || [];
+    }),
+    loadWidget('mobility.cars', () => api.get('/admin/cars', { params: { limit: 100, page: 1 } }), (data) => {
+      cars.value = data?.cars || [];
+      carTotal.value = Number(data?.meta?.total ?? cars.value.length);
+    }),
+    loadWidget('mobility.drivers', () => api.get('/admin/drivers'), (data) => {
+      drivers.value = data?.drivers || [];
+    }),
+    loadWidget('mobility.bookings', () => api.get('/admin/bookings', { params: { limit: 100, page: 1 } }), (data) => {
+      bookings.value = data?.bookings || [];
+      bookingTotal.value = Number(data?.meta?.total ?? bookings.value.length);
+    }),
+  ]);
+  if (failures.length) error.value = failures[0]?.message || t('Could not load Mobility operations');
+  loading.value = false;
 }
 
 onMounted(load);
@@ -122,8 +142,8 @@ onMounted(load);
         <span>{{ t('Organize the fleet, see real availability, assign drivers, and follow every booking from confirmation to payment.') }}</span>
       </div>
       <div class="mobility-hero__actions">
-        <Button as="router-link" to="/admin/cars" :label="t('Manage fleet')" icon="pi pi-car" />
-        <Button as="router-link" to="/admin/bookings" :label="t('Open bookings')" icon="pi pi-calendar-clock" severity="secondary" outlined />
+        <Button v-if="auth.canBusiness('mobility.cars')" as="router-link" to="/admin/cars" :label="t('Manage fleet')" icon="pi pi-car" />
+        <Button v-if="auth.canBusiness('mobility.bookings')" as="router-link" to="/admin/bookings" :label="t('Open bookings')" icon="pi pi-calendar-clock" severity="secondary" outlined />
         <Button as="router-link" to="/cars" :label="t('View car rentals')" icon="pi pi-external-link" severity="secondary" outlined />
       </div>
     </header>
@@ -133,12 +153,12 @@ onMounted(load);
       <Button :label="t('Retry')" icon="pi pi-refresh" severity="secondary" outlined @click="load" />
     </div>
 
-    <div v-if="loading" class="workspace-grid">
-      <Skeleton v-for="index in 4" :key="index" height="10.5rem" borderRadius="18px" />
+    <div v-if="loading && hasChildAccess" class="workspace-grid">
+      <Skeleton v-for="index in Math.max(workspaceCards.length, 1)" :key="index" height="10.5rem" borderRadius="18px" />
     </div>
 
     <template v-else>
-      <section class="workspace-grid" :aria-label="t('Mobility workspace')">
+      <section v-if="workspaceCards.length" class="workspace-grid" :aria-label="t('Mobility workspace')">
         <RouterLink v-for="card in workspaceCards" :key="card.key" :to="card.to" class="workspace-card" :class="`is-${card.tone}`">
           <div class="workspace-card__top"><span><i :class="card.icon" /></span><i class="pi pi-arrow-up-right" /></div>
           <p>{{ card.eyebrow }}</p>
@@ -147,8 +167,13 @@ onMounted(load);
         </RouterLink>
       </section>
 
-      <div class="mobility-overview__grid">
-        <section class="mobility-panel">
+      <section v-if="!hasChildAccess" class="overview-access-note">
+        <i class="pi pi-eye" />
+        <div><strong>{{ t('Overview access is active') }}</strong><span>{{ t('Additional submenu access is required to view operational data.') }}</span></div>
+      </section>
+
+      <div v-if="healthRows.length || attentionItems.length" class="mobility-overview__grid">
+        <section v-if="healthRows.length" class="mobility-panel">
           <div class="mobility-panel__head">
             <div><p>{{ t('Dispatch readiness') }}</p><h3>{{ t('What can move right now') }}</h3></div>
             <span class="mobility-panel__count">{{ availableCars }}/{{ cars.length }}</span>
@@ -164,7 +189,7 @@ onMounted(load);
           </div>
         </section>
 
-        <section class="mobility-panel">
+        <section v-if="attentionItems.length" class="mobility-panel">
           <div class="mobility-panel__head">
             <div><p>{{ t('Needs attention') }}</p><h3>{{ t('Dispatch checklist') }}</h3></div>
           </div>
@@ -176,7 +201,7 @@ onMounted(load);
         </section>
       </div>
 
-      <section class="mobility-panel upcoming-panel">
+      <section v-if="auth.canBusiness('mobility.bookings')" class="mobility-panel upcoming-panel">
         <div class="mobility-panel__head">
           <div><p>{{ t('Schedule') }}</p><h3>{{ t('Upcoming and active bookings') }}</h3></div>
           <Button as="router-link" to="/admin/bookings" :label="t('View all bookings')" icon="pi pi-arrow-right" severity="secondary" text />
@@ -207,7 +232,10 @@ onMounted(load);
 .mobility-hero__actions :deep(.p-button-secondary) { border-color: rgba(255,255,255,.2); color: #fff; }
 .mobility-error { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid rgba(206,107,85,.28); border-radius: 14px; background: rgba(206,107,85,.08); color: var(--tm-coral); font-weight: 800; }
 .mobility-error span { display: flex; align-items: center; gap: 8px; }
-.workspace-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.workspace-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.overview-access-note { display: flex; align-items: center; gap: 13px; padding: 20px; border: 1px solid var(--tm-border); border-radius: 18px; background: var(--tm-surface); color: var(--tm-muted); }
+.overview-access-note > i { display: grid; width: 42px; height: 42px; flex: 0 0 auto; border-radius: 13px; background: var(--tm-surface-soft); color: var(--tm-gold); place-items: center; }
+.overview-access-note div { display: grid; gap: 4px; }.overview-access-note strong { color: var(--tm-heading); }.overview-access-note span { font-size: .86rem; }
 .workspace-card { --accent: var(--tm-gold); --wash: rgba(201,146,44,.12); display: grid; min-height: 170px; gap: 8px; padding: 18px; border: 1px solid var(--tm-border); border-radius: 18px; background: radial-gradient(circle at 100% 0%, var(--wash), transparent 50%), var(--tm-surface); box-shadow: 0 12px 34px rgba(37,31,20,.055); color: inherit; text-decoration: none; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
 .workspace-card.is-emerald { --accent: var(--tm-emerald); --wash: rgba(12,155,128,.12); } .workspace-card.is-blue { --accent: var(--tm-blue); --wash: rgba(49,92,112,.12); } .workspace-card.is-coral { --accent: var(--tm-coral); --wash: rgba(206,107,85,.12); }
 .workspace-card:hover, .workspace-card:focus-visible { border-color: var(--accent); box-shadow: var(--tm-shadow-hover); outline: none; transform: translateY(-3px); }

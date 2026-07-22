@@ -4,10 +4,12 @@ import { computed, onMounted, ref } from 'vue';
 import HealthcareWorkspaceNav from '@/components/admin/HealthcareWorkspaceNav.vue';
 import { api } from '@/api/client';
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 import { formatDateTime, formatMGA } from '@/utils/format';
 import { statusSeverity } from '@/utils/status';
 
 const { enumLabel, localeCode, t } = useAdminI18n();
+const auth = useAuthStore();
 
 const loading = ref(true);
 const error = ref('');
@@ -34,43 +36,50 @@ const requestsNeedAssignment = computed(() => requests.value.filter((item) => (
 const unpaidRequests = computed(() => requests.value.filter((item) => (
   item.payment_status === 'unpaid' && !['cancelled'].includes(item.status)
 )).length);
+const hasChildAccess = computed(() => [
+  'healthcare.categories',
+  'healthcare.services',
+  'healthcare.practitioners',
+  'healthcare.requests',
+  'healthcare.settings',
+].some((capability) => auth.canBusiness(capability)));
 
 const workspaceCards = computed(() => [
   {
     key: 'categories', icon: 'pi pi-sitemap', tone: 'gold', eyebrow: t('Care structure'),
     title: t('Care categories'), value: categories.value.length,
-    note: t('{n} active', { n: activeCategories.value }), to: '/admin/healthcare/categories',
+    note: t('{n} active', { n: activeCategories.value }), to: '/admin/healthcare/categories', capability: 'healthcare.categories',
   },
   {
     key: 'services', icon: 'pi pi-heart-fill', tone: 'rose', eyebrow: t('Care catalog'),
     title: t('Care services'), value: serviceTotal.value,
-    note: t('{n} available', { n: activeServices.value }), to: '/admin/healthcare/services',
+    note: t('{n} available', { n: activeServices.value }), to: '/admin/healthcare/services', capability: 'healthcare.services',
   },
   {
     key: 'practitioners', icon: 'pi pi-user-plus', tone: 'emerald', eyebrow: t('Clinical roster'),
     title: t('Practitioners'), value: practitionerTotal.value,
-    note: t('{n} ready to assign', { n: activePractitioners.value }), to: '/admin/practitioners',
+    note: t('{n} ready to assign', { n: activePractitioners.value }), to: '/admin/practitioners', capability: 'healthcare.practitioners',
   },
   {
     key: 'requests', icon: 'pi pi-calendar-plus', tone: 'blue', eyebrow: t('Care pipeline'),
     title: t('Care requests'), value: requestTotal.value,
     note: requestsToReview.value ? t('{n} to review', { n: requestsToReview.value }) : t('All reviewed'),
-    to: '/admin/healthcare/requests',
+    to: '/admin/healthcare/requests', capability: 'healthcare.requests',
   },
-]);
+].filter((card) => auth.canBusiness(card.capability)));
 
 const readinessRows = computed(() => [
-  { label: t('Active care categories'), value: activeCategories.value, total: categories.value.length, icon: 'pi pi-sitemap' },
-  { label: t('Available care services'), value: activeServices.value, total: services.value.length, icon: 'pi pi-heart' },
-  { label: t('Active practitioners'), value: activePractitioners.value, total: practitioners.value.length, icon: 'pi pi-user-plus' },
-  { label: t('Packages with a care team'), value: staffedPackages.value, total: packageServices.value.length, icon: 'pi pi-users' },
-]);
+  { label: t('Active care categories'), value: activeCategories.value, total: categories.value.length, icon: 'pi pi-sitemap', capability: 'healthcare.categories' },
+  { label: t('Available care services'), value: activeServices.value, total: services.value.length, icon: 'pi pi-heart', capability: 'healthcare.services' },
+  { label: t('Active practitioners'), value: activePractitioners.value, total: practitioners.value.length, icon: 'pi pi-user-plus', capability: 'healthcare.practitioners' },
+  { label: t('Packages with a care team'), value: staffedPackages.value, total: packageServices.value.length, icon: 'pi pi-users', capability: 'healthcare.services' },
+].filter((row) => auth.canBusiness(row.capability)));
 
 const attentionItems = computed(() => [
-  { label: t('Requests waiting for review'), value: requestsToReview.value, icon: 'pi pi-inbox', tone: requestsToReview.value ? 'rose' : 'emerald', to: '/admin/healthcare/requests' },
-  { label: t('Confirmed requests need staff'), value: requestsNeedAssignment.value, icon: 'pi pi-user-plus', tone: requestsNeedAssignment.value ? 'gold' : 'emerald', to: '/admin/healthcare/requests' },
-  { label: t('Care payments outstanding'), value: unpaidRequests.value, icon: 'pi pi-wallet', tone: unpaidRequests.value ? 'blue' : 'emerald', to: '/admin/healthcare/requests' },
-]);
+  { label: t('Requests waiting for review'), value: requestsToReview.value, icon: 'pi pi-inbox', tone: requestsToReview.value ? 'rose' : 'emerald', to: '/admin/healthcare/requests', capability: 'healthcare.requests' },
+  { label: t('Confirmed requests need staff'), value: requestsNeedAssignment.value, icon: 'pi pi-user-plus', tone: requestsNeedAssignment.value ? 'gold' : 'emerald', to: '/admin/healthcare/requests', capability: 'healthcare.requests' },
+  { label: t('Care payments outstanding'), value: unpaidRequests.value, icon: 'pi pi-wallet', tone: unpaidRequests.value ? 'blue' : 'emerald', to: '/admin/healthcare/requests', capability: 'healthcare.requests' },
+].filter((item) => auth.canBusiness(item.capability)));
 
 function scheduleAt(request) {
   return request.request_type === 'package' ? request.start_at : request.preferred_at;
@@ -103,35 +112,45 @@ function requestAmount(request) {
 async function load() {
   loading.value = true;
   error.value = '';
-  try {
-    const [categoryData, serviceData, practitionerData, requestData, settingsData] = await Promise.all([
-      api.get('/admin/healthcare/categories'),
-      api.get('/admin/healthcare/services', { params: { limit: 100, page: 1 } }),
-      api.get('/admin/practitioners', { params: { limit: 100, page: 1 } }),
-      api.get('/admin/healthcare/requests', { params: { limit: 100, page: 1 } }),
-      api.get('/admin/healthcare/settings'),
-    ]);
-    categories.value = categoryData?.healthcare_service_categories || [];
-    services.value = serviceData?.healthcare_services || [];
-    serviceTotal.value = Number(serviceData?.meta?.total ?? services.value.length);
-    practitioners.value = practitionerData?.practitioners || [];
-    practitionerTotal.value = Number(practitionerData?.meta?.total ?? practitioners.value.length);
-    requests.value = requestData?.healthcare_requests || [];
-    requestTotal.value = Number(requestData?.meta?.total ?? requests.value.length);
-    emergency.value = settingsData?.emergency || null;
-  } catch (err) {
-    categories.value = [];
-    services.value = [];
-    practitioners.value = [];
-    requests.value = [];
-    serviceTotal.value = 0;
-    practitionerTotal.value = 0;
-    requestTotal.value = 0;
-    emergency.value = null;
-    error.value = err?.message || t('Could not load Healthcare operations');
-  } finally {
-    loading.value = false;
-  }
+  categories.value = [];
+  services.value = [];
+  practitioners.value = [];
+  requests.value = [];
+  serviceTotal.value = 0;
+  practitionerTotal.value = 0;
+  requestTotal.value = 0;
+  emergency.value = null;
+  const failures = [];
+  const loadWidget = async (capability, request, apply) => {
+    if (!auth.canBusiness(capability)) return;
+    try {
+      apply(await request());
+    } catch (err) {
+      if (err?.status !== 403) failures.push(err);
+    }
+  };
+  await Promise.all([
+    loadWidget('healthcare.categories', () => api.get('/admin/healthcare/categories'), (data) => {
+      categories.value = data?.healthcare_service_categories || [];
+    }),
+    loadWidget('healthcare.services', () => api.get('/admin/healthcare/services', { params: { limit: 100, page: 1 } }), (data) => {
+      services.value = data?.healthcare_services || [];
+      serviceTotal.value = Number(data?.meta?.total ?? services.value.length);
+    }),
+    loadWidget('healthcare.practitioners', () => api.get('/admin/practitioners', { params: { limit: 100, page: 1 } }), (data) => {
+      practitioners.value = data?.practitioners || [];
+      practitionerTotal.value = Number(data?.meta?.total ?? practitioners.value.length);
+    }),
+    loadWidget('healthcare.requests', () => api.get('/admin/healthcare/requests', { params: { limit: 100, page: 1 } }), (data) => {
+      requests.value = data?.healthcare_requests || [];
+      requestTotal.value = Number(data?.meta?.total ?? requests.value.length);
+    }),
+    loadWidget('healthcare.settings', () => api.get('/admin/healthcare/settings'), (data) => {
+      emergency.value = data?.emergency || null;
+    }),
+  ]);
+  if (failures.length) error.value = failures[0]?.message || t('Could not load Healthcare operations');
+  loading.value = false;
 }
 
 onMounted(load);
@@ -148,8 +167,8 @@ onMounted(load);
         <span>{{ t('Organize services, maintain the clinical roster, review patient needs, assign practitioners, quote clearly, and follow payment in one workflow.') }}</span>
       </div>
       <div class="care-hero__actions">
-        <Button as="router-link" to="/admin/healthcare/requests" :label="t('Open care requests')" icon="pi pi-calendar-plus" />
-        <Button as="router-link" to="/admin/practitioners" :label="t('Manage practitioners')" icon="pi pi-user-plus" severity="secondary" outlined />
+        <Button v-if="auth.canBusiness('healthcare.requests')" as="router-link" to="/admin/healthcare/requests" :label="t('Open care requests')" icon="pi pi-calendar-plus" />
+        <Button v-if="auth.canBusiness('healthcare.practitioners', 'manage')" as="router-link" to="/admin/practitioners" :label="t('Manage practitioners')" icon="pi pi-user-plus" severity="secondary" outlined />
         <Button as="router-link" to="/healthcare" :label="t('View healthcare page')" icon="pi pi-external-link" severity="secondary" outlined />
       </div>
     </header>
@@ -159,12 +178,12 @@ onMounted(load);
       <Button :label="t('Retry')" icon="pi pi-refresh" severity="secondary" outlined @click="load" />
     </div>
 
-    <div v-if="loading" class="workspace-grid">
-      <Skeleton v-for="index in 4" :key="index" height="10.5rem" borderRadius="18px" />
+    <div v-if="loading && hasChildAccess" class="workspace-grid">
+      <Skeleton v-for="index in Math.max(workspaceCards.length, 1)" :key="index" height="10.5rem" borderRadius="18px" />
     </div>
 
     <template v-else>
-      <section class="workspace-grid" :aria-label="t('Healthcare workspace')">
+      <section v-if="workspaceCards.length" class="workspace-grid" :aria-label="t('Healthcare workspace')">
         <RouterLink v-for="card in workspaceCards" :key="card.key" :to="card.to" class="workspace-card" :class="`is-${card.tone}`">
           <div class="workspace-card__top"><span><i :class="card.icon" /></span><i class="pi pi-arrow-up-right" /></div>
           <p>{{ card.eyebrow }}</p>
@@ -173,7 +192,12 @@ onMounted(load);
         </RouterLink>
       </section>
 
-      <section class="emergency-strip">
+      <section v-if="!hasChildAccess" class="overview-access-note">
+        <i class="pi pi-eye" />
+        <div><strong>{{ t('Overview access is active') }}</strong><span>{{ t('Additional submenu access is required to view operational data.') }}</span></div>
+      </section>
+
+      <section v-if="auth.canBusiness('healthcare.settings')" class="emergency-strip">
         <span class="emergency-strip__icon"><i class="pi pi-phone" /></span>
         <div>
           <p>{{ t('Client emergency line') }}</p>
@@ -181,11 +205,11 @@ onMounted(load);
           <small>{{ emergency?.emergency_hours || t('Hours not configured') }}</small>
         </div>
         <p class="emergency-strip__note">{{ emergency?.emergency_note || t('Add the urgent-care guidance shown to clients.') }}</p>
-        <Button as="router-link" to="/admin/healthcare/settings" :label="t('Edit emergency contact')" icon="pi pi-arrow-right" severity="secondary" outlined />
+        <Button v-if="auth.canBusiness('healthcare.settings', 'manage')" as="router-link" to="/admin/healthcare/settings" :label="t('Edit emergency contact')" icon="pi pi-arrow-right" severity="secondary" outlined />
       </section>
 
-      <div class="care-overview__grid">
-        <section class="care-panel">
+      <div v-if="readinessRows.length || attentionItems.length" class="care-overview__grid">
+        <section v-if="readinessRows.length" class="care-panel">
           <div class="care-panel__head">
             <div><p>{{ t('Care readiness') }}</p><h3>{{ t('What can serve patients now') }}</h3></div>
             <span class="care-panel__count">{{ activeServices }}/{{ services.length }}</span>
@@ -199,13 +223,13 @@ onMounted(load);
               </div>
             </article>
           </div>
-          <div class="roster-split">
+          <div v-if="auth.canBusiness('healthcare.practitioners')" class="roster-split">
             <span><i class="pi pi-user" /><strong>{{ activeDoctors }}</strong>{{ t('active doctors') }}</span>
             <span><i class="pi pi-user" /><strong>{{ activeNurses }}</strong>{{ t('active nurses') }}</span>
           </div>
         </section>
 
-        <section class="care-panel">
+        <section v-if="attentionItems.length" class="care-panel">
           <div class="care-panel__head">
             <div><p>{{ t('Needs attention') }}</p><h3>{{ t('Care coordination checklist') }}</h3></div>
           </div>
@@ -217,7 +241,7 @@ onMounted(load);
         </section>
       </div>
 
-      <section class="care-panel upcoming-panel">
+      <section v-if="auth.canBusiness('healthcare.requests')" class="care-panel upcoming-panel">
         <div class="care-panel__head">
           <div><p>{{ t('Care schedule') }}</p><h3>{{ t('Upcoming consultations and packages') }}</h3></div>
           <Button as="router-link" to="/admin/healthcare/requests" :label="t('View all requests')" icon="pi pi-arrow-right" severity="secondary" text />
@@ -251,7 +275,10 @@ onMounted(load);
 .care-hero__actions :deep(.p-button-secondary) { border-color: rgba(255,255,255,.2); color: #fff; }
 .care-error { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid rgba(192,90,125,.28); border-radius: 14px; background: rgba(192,90,125,.08); color: #b44169; font-weight: 800; }
 .care-error span { display: flex; align-items: center; gap: 8px; }
-.workspace-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.workspace-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.overview-access-note { display: flex; align-items: center; gap: 13px; padding: 20px; border: 1px solid var(--tm-border); border-radius: 18px; background: var(--tm-surface); color: var(--tm-muted); }
+.overview-access-note > i { display: grid; width: 42px; height: 42px; flex: 0 0 auto; border-radius: 13px; background: var(--tm-surface-soft); color: #c05a7d; place-items: center; }
+.overview-access-note div { display: grid; gap: 4px; }.overview-access-note strong { color: var(--tm-heading); }.overview-access-note span { font-size: .86rem; }
 .workspace-card { --accent: var(--tm-gold); --wash: rgba(201,146,44,.12); display: grid; min-height: 170px; gap: 8px; padding: 18px; border: 1px solid var(--tm-border); border-radius: 18px; background: radial-gradient(circle at 100% 0%, var(--wash), transparent 50%), var(--tm-surface); box-shadow: 0 12px 34px rgba(37,31,20,.055); color: inherit; text-decoration: none; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
 .workspace-card.is-rose { --accent: #c05a7d; --wash: rgba(192,90,125,.13); } .workspace-card.is-emerald { --accent: var(--tm-emerald); --wash: rgba(12,155,128,.12); } .workspace-card.is-blue { --accent: var(--tm-blue); --wash: rgba(49,92,112,.12); }
 .workspace-card:hover, .workspace-card:focus-visible { border-color: var(--accent); box-shadow: var(--tm-shadow-hover); outline: none; transform: translateY(-3px); }

@@ -1,18 +1,22 @@
 <script setup>
+import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
+const auth = useAuthStore();
 const { t } = useAdminI18n();
 
 const links = [
-  { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/mobility/overview', paths: ['/admin/mobility'] },
-  { label: 'Car categories', icon: 'pi pi-sitemap', to: '/admin/car-categories', paths: ['/admin/car-categories'] },
-  { label: 'Cars', icon: 'pi pi-car', to: '/admin/cars', paths: ['/admin/cars'] },
-  { label: 'Drivers', icon: 'pi pi-id-card', to: '/admin/drivers', paths: ['/admin/drivers'] },
-  { label: 'Bookings', icon: 'pi pi-calendar-clock', to: '/admin/bookings', paths: ['/admin/bookings'] },
+  { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/mobility/overview', paths: ['/admin/mobility'], capability: 'mobility.overview' },
+  { label: 'Car categories', icon: 'pi pi-sitemap', to: '/admin/car-categories', paths: ['/admin/car-categories'], capability: 'mobility.categories' },
+  { label: 'Cars', icon: 'pi pi-car', to: '/admin/cars', paths: ['/admin/cars'], capability: 'mobility.cars' },
+  { label: 'Drivers', icon: 'pi pi-id-card', to: '/admin/drivers', paths: ['/admin/drivers'], capability: 'mobility.drivers' },
+  { label: 'Bookings', icon: 'pi pi-calendar-clock', to: '/admin/bookings', paths: ['/admin/bookings'], capability: 'mobility.bookings' },
 ];
+const visibleLinks = computed(() => links.filter((link) => auth.canBusiness(link.capability)));
 
 function active(link) {
   return link.paths.some((path) => route.path === path || route.path.startsWith(`${path}/`));
@@ -22,7 +26,7 @@ function active(link) {
 <template>
   <nav class="mobility-workspace-nav" :aria-label="t('Mobility workspace')">
     <RouterLink
-      v-for="link in links"
+      v-for="link in visibleLinks"
       :key="link.to"
       :to="link.to"
       :class="{ 'is-active': active(link) }"

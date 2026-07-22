@@ -12,6 +12,7 @@ import { api } from '@/api/client';
 import { loadFieldOptions, serializeForm } from '@/api/resources';
 import { adminResources } from '@/data/adminResources';
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 import { formatDateTime, formatMGA } from '@/utils/format';
 import { cloneTranslations, ensureTranslationBucket } from '@/utils/localized';
 import { statusSeverity } from '@/utils/status';
@@ -20,9 +21,11 @@ const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
+const auth = useAuthStore();
 const { enumLabel, localeCode, t, translateConfig } = useAdminI18n();
 
 const carId = computed(() => Number(route.params.id));
+const canManage = computed(() => auth.canBusiness('mobility.cars', 'manage'));
 const car = ref(null);
 const stats = ref({
   revenue_total: '0.00',
@@ -284,7 +287,7 @@ watch(carId, () => {
         <div><small>{{ t('Fleet workspace') }}</small><strong>{{ car?.name || t('Car detail') }}</strong></div>
       </div>
       <div class="car-detail__actions">
-        <Button icon="pi pi-copy" :label="t('Duplicate car')" severity="secondary" outlined @click="duplicateCar" />
+        <Button v-if="canManage" icon="pi pi-copy" :label="t('Duplicate car')" severity="secondary" outlined @click="duplicateCar" />
         <Button icon="pi pi-arrow-left" :label="t('Back to cars')" severity="secondary" outlined @click="goBack" />
         <Button icon="pi pi-refresh" :label="t('Refresh')" severity="secondary" outlined :loading="loading" @click="loadOverview" />
       </div>
@@ -327,10 +330,11 @@ watch(carId, () => {
             <h3>{{ t('Car details') }}</h3>
             <p>{{ t('Registration, category, rate, status, and vehicle specs.') }}</p>
           </div>
-          <Button :label="t('Save changes')" icon="pi pi-check" :loading="saving" :disabled="!canSave" @click="saveCar" />
+          <Tag v-if="!canManage" :value="t('Read only')" severity="secondary" />
+          <Button v-else :label="t('Save changes')" icon="pi pi-check" :loading="saving" :disabled="!canSave" @click="saveCar" />
         </div>
 
-        <div class="car-form">
+        <div class="car-form" :class="{ 'is-readonly': !canManage }">
           <template v-for="field in visibleCarFields" :key="field.key">
             <div v-if="field.sectionLabel" class="car-form__section">
               <span><i :class="field.sectionIcon || 'pi pi-pencil'" /></span>
@@ -405,7 +409,7 @@ watch(carId, () => {
             <h3>{{ t('Images') }}</h3>
             <p>{{ t((car.images?.length || 0) === 1 ? '{count} image' : '{count} images', { count: car.images?.length || 0 }) }}</p>
           </div>
-          <Button :label="t('Add image')" icon="pi pi-plus" @click="openImageDialog" />
+          <Button v-if="canManage" :label="t('Add image')" icon="pi pi-plus" @click="openImageDialog" />
         </div>
 
         <div v-if="car.images?.length" class="image-grid">
@@ -416,7 +420,7 @@ watch(carId, () => {
               <span>{{ image.is_primary ? t('Primary image') : t('Gallery image') }}</span>
             </div>
             <Tag v-if="image.is_primary" :value="t('Primary')" severity="success" />
-            <Button icon="pi pi-trash" severity="danger" text rounded :aria-label="t('Delete image')" @click="confirmImageRemove(image)" />
+            <Button v-if="canManage" icon="pi pi-trash" severity="danger" text rounded :aria-label="t('Delete image')" @click="confirmImageRemove(image)" />
           </article>
         </div>
         <div v-else class="empty-state">{{ t('No images yet.') }}</div>
@@ -459,7 +463,7 @@ watch(carId, () => {
               <span class="cell-money">{{ formatMGA(Number(data.total_price || 0)) }}</span>
             </template>
           </Column>
-          <Column :header="t('Actions')" :exportable="false" style="width: 5rem">
+          <Column v-if="canManage" :header="t('Actions')" :exportable="false" style="width: 5rem">
             <template #body="{ data }">
               <Button
                 icon="pi pi-trash"
@@ -480,6 +484,7 @@ watch(carId, () => {
       </section>
 
       <AdminResourceDialog
+        v-if="canManage"
         v-model:visible="imageDialogOpen"
         :title="t('Add car image')"
         :fields="imageFields"
@@ -749,6 +754,7 @@ watch(carId, () => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   padding: 16px;
 }
+.car-form.is-readonly { pointer-events: none; opacity: .82; }
 
 .car-form__field {
   display: grid;

@@ -6,6 +6,7 @@ import { useConfirm } from 'primevue/useconfirm';
 
 import { api } from '@/api/client';
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 import { amountToFrenchWords } from '@/utils/amountInWords';
 import { formatDate, setPageTitle } from '@/utils/format';
 
@@ -13,11 +14,13 @@ const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
+const auth = useAuthStore();
 const { t } = useAdminI18n();
 
 const loading = ref(false);
 const busy = ref(false);
 const invoice = ref(null);
+const canManageAccess = computed(() => auth.canBusiness('invoices.documents', 'manage'));
 
 const seller = computed(() => invoice.value?.seller_snapshot || {});
 const lines = computed(() => invoice.value?.lines || []);
@@ -185,11 +188,11 @@ onMounted(load);
         <Button icon="pi pi-arrow-left" :label="t('Invoices')" severity="secondary" text @click="router.push({ name: 'admin-invoices' })" />
         <Tag :value="t(invoice.status)" :severity="statusSeverity" />
         <div class="inv-toolbar__spacer" />
-        <Button v-if="canEdit" :label="t('Edit')" icon="pi pi-pencil" severity="secondary" outlined :disabled="busy" @click="openEdit" />
-        <Button v-if="canIssue" :label="t('Issue')" icon="pi pi-verified" :disabled="busy" @click="issue" />
-        <Button v-if="canCredit" :label="t('Credit note')" icon="pi pi-replay" severity="secondary" outlined :disabled="busy" @click="creditNote" />
-        <Button v-if="canVoid" :label="t('Void')" icon="pi pi-ban" severity="danger" outlined :disabled="busy" @click="voidInvoice" />
-        <Button v-if="invoice.status === 'draft'" :label="t('Delete')" icon="pi pi-trash" severity="danger" text :disabled="busy" @click="removeDraft" />
+        <Button v-if="canManageAccess && canEdit" :label="t('Edit')" icon="pi pi-pencil" severity="secondary" outlined :disabled="busy" @click="openEdit" />
+        <Button v-if="canManageAccess && canIssue" :label="t('Issue')" icon="pi pi-verified" :disabled="busy" @click="issue" />
+        <Button v-if="canManageAccess && canCredit" :label="t('Credit note')" icon="pi pi-replay" severity="secondary" outlined :disabled="busy" @click="creditNote" />
+        <Button v-if="canManageAccess && canVoid" :label="t('Void')" icon="pi pi-ban" severity="danger" outlined :disabled="busy" @click="voidInvoice" />
+        <Button v-if="canManageAccess && invoice.status === 'draft'" :label="t('Delete')" icon="pi pi-trash" severity="danger" text :disabled="busy" @click="removeDraft" />
         <Button :label="t('Print / PDF')" icon="pi pi-print" :disabled="busy" @click="printDoc" />
       </div>
 
@@ -290,7 +293,7 @@ onMounted(load);
     <div v-else class="inv-loading">{{ t('Invoice not found.') }}</div>
 
     <!-- edit draft dialog -->
-    <Dialog v-model:visible="edit.visible" modal :header="t('Edit draft')" :style="{ width: '440px', maxWidth: '94vw' }">
+    <Dialog v-if="canManageAccess" v-model:visible="edit.visible" modal :header="t('Edit draft')" :style="{ width: '440px', maxWidth: '94vw' }">
       <div class="edit-form">
         <label><span>{{ t('Discount') }}</span><InputText v-model="edit.discount" inputmode="decimal" /></label>
         <label><span>{{ t('Tax rate (%)') }}</span><InputText v-model="edit.tax_rate" inputmode="decimal" /></label>

@@ -16,6 +16,7 @@ const props = defineProps({
   visible: { type: Boolean, required: true },
   resource: { type: Object, required: true },
   itemId: { type: [Number, String], default: null },
+  readOnly: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update:visible', 'changed']);
@@ -456,7 +457,7 @@ function cellDisplay(row, column) {
   <Dialog
     v-model:visible="isOpen"
     modal
-    :header="t('Manage {resource}', { resource: resource.singular })"
+    :header="t(readOnly ? 'View {resource}' : 'Manage {resource}', { resource: resource.singular })"
     style="width: min(1120px, 94vw)"
     :breakpoints="{ '760px': '96vw' }"
     class="manage-dialog"
@@ -528,7 +529,7 @@ function cellDisplay(row, column) {
         <strong v-else>{{ t('Not assigned') }}</strong>
       </p>
 
-      <div v-if="visibleActions.length" class="manage-actions">
+      <div v-if="!readOnly && visibleActions.length" class="manage-actions">
         <div class="manage-actions__head">
           <span><i class="pi pi-bolt" /></span>
           <div>
@@ -662,7 +663,7 @@ function cellDisplay(row, column) {
       <section v-for="nested in spec.nested || []" :key="nested.key" class="manage-section">
         <div class="manage-section__head">
           <h4>{{ nested.title }}</h4>
-          <Button :label="nested.addLabel" icon="pi pi-plus" size="small" @click="openNestedAdd(nested)" />
+          <Button v-if="!readOnly" :label="nested.addLabel" icon="pi pi-plus" size="small" @click="openNestedAdd(nested)" />
         </div>
         <DataTable :value="nestedRows(nested)" dataKey="id" responsiveLayout="scroll" class="manage-table">
           <Column v-for="col in nested.columns" :key="col.field" :field="col.field" :header="col.header">
@@ -683,7 +684,7 @@ function cellDisplay(row, column) {
               <span v-else :class="{ 'cell-money': col.type === 'money' }">{{ cellDisplay(data, col) }}</span>
             </template>
           </Column>
-          <Column header="" style="width: 3rem">
+          <Column v-if="!readOnly" header="" style="width: 3rem">
             <template #body="{ data }">
               <Button
                 icon="pi pi-trash"

@@ -1,16 +1,19 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useToast } from 'primevue/usetoast';
 
 import { api } from '@/api/client';
 import { uploadImage } from '@/api/resources';
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 
 const toast = useToast();
+const auth = useAuthStore();
 const { t } = useAdminI18n();
 
 const loading = ref(false);
 const saving = ref(false);
+const canManage = computed(() => auth.canBusiness('invoices.settings', 'manage'));
 
 // Logo is picked locally and only uploaded on save (deferred-upload pattern):
 // pick → local preview → on Save, upload first → store the returned URL.
@@ -132,7 +135,7 @@ onMounted(load);
       </div>
     </header>
 
-    <form class="org-grid" @submit.prevent="save">
+    <form class="org-grid" :class="{ 'is-readonly': !canManage }" @submit.prevent="save">
       <fieldset class="card">
         <legend>{{ t('Identity') }}</legend>
         <label><span>{{ t('Legal name') }} *</span><InputText v-model="form.legal_name" :disabled="loading" /></label>
@@ -153,8 +156,8 @@ onMounted(load);
             </div>
             <div class="logo-actions">
               <input ref="logoInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="logo-input" @change="onLogoChange" />
-              <Button type="button" :label="t('Choose logo')" icon="pi pi-upload" severity="secondary" outlined :disabled="loading || saving" @click="logoInput?.click()" />
-              <Button v-if="logoPreview" type="button" :label="t('Remove')" icon="pi pi-times" severity="danger" text :disabled="loading || saving" @click="removeLogo" />
+              <Button v-if="canManage" type="button" :label="t('Choose logo')" icon="pi pi-upload" severity="secondary" outlined :disabled="loading || saving" @click="logoInput?.click()" />
+              <Button v-if="canManage && logoPreview" type="button" :label="t('Remove')" icon="pi pi-times" severity="danger" text :disabled="loading || saving" @click="removeLogo" />
             </div>
           </div>
           <small>{{ t('PNG, JPG, WebP, or GIF. Uploaded to storage when you save.') }}</small>
@@ -202,7 +205,8 @@ onMounted(load);
       </fieldset>
 
       <div class="org-actions">
-        <Button type="submit" :label="t('Save settings')" icon="pi pi-check" :loading="saving" :disabled="loading" />
+        <Tag v-if="!canManage" :value="t('Read only')" severity="secondary" />
+        <Button v-else type="submit" :label="t('Save settings')" icon="pi pi-check" :loading="saving" :disabled="loading" />
       </div>
     </form>
   </section>
@@ -217,6 +221,7 @@ onMounted(load);
 .org-hero__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
 .org-hero__actions :deep(.p-button) { border-color: rgba(255,255,255,.2); color: #fff; }
 .org-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+.org-grid.is-readonly :deep(input),.org-grid.is-readonly :deep(textarea),.org-grid.is-readonly :deep(.p-select),.org-grid.is-readonly :deep(.p-datepicker) { pointer-events: none; opacity: .82; }
 .card { display: grid; gap: 12px; margin: 0; padding: 20px; border: 1px solid var(--tm-border); border-radius: 18px; background: var(--tm-surface); box-shadow: 0 12px 34px rgba(37,31,20,.05); }
 .card legend { padding: 0 8px; color: var(--tm-heading); font-size: .95rem; font-weight: 900; }
 .card label { display: grid; gap: 6px; }

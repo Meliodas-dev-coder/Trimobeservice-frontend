@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 
-import TechWorkspaceNav from '@/components/admin/TechWorkspaceNav.vue';
+import DepartmentWorkspaceNav from '@/components/admin/DepartmentWorkspaceNav.vue';
 import { api } from '@/api/client';
 import { useAdminI18n } from '@/i18n/admin';
 import { formatMGA } from '@/utils/format';
@@ -135,7 +135,7 @@ onMounted(load);
 
 <template>
   <section class="tech-overview">
-    <TechWorkspaceNav />
+    <DepartmentWorkspaceNav department="tech" />
 
     <header class="tech-hero">
       <div class="tech-hero__copy">

@@ -1,18 +1,22 @@
 <script setup>
+import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { useAdminI18n } from '@/i18n/admin';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
+const auth = useAuthStore();
 const { t } = useAdminI18n();
 
 const links = [
-  { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/events/overview', paths: ['/admin/events'] },
-  { label: 'Service categories', icon: 'pi pi-sitemap', to: '/admin/event-service-categories', paths: ['/admin/event-service-categories'] },
-  { label: 'Event services', icon: 'pi pi-star', to: '/admin/event-services', paths: ['/admin/event-services'] },
-  { label: 'Gospel artists', icon: 'pi pi-microphone', to: '/admin/artists', paths: ['/admin/artists'] },
-  { label: 'Event requests', icon: 'pi pi-calendar-plus', to: '/admin/event-requests', paths: ['/admin/event-requests'] },
+  { label: 'Overview', icon: 'pi pi-th-large', to: '/admin/events/overview', paths: ['/admin/events'], capability: 'events.overview' },
+  { label: 'Service categories', icon: 'pi pi-sitemap', to: '/admin/event-service-categories', paths: ['/admin/event-service-categories'], capability: 'events.categories' },
+  { label: 'Event services', icon: 'pi pi-star', to: '/admin/event-services', paths: ['/admin/event-services'], capability: 'events.services' },
+  { label: 'Gospel artists', icon: 'pi pi-microphone', to: '/admin/artists', paths: ['/admin/artists'], capability: 'events.artists' },
+  { label: 'Event requests', icon: 'pi pi-calendar-plus', to: '/admin/event-requests', paths: ['/admin/event-requests'], capability: 'events.requests' },
 ];
+const visibleLinks = computed(() => links.filter((link) => auth.canBusiness(link.capability)));
 
 function active(link) {
   return link.paths.some((path) => route.path === path || route.path.startsWith(`${path}/`));
@@ -22,7 +26,7 @@ function active(link) {
 <template>
   <nav class="event-workspace-nav" :aria-label="t('Events workspace')">
     <RouterLink
-      v-for="link in links"
+      v-for="link in visibleLinks"
       :key="link.to"
       :to="link.to"
       :class="{ 'is-active': active(link) }"
