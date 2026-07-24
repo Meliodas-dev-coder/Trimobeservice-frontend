@@ -10,6 +10,7 @@ import { usePublicI18n } from '@/i18n/public';
 import { useAuthStore } from '@/stores/auth';
 import { useCartStore } from '@/stores/cart';
 import { formatMGA, setPageTitle } from '@/utils/format';
+import { visualKindFor } from '@/utils/visualKind';
 
 const route = useRoute();
 const toast = useToast();
@@ -53,6 +54,8 @@ const productDescription = computed(() => (product.value ? content(product.value
 const categoryName = computed(() => (
   product.value?.category ? content(product.value.category, 'name') || product.value.category.name : t('Catalog')
 ));
+// Fallback drawing for a product with no photo, chosen from its category.
+const visualKind = computed(() => visualKindFor(product.value?.category));
 const brandName = computed(() => (
   product.value?.brand ? content(product.value.brand, 'name') || product.value.brand.name : ''
 ));
@@ -64,6 +67,7 @@ const relatedCards = computed(() =>
     .map((item) => ({
       ...item,
       categoryLabel: categoryName.value,
+      visualKind: visualKind.value,
       image: item.primary_image_url,
       priceLabel: priceRange(item),
       stockLabel: item.variant_count ? `${item.variant_count} ${t('variants')}` : t('Variant details available soon'),
@@ -211,7 +215,7 @@ onMounted(load);
             <figure v-if="heroImage" class="product-media__hero">
               <img :src="heroImage" :alt="productName" />
             </figure>
-            <VisualPlaceholder v-else kind="phone" tone="emerald" />
+            <VisualPlaceholder v-else :kind="visualKind" tone="emerald" />
 
             <div v-if="galleryImages.length" class="product-media__thumbs">
               <button

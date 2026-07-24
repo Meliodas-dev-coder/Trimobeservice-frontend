@@ -8,6 +8,7 @@ import { listBrands, listCategories, listProducts } from '@/api/public';
 import { usePublicI18n } from '@/i18n/public';
 import { formatMGA } from '@/utils/format';
 import { queryInt, sameQuery } from '@/utils/query';
+import { visualKindFor } from '@/utils/visualKind';
 
 const route = useRoute();
 const router = useRouter();
@@ -125,7 +126,9 @@ const productCards = computed(() =>
   products.value.map((product) => ({
     ...product,
     categoryLabel: categoryName(product.category_id),
-    visualKind: pageConfig.value.visualKind,
+    // The product's own category picks the fallback drawing; the page-level kind
+    // is only the backstop for a category we have not mapped.
+    visualKind: visualKindFor(categoryById(product.category_id)) || pageConfig.value.visualKind,
     priceLabel: priceRange(product),
     stockLabel: product.variant_count ? `${product.variant_count} ${t('variants')}` : t('Variant details available soon'),
     image: product.primary_image_url,
@@ -153,8 +156,12 @@ function isSmartphoneCategory(category) {
   return /smartphone|smart phone|mobile phone|^phones?$|telephone/.test(name);
 }
 
+function categoryById(id) {
+  return categories.value.find((item) => item.id === id) || null;
+}
+
 function categoryName(id) {
-  const category = categories.value.find((item) => item.id === id);
+  const category = categoryById(id);
   return category ? content(category, 'name') || category.name : t('Catalog');
 }
 
